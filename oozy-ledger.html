@@ -153,6 +153,8 @@ ol.steps small{color:var(--mute);display:block}
 .lg-name{display:flex;gap:8px;align-items:center}
 .lg-name span{font-size:13.5px;font-weight:600;color:var(--ink2);flex:none}
 .lg-name input{flex:1}
+.lg-name input{min-width:0;font-size:16px;padding:10px 12px;border:1px solid var(--line,#d8dcd6);border-radius:10px;background:#fff}
+.lg-name .btn{flex:none;white-space:nowrap}
 .lg-ver{text-align:right;font-size:11.5px;color:var(--mute);margin-top:14px}
 .lg-qr{display:flex;gap:16px;align-items:center;margin-top:24px;padding-top:18px;border-top:1px solid var(--line2)}
 .lg-qrbox{border:1px solid var(--line);border-radius:8px;padding:6px;flex:none;background:#fff}
@@ -1420,6 +1422,25 @@ function render(){
 /* ── 표지(시작) 화면 ── */
 function vCover(){
   if(homes.length && homes.indexOf(authDept)<0) authDept = homes[0];   // 구분 이름이 바뀌어도 첫 구분으로
+  if(authRole==='home' && (!authOK() || autoOpening || pendingLogin)){        // 암호만 묻는 간단한 화면
+    const busy = autoOpening || pendingLogin;
+    return `<div class="lg-wrap">
+    <div class="lg-card">
+      <a class="homeln dark" href="./">🏠 홈</a>
+      <div class="lg-church">우지커피 광양용강점</div>
+      <h1 class="lg-title">카페 운영</h1>
+      <div class="lg-sec">
+        <div class="lg-name">
+          <span>암호</span>
+          <input type="password" id="lgName" value="${busy?esc(authName):''}" placeholder="암호를 넣으세요" autocomplete="current-password" ${busy?'disabled':''}>
+          <button class="btn" id="lgGo" ${busy?'disabled':''}>확인</button>
+        </div>
+        ${busy?`<p class="lg-busy" style="margin:10px 0 0">${autoOpening?'결산 화면을 여는 중입니다…':'확인 중입니다…'}</p>`:''}
+      </div>
+      <div class="lg-ver">버전 ${APPVER}</div>
+    </div>
+  </div>`;
+  }
   const listed = !authRole ? [] : deptList.filter(x=>
     authRole==='home' ? x.name===authDept                  // 가계부는 고른 구분만
     : isHomeFile(x.name) ? false                           // 가계부 파일은 교회 쪽에 안 보인다
@@ -2962,10 +2983,12 @@ function bindCover(){
     const el=e.target.closest('[data-open2]'); if(!el) return;
     selFile = el.dataset.open2; cvMsg=''; prefetch(selFile); render();
   });
-  if($('#lgStart')) $('#lgStart').onclick=async()=>{
-    if(!selFile){ alert('읽을 파일을 고르세요.'); return }
+  if($('#lgStart')) $('#lgStart').onclick=startFile;
+}
+async function startFile(){
+    if(!selFile){ alert('읽을 파일을 고르세요.'); return false }
     const p=selFile.split('|');
-    cvMsg='자료를 읽는 중입니다…'; render();
+    cvMsg='자료를 읽는 중입니다…'; if(!autoOpening) render();
     try{
       if(!listFresh) await loadDeptList();          // 목록부터 최신으로 맞춘다
       const rec = (preKey===selFile && prePromise) ? (await prePromise) || (await getRec(selFile))
@@ -2975,40 +2998,46 @@ function bindCover(){
       S.meta.year = Number(p[1]) || S.meta.year;
       if(authRole==='view'){ ro=true; roName=p[0]; guideMode='view' }
       else { ro=false; guideMode='edit'; if(authRole!=='home' && authName) S.meta.writer=S.meta.writer||authName }
-      cvMsg=''; enterApp();
+      cvMsg=''; autoOpening=false; enterApp(); return true;
     }catch(err){
-      cvMsg=''; render();
+      cvMsg=''; autoOpening=false; render();
       alert('불러오지 못했습니다.\n\n'+(err&&err.message?err.message:err)
         +'\n\n구글 드라이브의 파일 이름이 「부서명_2026.json」 형식인지 확인해 주세요.');
+      return false;
     }
-  };
 }
 function keepName(){ const el=$('#lgName'); if(el) authName=el.value.trim() }
 function tryLogin(){
   const el=$('#lgName'); if(el) authName=el.value.trim();
+  if(authRole==='home' && authName && !homeReady){     // 서버에서 암호를 아직 못 받았으면 받은 뒤 확인
+    pendingLogin=true; render(); return;
+  }
   if(!authName){ alert(authRole==='home'?'암호를 넣으세요.':'이름을 넣으세요.'); return }
   if(authRole!=='view' && !authDept){ alert(authRole==='home'?'구분을 고르세요.':'부서를 고르세요.'); return }
   if(!authOK()){
+    if(authRole==='home'){ authName=''; render() }
     alert(authRole==='home' ? (authDept? '암호가 맞지 않습니다.' : '구분을 고르세요.')
       : authRole==='view'
         ? (viewBanned(authName) ? '이 이름은 자료 열람을 쓸 수 없습니다.' : '등록된 이름이 아닙니다.')
         : '부서와 이름이 맞지 않습니다.');
     return;
   }
-  if(authRole==='home'){ try{ localStorage.setItem(PWKEY, authName) }catch(e){} render(); autoOpen(); return }
+  if(authRole==='home'){ autoOpen(); return }
   render();
 }
 // 가장 최근 카페 장부를 바로 열기 (결산 화면으로 시작)
-const PWKEY = 'oozy_ledger_pw';
-let autoTried = false;
-function autoOpen(){
+let autoOpening = false, pendingLogin = false, homeReady = false;
+try{ localStorage.removeItem('oozy_ledger_pw') }catch(e){}   // 예전에 기억해 둔 암호는 지운다
+async function autoOpen(){
   if(screen!=='cover') return;
-  if(!authName){ try{ authName = localStorage.getItem(PWKEY)||'' }catch(e){} }
   if(!authOK()){ render(); return }
   const mine = deptList.filter(x=>x.name===authDept).sort((a,b)=>b.year-a.year);
-  if(!mine.length){ render(); return }
-  selFile = mine[0].name+'|'+mine[0].year; render();
-  const b=$('#lgStart'); if(b) b.click();
+  if(!mine.length){ render(); return }               // 장부가 없으면 [새로 시작] 화면
+  selFile = mine[0].name+'|'+mine[0].year;
+  autoOpening = true; render();
+  const ok = await startFile();
+  autoOpening = false;
+  if(!ok) render();
 }
 function enterApp(){
   locked = (authRole==='home');            // 가계부는 열람으로 시작
@@ -3532,13 +3561,13 @@ function readOldExcel(wb){
   setStatus(serverOn()?'서버 연결됨':'임시 보관됨');
   render();
   const had = await loadCache();            // 지난번 목록을 먼저 보여 준다
-  if(had){ cvBusy=false; render() }
+  if(had){ cvBusy=false; if(homePw) homeReady=true; render() }
   try{
     await Promise.all([loadDeptList(), loadUsers()]);   // 두 요청을 겹쳐 보낸다
     await saveCache();
   }catch(e){}
-  cvBusy=false; render();
-  if(!autoTried){ autoTried=true; autoOpen() }      // 홈에서 들어오면 바로 결산 화면
+  cvBusy=false; homeReady=true; render();
+  if(pendingLogin){ pendingLogin=false; tryLogin() }  // 불러오는 동안 넣은 암호를 이제 확인
   checkUpdate(false);
   loadXLSX().then(prepShare).catch(function(){});   // 저장·공유가 바로 되도록 미리 준비
   offloadSoon(8000);                                 // 장부 안에 남은 사진이 있으면 천천히 옮긴다

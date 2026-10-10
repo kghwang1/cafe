@@ -1,155 +1,967 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#5b3a29">
-<title>우지커피 광양용강점</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b3a29'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle'%3E%E2%98%95%3C/text%3E%3C/svg%3E">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>저가커피 프랜차이즈 비교 보드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* 매장 홈: 위에 매장 이름과 오픈 날짜, 아래에 큰 앱 버튼. 알바용 앱 먼저, 사장님 앱은 PIN 확인 후 */
-:root{--bg:#f5f2ee;--card:#fff;--ink:#231f1c;--sub:#7a726b;--line:#e5dfd8;--brand:#5b3a29;--cream:#efe6dc;--ok:#1d8a4b;--bad:#d32f2f}
+:root{
+  --bg:#EDEEF0; --card:#FFFFFF; --ink:#131A22; --muted:#6E7681;
+  --line:#D8DBDF; --soft:#EBEDEF; --warn:#B3341F;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'Pretendard',system-ui,-apple-system,sans-serif;
+}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent}
-button,input{font:inherit}
-.wrap{max-width:560px;margin:0 auto;padding:max(18px,env(safe-area-inset-top)) 16px 40px}
-header{background:var(--brand);color:#fff;border-radius:20px;padding:20px 20px 18px;position:relative;overflow:hidden}
-header::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;border:18px solid rgba(255,255,255,.07)}
-header .eyebrow{font-size:12px;letter-spacing:2px;opacity:.75}
-header h1{margin:4px 0 10px;font-size:24px;letter-spacing:-.5px}
-header .meta{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
-header .pill{background:rgba(255,255,255,.15);border-radius:99px;padding:4px 10px}
-header .pill b{font-variant-numeric:tabular-nums}
-h2{font-size:14px;color:var(--sub);margin:22px 4px 10px;font-weight:600;letter-spacing:.5px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#staffApps{margin-top:18px}
-.app{display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 14px;min-height:104px;position:relative;transition:transform .08s}
-.app:active{transform:scale(.97)}
-.app .cover{position:absolute;inset:0;border-radius:16px;z-index:0}
-.app .cover:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
-.app .subs{position:relative;z-index:1}
-.app .ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
-.app b{font-size:17px}
-.app span{font-size:12.5px;color:var(--sub);line-height:1.4}
-.app.wide{grid-column:1/-1;flex-direction:row;align-items:center;min-height:0;gap:12px}
-.app.wide .t{display:flex;flex-direction:column;gap:2px;min-width:0}
-.app.off{opacity:.55;border-style:dashed}
-.subs{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
-.subs a{font-size:12px;text-decoration:none;color:var(--brand);background:var(--cream);border-radius:99px;padding:4px 10px}
-.lock{width:100%;border:1.5px dashed #c8b9aa;background:transparent;color:var(--brand);border-radius:16px;padding:16px;font-size:15px;font-weight:600;cursor:pointer}
-.owner-bar{display:flex;justify-content:space-between;align-items:center;margin:22px 4px 10px}
-.owner-bar h2{margin:0}
-.owner-bar button{border:0;background:none;color:var(--sub);font-size:12px;text-decoration:underline;cursor:pointer}
-.mbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
-.modal{background:#fff;border-radius:18px;padding:20px;width:100%;max-width:360px}
-.modal h3{margin:0 0 6px}
-.modal input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:20px;letter-spacing:6px;text-align:center;margin:10px 0}
-.modal .btns{display:flex;gap:8px;margin-top:6px}
-.modal .btns button{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;cursor:pointer}
-.modal .btns .pri{background:var(--brand);color:#fff}
-.modal .btns .sec{background:#ece6df}
-.err{color:var(--bad);font-size:13px;min-height:18px}
-.tip{margin-top:26px;font-size:12.5px;color:var(--sub);line-height:1.6;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
-.tip b{color:var(--ink)}
-@media (max-width:340px){.grid{grid-template-columns:1fr}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 14px 72px}
+h1{font-size:clamp(20px,4.6vw,27px);font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.lede{margin:0;color:var(--muted);font-size:13.5px;max-width:60ch}
+.toollink{display:inline-block;margin-top:12px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;border-bottom:2px solid var(--line);padding-bottom:1px}
+.toollink:hover{border-bottom-color:var(--ink)}
+
+nav{display:flex;gap:4px;margin:20px 0 18px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:9px 14px;cursor:pointer;white-space:nowrap}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+nav button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:18px;margin-bottom:16px}
+.card h2{font-size:16px;font-weight:700;margin:0 0 3px;letter-spacing:-.01em}
+.card .sub{font-size:12.5px;color:var(--muted);margin:0 0 14px}
+.src{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:10px;letter-spacing:.02em}
+
+.brand{border-bottom:1px solid var(--soft);padding:15px 0}
+.brand:last-child{border-bottom:none;padding-bottom:0}
+.brand:first-child{padding-top:0}
+.bhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;align-self:center}
+.bname{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.bmeta{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.brand p{margin:0 0 8px;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-family:var(--mono);font-size:11px;background:var(--soft);border-radius:3px;padding:3px 7px;color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+
+.chartbox{width:100%;overflow:hidden}
+svg{display:block;width:100%;height:auto;font-family:var(--mono)}
+.legend{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 11px 4px 8px;cursor:pointer;color:var(--ink);font-family:var(--sans)}
+.lg[aria-pressed="false"]{opacity:.34}
+.lg:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.lg i{width:9px;height:9px;border-radius:50%;display:block}
+
+.scroller{overflow-x:auto;margin:0 -18px;padding:0 18px}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:right;padding:8px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child{text-align:left}
+td{padding:8px 7px;border-bottom:1px solid var(--soft);text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap}
+td:first-child{text-align:left;font-family:var(--sans);font-size:14px;font-weight:600}
+tr:last-child td{border-bottom:none}
+.na{color:var(--muted)}
+
+.gapnote{background:#fff;border:1px dashed var(--line);border-radius:6px;padding:16px 18px;margin-bottom:16px}
+.gapnote h3{font-size:14px;font-weight:700;margin:0 0 7px}
+.gapnote p{margin:0 0 9px;font-size:13.5px;color:var(--muted)}
+.gapnote ol{margin:0;padding-left:19px;font-size:13.5px;color:var(--muted)}
+.gapnote li{margin-bottom:5px}
+.gapnote li strong{color:var(--ink)}
+.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.logbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.logbar select,.logbar input{font-family:var(--sans);font-size:14px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:4px;padding:7px 9px}
+.logbar input[type=number]{width:120px;font-family:var(--mono);text-align:right}
+.logbar select:focus,.logbar input:focus{outline:none;border-color:var(--ink)}
+button.btn{font-family:var(--sans);font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:4px;padding:7px 12px;cursor:pointer}
+button.btn:hover{border-color:var(--ink)}
+button.btn.solid{background:var(--ink);color:#fff;border-color:var(--ink)}
+button.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+td.qcell{padding:4px 6px}
+td.qcell{white-space:nowrap}
+.slash{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 1px}
+td.qcell input.reg{width:58px;color:var(--muted)}
+td.qcell input{width:64px;text-align:right;font-family:var(--mono);font-size:13px;border:1px solid transparent;border-radius:3px;padding:4px 5px;background:transparent;color:var(--ink)}
+td.qcell input:hover{border-color:var(--line)}
+td.qcell input:focus{outline:none;border-color:var(--ink);background:#fff}
+.delta{font-family:var(--mono);font-size:11.5px;margin-left:2px}
+.delta.up{color:var(--warn)}
+.delta.dn{color:#3A6B4A}
+.delta.flat{color:var(--muted)}
+.syncbtns{display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle}
+.sync{display:inline-block;margin-left:12px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:2px 9px;background:#fff;vertical-align:middle}
+.sync.on{color:#3A6B4A;border-color:#BBD3C2}
+.sync.busy{color:var(--muted)}
+.sync.err{color:var(--warn);border-color:#E7C6C0}
+.logempty{font-size:13.5px;color:var(--muted);padding:14px 0 0;margin:0}
+.del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:17px;line-height:1;padding:2px 6px;border-radius:3px}
+.del:hover{color:var(--warn)}
+footer{font-size:11.5px;color:var(--muted);text-align:center;margin-top:24px;font-family:var(--mono)}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.homebtn{display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;padding:6px 12px;border-radius:99px;border:1px solid currentColor;color:inherit;text-decoration:none;font-size:13px;font-weight:600;opacity:.85}
+.homebtn:hover{opacity:1}
+@media print{.homebtn{display:none}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="eyebrow">OOZY COFFEE</div>
-    <h1>우지커피 광양용강점</h1>
-    <div class="meta"><span class="pill" id="today"></span><span class="pill" id="dday"></span><span class="pill" id="hours"></span></div>
-  </header>
 
-  <div class="grid" id="staffApps"></div>
+<header>
+  <a class="homebtn" href="https://kghwang1.github.io/oo-recipe/">🏠 홈</a>
+  <p class="eyebrow">공정위 정보공개서 기반</p>
+  <h1>저가커피 프랜차이즈 비교 보드</h1>
+  <a class="toollink" href="map.html">매장 밀도 지도 →</a>
+  <a class="toollink" href="gyeonggi.html" style="margin-left:14px">경기 분기 호수 →</a>
+  <span id="syncBadge" class="sync">로컬 저장</span>
+  <span class="syncbtns">
+    <button class="btn solid" id="saveNow">서버에 저장</button>
+    <button class="btn" id="reloadNow">서버에서 불러오기</button>
+  </span>
+</header>
 
-  <div id="ownerArea"></div>
+<nav role="tablist">
+  <button role="tab" data-tab="overview" aria-selected="true">개요</button>
+  <button role="tab" data-tab="compare" aria-selected="false">비교</button>
+  <button role="tab" data-tab="open" aria-selected="false">개업</button>
+  <button role="tab" data-tab="store" aria-selected="false">매장운영</button>
+  <button role="tab" data-tab="tool" aria-selected="false">견적도구</button>
+</nav>
 
-  <div class="tip"><b>휴대폰 바탕화면에 추가하기</b><br>
-    안드로이드 크롬: 오른쪽 위 ⋮ → <b>홈 화면에 추가</b><br>
-    아이폰 사파리: 아래 공유 버튼 → <b>홈 화면에 추가</b><br>
-    각 앱에서 돌아올 때는 휴대폰의 <b>뒤로가기</b>를 누르세요.</div>
+<section id="overview">
+  <div class="card"><div id="brandList"></div></div>
+  <div class="card">
+    <h2>매장 데이터 받는 곳</h2>
+    <p class="sub">공공데이터포털 · 소상공인시장진흥공단 상가(상권)정보. 전국 상가업소의 상호명·업종·주소·위경도가 들어 있고, 로그인 없이 받을 수 있습니다.</p>
+    <p style="font-size:14px;margin:0 0 14px">전남 지역 파일을 받아 <a href="map.html" style="color:var(--ink);font-weight:600">매장 밀도 지도</a>의 변환기에 넣으면 순천·광양·여수의 저가커피 매장만 걸러져 지도에 표시됩니다. 분기마다 갱신되니 새 파일이 올라오면 같은 방법으로 바꿔 넣으시면 됩니다.</p>
+    <div class="bar" style="gap:8px">
+      <a class="btn solid" href="https://www.data.go.kr/data/15083033/fileData.do" target="_blank" rel="noopener" style="text-decoration:none">파일데이터 내려받기</a>
+      <a class="btn" href="https://www.data.go.kr/data/15012005/openapi.do" target="_blank" rel="noopener" style="text-decoration:none">오픈 API</a>
+      <a class="btn" href="https://bigdata.sbiz.or.kr/" target="_blank" rel="noopener" style="text-decoration:none">소상공인 365</a>
+    </div>
+    <p class="src">업종 분류는 대분류 10개 · 중분류 75개 · 소분류 247개 체계이며 구분자는 콤마, 인코딩은 UTF-8입니다</p>
+  </div>
+
+</section>
+
+<section id="compare" hidden>
+  <div class="card">
+    <h2>연도별 가맹점 수</h2>
+    <p class="sub">선이 끊긴 구간은 해당 연도 자료가 확인되지 않은 곳입니다. 범례를 눌러 켜고 끌 수 있습니다.</p>
+    <div class="chartbox" id="chStores"></div>
+    <div class="legend" id="lgStores"></div>
+    <p class="src">출처 · 공정위 가맹사업정보제공시스템, 각 사 발표 (2021–2024)</p>
+  </div>
+
+  <div class="card">
+    <h2>가맹점 월평균 매출 · 2024년</h2>
+    <p class="sub">정보공개서는 연 단위로만 공시되어 월별 추이는 만들 수 없습니다. 연 매출액을 12로 나눈 값입니다.</p>
+    <div class="chartbox" id="chSales"></div>
+    <p class="src">단위 만원 · 출처 · 2025년 공시 정보공개서 (2024년 실적)</p>
+  </div>
+
+  <div class="card">
+    <h2>한눈에</h2>
+    <div class="scroller"><table id="tblMain"></table></div>
+    <p class="src">폐업률 = (계약종료 + 계약해지) ÷ 전년 가맹점 수 · 명의변경은 빠져 있습니다</p>
+  </div>
+</section>
+
+<section id="open" hidden>
+  <div class="card">
+    <h2>기준 매장 크기</h2>
+    <p class="sub">본사가 창업비용을 안내할 때 쓰는 기준 평수입니다.</p>
+    <div class="chartbox" id="chSize"></div>
+    <p class="src">단위 평 · 출처 · 각 사 창업 안내 및 정보공개서</p>
+  </div>
+
+  <div class="card">
+    <h2>평당 인테리어 단가</h2>
+    <p class="sub">공개한 브랜드가 둘뿐입니다. 나머지는 견적서를 받아 직접 채우셔야 하는 칸입니다.</p>
+    <div class="chartbox" id="chPerPy"></div>
+    <p class="src">단위 만원/평 · 장비·간판은 제외한 순수 인테리어 단가</p>
+  </div>
+
+  <div class="card">
+    <h2>총 창업비용</h2>
+    <p class="sub">가맹비·교육비·인테리어·장비 합계. 상가 보증금과 임차료는 빠져 있고, 외관·전기증설·철거·소방·냉난방기도 대부분 별도입니다.</p>
+    <div class="chartbox" id="chCost"></div>
+    <p class="src">단위 만원 · 기준 평수가 브랜드마다 달라 그대로 비교하면 안 됩니다</p>
+  </div>
+
+  <div class="card">
+    <h2>폐업률 · 2024년</h2>
+    <p class="sub">(계약종료 + 계약해지) ÷ 전년 가맹점 수. 커피 업종 전체 평균은 11.97%라 아홉 곳 모두 평균보다 한참 낮습니다.</p>
+    <div class="chartbox" id="chClose"></div>
+    <p class="src">단위 % · 출처 · 2025년 공시 정보공개서 (2024년 실적)</p>
+  </div>
+
+  <div class="card">
+    <h2>양도율 · 명의변경 비율</h2>
+    <p class="sub">가맹점 수 대비 연간 명의변경 건수입니다. 폐업률에 잡히지 않는 점주 교체가 여기 들어갑니다.</p>
+    <div class="chartbox" id="chTransfer"></div>
+    <p class="src">단위 % · 대부분 브랜드가 공개하지 않습니다 · 정보공개서 원문에서 직접 확인해야 하는 값</p>
+  </div>
+
+  <div class="gapnote">
+    <h3>폐업률만 보면 안 되는 이유</h3>
+    <p>공정위 폐업률 계산식에는 <strong>양도양수(명의변경)가 빠져 있습니다.</strong> 점주가 못 버티고 가게를 넘겨도 매장은 그대로 남아 있으니 폐업으로 집계되지 않습니다.</p>
+      <ol>
+      <li>텐퍼센트커피는 폐업률이 1.69%인데, 양도양수는 2024년 98건, 2025년 100건을 넘었습니다. <strong>실질 점주 교체율은 연 10%대</strong>로 여섯 배 넘게 차이가 납니다.</li>
+      <li>급성장 브랜드는 계약 만료가 도래한 매장 자체가 적어 분모 효과로 폐업률이 낮게 찍힙니다. 우지커피와 하이오커피가 여기 해당합니다.</li>
+      <li>거꾸로 <strong>평균 영업기간</strong>이 실질 지표에 가깝습니다. 빽다방 1,142일, 메가MGC 888일, 컴포즈 535일 순입니다.</li>
+      <li>정보공개서 제3장에 연도별 <strong>명의변경 건수</strong>가 있습니다. 이 칸을 채우시면 위 차트가 완성됩니다.</li>
+      <li>거칠게 보시려면 점포 중개 사이트의 브랜드별 양도 매물 수를 가맹점 수로 나눠 보세요. 한 사이트 기준으로 메가MGC 399건(약 12%), 컴포즈 312건(약 12%)입니다. 중복·묵은 매물이 섞여 있어 참고치일 뿐입니다.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>연간 신규 개점 수 · 2024년</h2>
+    <p class="sub">월별 개점 자료는 공시되지 않습니다. 연간 합계로 대신합니다.</p>
+    <div class="chartbox" id="chNew"></div>
+    <p class="src">출처 · 2025년 공시 정보공개서 (2024년 실적)</p>
+  </div>
+
+  <div class="card">
+    <h2>브랜드별 분기 호수 <span style="font-weight:500;font-size:13px;color:var(--muted)">(전남 / 순천·광양·여수)</span></h2>
+    <p class="sub">각 칸은 <b>전남 전체 / 순천·광양·여수(증감)</b> 형식입니다. 증감은 세 도시 기준으로 왼쪽 열과 비교한 값이라 첫 열에는 표시되지 않습니다.</p>
+    <div class="scroller"><table id="tblQ"></table></div>
+    <div class="srcbox">
+      <div class="srcline"><b>출처</b> 공공데이터포털 · 소상공인시장진흥공단 상가(상권)정보
+        <a href="https://www.data.go.kr/data/15083033/fileData.do" target="_blank" rel="noopener">data.go.kr</a></div>
+      <div class="srcline">상호명으로 브랜드를 가려내고 같은 좌표의 중복은 제외했습니다. 각 파일은 해당 시점에 영업 중인 매장의 스냅샷이며, 개점 건수가 아닙니다.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>전남 매장 수 추이</h2>
+    <p class="sub">매머드·하삼동을 뺀 7개 브랜드입니다. 범례를 눌러 켜고 끌 수 있습니다.</p>
+    <div class="chartbox" id="chTrendJn"></div>
+    <div class="legend" id="lgTrend"></div>
+    <p class="src">단위 개 · 전남 전체 · 26.06 은 통합본에서 광주 제외</p>
+  </div>
+
+  <div class="card">
+    <h2>순천·광양·여수 매장 수 추이</h2>
+    <p class="sub">같은 7개 브랜드를 세 도시 합계로만 본 것입니다. 위 범례가 함께 적용됩니다.</p>
+    <div class="chartbox" id="chTrend3"></div>
+    <p class="src">단위 개 · 순천시 · 광양시 · 여수시 합계</p>
+  </div>
+
+  <div class="gapnote">
+    <h3>이 지역 순위는 전국과 다릅니다</h3>
+    <p>2026년 2분기 기준 세 도시 합계 193곳입니다. 전국 순위는 메가MGC 3,325 · 컴포즈 2,649 · 빽다방 1,712 · 더벤티 1,230 순인데, 여기서는 순서가 뒤집힙니다.</p>
+    <ol>
+      <li><strong>더벤티가 1위입니다.</strong> 전국 4위 브랜드가 이 지역에서는 메가MGC를 앞섭니다. 여수에만 32곳이 몰려 있습니다.</li>
+      <li><strong>컴포즈는 절반도 못 채웠습니다.</strong> 전국에서는 더벤티의 두 배가 넘는데 여기서는 26곳뿐입니다. 부산에서 출발한 두 브랜드가 남해안에서 정반대 결과를 냈습니다.</li>
+      <li>빈자리가 있는 쪽은 오히려 컴포즈입니다. 다만 영업지역이 150m로 가장 좁아 신규 출점 여지가 실제로 얼마나 되는지는 지도에서 확인하셔야 합니다.</li>
+      <li><strong>더벤티는 이미 촘촘한 데다 전국 폐업률이 5.53%로 상위권 중 가장 높습니다.</strong> 이 지역에 가장 많은 브랜드가 전국에서 가장 많이 문을 닫는 브랜드라는 조합은 다음 분기 자료로 반드시 확인해 보세요.</li>
+      <li>하삼동 2곳, 우지 2곳, 매머드 1곳은 사실상 미진출 상태입니다. 경쟁은 적지만 지역 인지도도 없다는 뜻입니다.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>누적 호수 기록</h2>
+    <p class="sub">본사 홈페이지에 표시되는 누적 오픈 호수를 날짜와 함께 적어 두면, 구간별 개점 수와 월 환산값이 자동으로 계산됩니다. 메가MGC커피는 홈페이지 우측 상단에 날짜와 함께 표시됩니다.</p>
+
+    <div class="logbar">
+      <select id="logBrand" aria-label="브랜드 선택"></select>
+      <input type="date" id="logDate" aria-label="날짜">
+      <input type="number" id="logCount" placeholder="누적 호수" min="0" step="1" aria-label="누적 호수">
+      <button class="btn solid" id="logAdd">추가</button>
+    </div>
+
+    <div class="scroller"><table id="tblLog"></table></div>
+    <p class="logempty" id="logEmpty">기록이 없습니다. 날짜와 누적 호수를 넣어 보세요.</p>
+
+    <div class="logbar" style="margin-top:14px">
+      <button class="btn solid" id="logPush">서버에 저장</button>
+      <button class="btn" id="logSave">파일로 저장</button>
+      <button class="btn" id="logLoad">불러오기</button>
+      <input type="file" id="logFile" accept="application/json" style="display:none">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>월별 개점 수</h2>
+    <p class="sub">누적 호수 기록에서 구간별 개점 수를 30.44일 기준으로 환산한 값입니다. 구간이 짧을수록 값이 튀니 2주 이상 간격으로 기록하세요.</p>
+    <div class="chartbox" id="chLog"></div>
+    <div class="scroller" style="margin-top:14px"><table id="tblMonth"></table></div>
+    <p class="src">단위 개/월 · 위 브랜드 선택에 따라 바뀝니다 · 구간 끝 날짜가 속한 달에 배정됩니다</p>
+  </div>
+
+  <div class="gapnote">
+    <h3>기록하는 요령</h3>
+    <ol>
+      <li><strong>같은 요일, 같은 주기</strong>로 적으세요. 매달 1일처럼 고정하면 구간 길이가 일정해져 비교가 쉬워집니다.</li>
+      <li>누적 호수는 <strong>폐업한 매장을 빼지 않은 숫자</strong>입니다. 실제 순증가는 이보다 적습니다.</li>
+      <li>브라우저를 닫으면 입력값이 사라집니다. <strong>파일로 저장</strong>을 눌러 JSON을 보관하시고, 다음에 열 때 불러오기로 이어가세요.</li>
+      <li>반년쯤 쌓이면 계절 흐름이 보입니다. 개점이 몰리는 달은 본사가 출점에 힘을 싣는 시기이자, 내 상권에 경쟁점이 들어올 확률이 높은 시기입니다.</li>
+    </ol>
+  </div>
+
+  <div class="gapnote">
+    <h3>월별 개업 매장수는 왜 비어 있나</h3>
+    <p>정보공개서는 연 1회 공시라 월 단위 개점 시점이 담기지 않습니다. 다만 직접 만드실 수는 있습니다.</p>
+    <ol>
+      <li><strong>각 사 홈페이지 매장 찾기</strong>에서 신규 매장 목록과 오픈일을 수집합니다. 대부분 오픈 예정점을 따로 표시합니다.</li>
+      <li>수집한 오픈일을 월별로 집계하면 이 차트를 채울 수 있습니다.</li>
+      <li>일반적으로 카페 개점은 <strong>봄과 초여름에 몰리고 한겨울에 줄어드는</strong> 경향이 있지만, 브랜드별로 확인된 수치는 아닙니다.</li>
+    </ol>
+  </div>
+
+</section>
+
+<section id="store" hidden>
+  <div class="card">
+    <h2>브랜드 전체 월 결제금액 · 2026년 7월</h2>
+    <p class="sub">가맹점당이 아니라 브랜드 전체 합계입니다. 매장 수가 많으면 당연히 큽니다.</p>
+    <div class="chartbox" id="chPay"></div>
+    <p class="src">단위 억원 · 출처 · 모바일인덱스 · 나머지 브랜드는 미집계</p>
+  </div>
+
+  <div class="gapnote">
+    <h3>월별 매출 계절성을 보려면</h3>
+    <p>브랜드별 월 매출은 공시 대상이 아닙니다. 대신 이렇게 접근하실 수 있습니다.</p>
+    <ol>
+      <li><strong>모바일인덱스 월 결제금액</strong>을 매달 기록해 시계열로 쌓습니다. 브랜드 전체 수치지만 계절 흐름은 그대로 드러납니다.</li>
+      <li>매장 수로 나누면 <strong>가맹점당 추정 결제액</strong>이 나옵니다. 신규 출점이 많은 브랜드는 이 보정을 반드시 해야 합니다.</li>
+      <li>가장 정확한 건 <strong>인근 기존 점주 면담</strong>입니다. 아이스 비중이 높은 저가커피는 여름과 겨울 매출 차이가 큽니다.</li>
+      <li>참고로 컴포즈커피는 월 결제금액이 2021년 1월 66억원에서 2026년 7월 493억원으로, 메가MGC커피는 2026년 5월 월 1,000억원을 처음 넘었습니다.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>본사 구조와 리스크</h2>
+    <div class="scroller"><table id="tblRisk"></table></div>
+  </div>
+
+</section>
+
+<section id="tool" hidden>
+  <div class="card">
+    <h2>장비 견적 대조 도구</h2>
+    <p class="sub">본사 공급가와 시중가를 나란히 넣어 항목별 차액과 마진율을 확인합니다.</p>
+    <p style="font-size:14px;margin:0 0 14px">장비는 인테리어보다 큰 비용이면서 본사 필수품목이 몰리는 구간입니다. 텐퍼센트커피 기준으로 인테리어 2,200만원, 기기·장비 3,200만원입니다. 견적서를 받으시면 항목별로 옮겨 적어 시중가와 맞대 보세요.</p>
+    <a class="btn solid" href="equipment.html" style="display:inline-block;text-decoration:none">견적 대조 도구 열기</a>
+  </div>
+
+  <div class="gapnote">
+    <h3>견적서를 받으실 때</h3>
+    <ol>
+      <li>항목별로 <strong>본사 지정 필수 / 점주 자율</strong> 구분을 표시해 달라고 요청하세요. 자율 항목만 외부 견적을 붙여 비교하면 협상 여지가 드러납니다.</li>
+      <li>평당 단가에는 함정이 있습니다. 전기 증설·수도 배관·환기·간판은 평수와 무관한 고정비라 별도로 붙습니다.</li>
+      <li><strong>세금계산서를 반드시 받으세요.</strong> 현금가 할인을 받으면 5년 감가상각도 통합투자세액공제도 사라집니다.</li>
+      <li>계약 종료 시 간판·시설물 철거 비용 부담 주체를 확인하세요. 건물주에 대한 원상복구 의무와는 별개로 발생합니다.</li>
+    </ol>
+  </div>
+</section>
+
+
+<footer>build 0823r · 확인되지 않은 값은 빈칸입니다 · 계약 전 franchise.ftc.go.kr에서 원문 확인</footer>
 </div>
 
 <script>
-// ===== 설정: 앱 주소는 여기서 바꾸세요 =====
-const CFG = {
-  OPEN_DATE: '2026-10-21',                                   // 오픈일
-  API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
-  HOURS: '07:00~22:00',
-  STAFF_APPS: [
-    { name: '근무 · 급여', desc: '출퇴근, 근무시간표, 내 급여명세서', ic: '🕐', bg: '#e3f1e8', url: 'https://kghwang1.github.io/oo-recipe/oozy-work.html' },
-    { name: '레시피', desc: '초성 검색, 청소 · 소모품 관리', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/oo-recipe/oozy-recipe.html' },
-  ],
-  OWNER_APPS: [
-    { name: '카페 운영', desc: '매출 · 지출, 결산, 메모', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/oo-recipe/oozy-ledger.html' },
-    { name: '커피브랜드 조사', desc: '저가커피 프랜차이즈 비교', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
-      subs: [['장비 견적', 'https://kghwang1.github.io/coffee-board/equipment.html'], ['매장 지도', 'https://kghwang1.github.io/coffee-board/map.html']] },
-  ],
-};
+(function(){
+"use strict";
+var YEARS = ['2021','2022','2023','2024'];
 
-const $ = s => document.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const KEY = 'oozyHomeOwner';
-const store = { get: () => { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }, set: v => { try { v ? localStorage.setItem(KEY, '1') : localStorage.removeItem(KEY); } catch (e) { } } };
+var B = [
+  { k:'mega', name:'메가MGC커피', color:'#E8A33D', corp:'앤하우스', since:'2015년 홍대 1호점',
+    stores:[1603,2173,2709,3325], newOpen:657, closeRate:0.39, sales:3237,
+    cost:7423, size:10, perPy:null, royalty:15, pay:968,
+    desc:'저가커피 1위. 2021년 사모펀드 컨소시엄이 약 1,400억원에 인수한 뒤 본사 매출이 878억원(2021)에서 4,959억원(2024)으로 뛰었습니다. 본사 매출의 90% 이상이 가맹점에 넘기는 원부자재 물류 수익입니다. 공식 홈페이지 기준 2026년 8월 20일 현재 누적 4,455호가 문을 열었습니다.',
+    risk:'2025년 10월 공정위 과징금 22억 9,200만원. 필수품목 강제와 상품권 수수료 전가. 사모펀드 엑시트 사이클도 변수입니다.' },
 
-// 날짜 · 오픈 D-day
-(function () {
-  const now = new Date(), d = ['일', '월', '화', '수', '목', '금', '토'][now.getDay()];
-  $('#today').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 (${d})`;
-  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()), o = new Date(CFG.OPEN_DATE + 'T00:00');
-  const diff = Math.round((o - t0) / 864e5);
-  $('#dday').innerHTML = diff > 0 ? `오픈 <b>D-${diff}</b>` : diff === 0 ? '<b>오늘 오픈!</b>' : `오픈 <b>${-diff + 1}일째</b>`;
-  $('#hours').textContent = `영업 ${CFG.HOURS}`;
-})();
+  { k:'compose', name:'컴포즈커피', color:'#2E7D6E', corp:'졸리비 그룹', since:'2014년 부산 1호점',
+    stores:[1285,1901,2350,2649], newOpen:311, closeRate:1.19, sales:2266,
+    cost:6708, size:10, perPy:null, royalty:null, pay:493,
+    desc:'성장률 1위. 2024년 필리핀 졸리비 그룹이 약 4,700억원에 인수했습니다. 본사 매출은 738억원(2022) → 889억원(2023) → 897억원(2024), 영업이익은 253억 → 367억 → 400억원입니다. 2025년 9월 3,000호점을 넘겼습니다.',
+    risk:'최근 2년 배당 471억원, 2026년 1월 유상감자. 영업이익률이 48%에서 13%로 내려앉았습니다. 평균 영업기간 535일로 가장 짧습니다.' },
 
-function card(a) {
-  const off = !a.url;
-  const subs = a.subs ? `<div class="subs">${a.subs.map(([n, u]) => `<a href="${esc(u)}">${esc(n)}</a>`).join('')}</div>` : '';
-  // 카드 전체를 덮는 링크 + 그 위에 작은 바로가기 (링크 안에 링크를 넣지 않음)
-  return `<div class="app${off ? ' off' : ''}"><a class="cover" ${off ? 'href="#" data-missing="1"' : `href="${esc(a.url)}"`} aria-label="${esc(a.name)}"></a>
-    <div class="ic" style="background:${a.bg}">${a.ic}</div><b>${esc(a.name)}</b>${subs}</div>`;
+  { k:'paik', name:'빽다방', color:'#1D5FA8', corp:'더본코리아', since:'2006년 논현동',
+    stores:[null,1244,1470,1712], newOpen:286, closeRate:1.33, sales:2704,
+    cost:null, size:8, perPy:null, royalty:null, pay:242,
+    desc:'매장당 매출 2위. 2022년부터 가맹비를 받지 않고 8평부터 창업할 수 있습니다. 평균 영업기간 1,142일로 저가커피 중 가장 깁니다.',
+    risk:'가맹점이 2.5배 늘어나는 동안 평당 매출은 2020년 대비 약 200만원 줄었습니다. 더본코리아는 2025년 영업손실 237억원으로 적자 전환. 2026년 6월 BI 전면 리뉴얼 중이라 간판 교체 비용 부담 주체를 서면으로 확인해야 합니다.' },
+
+  { k:'venti', name:'더벤티', color:'#8E4B9E', corp:'(주)더벤티', since:'부산 기반',
+    stores:[null,null,null,1230], newOpen:173, closeRate:5.53, sales:1845,
+    cost:null, size:null, perPy:null, royalty:null, pay:105,
+    desc:'대용량 콘셉트로 자리 잡은 부산 기반 브랜드입니다. 2024년 이후 월 결제금액이 정체 구간에 들어갔습니다.',
+    risk:'폐업률 5.53%로 상위 브랜드 중 가장 높습니다. 커피 업종 평균(11.97%)보다는 낮지만 메가·컴포즈와는 자릿수가 다릅니다.' },
+
+  { k:'ten', name:'텐퍼센트커피', color:'#C0392B', corp:'(주)텐퍼센트커피', since:'2015년 가맹사업',
+    stores:[null,null,null,814], newOpen:206, closeRate:1.69, sales:1839,
+    cost:7930, size:10, perPy:220, royalty:20, pay:null,
+    desc:'매달 10일 반값 행사(텐데이)를 본사가 전액 부담합니다. 인테리어 평당 220만원, 기기·장비 약 3,200만원, 간판 약 550만원으로 내역을 공개하는 편입니다.',
+    risk:'양도양수가 연 100건을 넘어 실질 점주 교체율이 연 10%대입니다. 폐업률 1.69%와 격차가 큽니다. 2026년 4월 점주 SNS 논란으로 불매 여론이 번진 적이 있습니다.' },
+
+  { k:'mammoth', name:'매머드커피', color:'#7A5230', corp:'매머드익스프레스', since:'',
+    stores:[null,null,null,742], newOpen:null, closeRate:4.5, sales:1923,
+    cost:null, size:null, perPy:null, royalty:null, pay:108,
+    desc:'매머드커피랩·매머드익스프레스로 운영합니다. 2024년 본사 매출 757억원, 영업이익 26억원. 가맹점 평당 연매출은 전국 평균 1,842만원인데 최고 3억 2,943만원, 최저 53만원으로 편차가 극심합니다.',
+    risk:'폐업률 4.5%로 더벤티 다음으로 높습니다. 2024년 이후 월 결제금액이 정체 구간이고, 본사 영업이익률도 3% 수준으로 얇습니다.' },
+
+  { k:'hasam', name:'하삼동커피', color:'#C77BA8', corp:'(주)하삼동', since:'부산 기반',
+    stores:[null,null,null,644], newOpen:null, closeRate:2.13, sales:1721,
+    cost:8220, size:10, perPy:297, royalty:10, pay:null,
+    desc:'조용히 규모를 키운 브랜드입니다. 표준창업비용 8,220만원에 가맹비 550만·교육비 550만·보증금 300만원이 포함되고, 로열티는 월 10만원으로 가장 낮습니다. 최근 집계로는 741개까지 늘었습니다.',
+    risk:'평당 인테리어 단가가 297만원으로 텐퍼센트(220만원)보다 35% 높습니다. 가맹점 연매출은 2023년 2억 1,800만원에서 2024년 2억 650만원으로 뒷걸음쳤습니다.' },
+
+  { k:'hio', name:'하이오커피', color:'#5A6472', corp:'(주)하이파이브', since:'2019년 8월 · 부산 구서점',
+    stores:[null,null,249,278], newOpen:null, closeRate:null, sales:1967,
+    cost:7110, size:null, perPy:null, royalty:15, pay:null,
+    desc:'부산에서 출발한 남부권 브랜드입니다. 다회용 리유저블 컵과 앱 오더가 특징이고, 로열티가 월 15만원으로 낮은 편입니다.',
+    risk:'서울에 매장이 없고 5년이 지나도록 300개를 넘기지 못했습니다. 폐업률 수치가 공개 자료에서 확인되지 않습니다. 순천·여수에 이미 매장이 몰려 있어 신규 영업지역 확보가 어려울 수 있습니다.' },
+
+  { k:'wooji', name:'우지커피', color:'#4F7A28', corp:'(주)우지컴퍼니', since:'2019년 송파 1호점',
+    stores:[null,null,null,199], newOpen:102, closeRate:1.49, sales:1914,
+    cost:8403, size:12, perPy:null, royalty:null, pay:null,
+    desc:'스페셜티와 디저트를 얹어 저가와 중가 사이를 노리는 포지션입니다. 2020년 가맹사업을 시작해 500호점을 넘겼습니다.',
+    risk:'재료비율이 37%로 메가·컴포즈(30% 전후)보다 높습니다. 급성장 구간이라 폐업률이 낮게 찍히는 분모 효과가 있어 아직 검증 구간에 들어가지 않았습니다.' }
+];
+
+/* 양도율(%) = 연간 명의변경 건수 ÷ 가맹점 수.
+   확인된 브랜드만 넣습니다. 정보공개서 제3장에서 값을 찾으면 여기에 추가하세요. */
+var TRANSFER = { ten: 10.9 };
+B.forEach(function(b){
+  b.transfer = (TRANSFER[b.k] === undefined) ? null : TRANSFER[b.k];
+});
+
+var on = {}; B.forEach(function(b){ on[b.k] = true; });
+
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function fmt(v){return v===null||v===undefined?'—':Math.round(v).toLocaleString('ko-KR');}
+function nice(max){ if(max<=0) return 1;
+  var p = Math.pow(10, Math.floor(Math.log10(max)));
+  return Math.ceil(max/p*2)/2*p; }
+
+function lineChart(el){
+  var W=760,H=350,L=52,R=14,T=16,Bm=34;
+  var act = B.filter(function(b){return on[b.k];});
+  var max=0;
+  act.forEach(function(b){ b.stores.forEach(function(v){ if(v!==null&&v>max) max=v; }); });
+  max = nice(max||1);
+  var x=function(i){return L+i*(W-L-R)/(YEARS.length-1);};
+  var y=function(v){return T+(1-v/max)*(H-T-Bm);};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="연도별 가맹점 수 추이">';
+  for(var g=0;g<=4;g++){
+    var gv=max*g/4, gy=y(gv);
+    s+='<line x1="'+L+'" y1="'+gy+'" x2="'+(W-R)+'" y2="'+gy+'" stroke="#EBEDEF"/>'+
+       '<text x="'+(L-9)+'" y="'+(gy+4)+'" text-anchor="end" font-size="11" fill="#6E7681">'+fmt(gv)+'</text>';
+  }
+  YEARS.forEach(function(yr,i){
+    s+='<text x="'+x(i)+'" y="'+(H-12)+'" text-anchor="middle" font-size="11" fill="#6E7681">'+yr+'</text>';
+  });
+  act.forEach(function(b){
+    var seg=[],cur=[];
+    b.stores.forEach(function(v,i){
+      if(v===null){ if(cur.length){seg.push(cur);cur=[];} } else cur.push([x(i),y(v)]);
+    });
+    if(cur.length) seg.push(cur);
+    seg.forEach(function(pts){
+      if(pts.length>1){
+        s+='<polyline fill="none" stroke="'+b.color+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="'+
+           pts.map(function(p){return p[0]+','+p[1];}).join(' ')+'"/>';
+      }
+      pts.forEach(function(p){
+        s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3.6" fill="#fff" stroke="'+b.color+'" stroke-width="2.2"/>';
+      });
+    });
+    var idx = b.stores.map(function(v,i){return v===null?null:i;}).filter(function(i){return i!==null;}).pop();
+    if(idx!==undefined&&idx!==null){
+      var lx=x(idx), ly=y(b.stores[idx]);
+      var anc = idx===YEARS.length-1?'end':'start';
+      s+='<text x="'+(anc==='end'?lx-7:lx+7)+'" y="'+(ly-9)+'" text-anchor="'+anc+
+         '" font-size="11.5" font-weight="600" fill="'+b.color+'">'+esc(b.name)+'</text>';
+    }
+  });
+  s+='</svg>';
+  el.innerHTML=s;
 }
-$('#staffApps').innerHTML = CFG.STAFF_APPS.map(card).join('');
 
-function renderOwner() {
-  if (store.get()) {
-    $('#ownerArea').innerHTML = `<div class="grid" style="margin-top:10px">${CFG.OWNER_APPS.map(card).join('')}</div>`;
-    document.querySelectorAll('[data-missing]').forEach(a => a.onclick = e => { e.preventDefault(); alertBox('주소가 아직 없습니다', '이 파일 위쪽 설정(CFG)의 가계부 url에 주소를 넣어주세요.'); });
-  } else {
-    $('#ownerArea').innerHTML = `<button class="lock" id="unlock" style="margin-top:10px">🔒 사장님 메뉴 열기</button>`;
-    $('#unlock').onclick = askPin;
+function barChart(elId, field){
+  var el=document.getElementById(elId);
+  var rows=B.map(function(b){return {n:b.name,v:b[field],c:b.color};});
+  var max=nice(Math.max.apply(null,rows.map(function(r){return r.v||0;}))||1);
+  var rowH=32,W=760,L=112,R=70,H=rows.length*rowH+14;
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="브랜드별 막대 비교">';
+  rows.forEach(function(r,i){
+    var cy=i*rowH+20;
+    s+='<text x="'+(L-10)+'" y="'+(cy+4)+'" text-anchor="end" font-size="12.5" font-family="Pretendard,sans-serif" fill="#131A22">'+esc(r.n)+'</text>';
+    s+='<line x1="'+L+'" y1="'+(cy+11)+'" x2="'+(W-R)+'" y2="'+(cy+11)+'" stroke="#EBEDEF"/>';
+    if(r.v===null||r.v===undefined){
+      s+='<text x="'+(L+4)+'" y="'+(cy+4)+'" font-size="11.5" fill="#6E7681">미확인</text>';
+    }else{
+      var w=(r.v/max)*(W-L-R);
+      s+='<rect x="'+L+'" y="'+(cy-8)+'" width="'+w+'" height="16" rx="2" fill="'+r.c+'"/>'+
+         '<text x="'+(L+w+8)+'" y="'+(cy+4)+'" font-size="12" font-weight="600" fill="#131A22">'+fmt(r.v)+'</text>';
+    }
+  });
+  s+='</svg>';
+  el.innerHTML=s;
+}
+
+function legend(){
+  document.getElementById('lgStores').innerHTML=B.map(function(b){
+    return '<button class="lg" data-k="'+b.k+'" aria-pressed="'+(on[b.k]?'true':'false')+'">'+
+      '<i style="background:'+b.color+'"></i>'+esc(b.name)+'</button>';
+  }).join('');
+}
+
+function overview(){
+  document.getElementById('brandList').innerHTML=B.map(function(b){
+    var chips=[
+      ['가맹점', b.stores[3]!==null?fmt(b.stores[3])+'개':'—'],
+      ['월평균매출', b.sales?fmt(b.sales)+'만원':'—'],
+      ['폐업률', b.closeRate!==null?b.closeRate+'%':'—'],
+      ['창업비', b.cost?fmt(b.cost)+'만원':'—'],
+      ['로열티', b.royalty?'월 '+b.royalty+'만원':'—']
+    ].map(function(c){return '<span class="chip">'+c[0]+' <b>'+c[1]+'</b></span>';}).join('');
+    var meta = b.since ? esc(b.corp)+' · '+esc(b.since) : esc(b.corp);
+    return '<article class="brand">'+
+      '<div class="bhead"><span class="dot" style="background:'+b.color+'"></span>'+
+      '<span class="bname">'+esc(b.name)+'</span><span class="bmeta">'+meta+'</span></div>'+
+      '<p>'+esc(b.desc)+'</p>'+
+      '<p style="color:var(--warn)">'+esc(b.risk)+'</p>'+
+      '<div class="chips">'+chips+'</div></article>';
+  }).join('');
+}
+
+function tables(){
+  var head=['브랜드','가맹점','신규개점','폐업률','양도율','월매출','창업비','평수','평당인테리어'];
+  document.getElementById('tblMain').innerHTML=
+    '<thead><tr>'+head.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>'+
+    B.map(function(b){
+      function c(v){return v===null||v===undefined?'<td class="na">—</td>':'<td>'+fmt(v)+'</td>';}
+      return '<tr><td>'+esc(b.name)+'</td>'+c(b.stores[3])+c(b.newOpen)+
+        (b.closeRate===null?'<td class="na">—</td>':'<td>'+b.closeRate+'%</td>')+
+        (b.transfer===null?'<td class="na">—</td>':'<td>'+b.transfer+'%</td>')+
+        c(b.sales)+c(b.cost)+c(b.size)+c(b.perPy)+'</tr>';
+    }).join('')+'</tbody>';
+
+  document.getElementById('tblRisk').innerHTML=
+    '<thead><tr><th>브랜드</th><th style="text-align:left">본사</th><th style="text-align:left">눈여겨볼 점</th></tr></thead><tbody>'+
+    B.map(function(b){
+      return '<tr><td>'+esc(b.name)+'</td>'+
+        '<td style="text-align:left;font-family:var(--sans);font-size:13.5px">'+esc(b.corp)+'</td>'+
+        '<td style="text-align:left;font-family:var(--sans);font-size:13.5px;white-space:normal;min-width:280px">'+esc(b.risk)+'</td></tr>';
+    }).join('')+'</tbody>';
+}
+
+function drawAll(){
+  lineChart(document.getElementById('chStores'));
+  ['chSales:sales','chSize:size','chPerPy:perPy','chCost:cost',
+   'chClose:closeRate','chTransfer:transfer','chNew:newOpen','chPay:pay'].forEach(function(p){
+    var a=p.split(':'); barChart(a[0],a[1]);
+  });
+}
+
+document.getElementById('lgStores').addEventListener('click',function(e){
+  var btn=e.target.closest('.lg'); if(!btn) return;
+  var k=btn.getAttribute('data-k');
+  on[k]=!on[k];
+  btn.setAttribute('aria-pressed',on[k]?'true':'false');
+  lineChart(document.getElementById('chStores'));
+});
+
+/* ── 누적 호수 기록 ── */
+var LOG = { mega:[{d:'2026-08-20', c:4455}] };
+
+var selBrand = document.getElementById('logBrand');
+selBrand.innerHTML = B.map(function(b){
+  return '<option value="'+b.k+'">'+esc(b.name)+'</option>';
+}).join('');
+
+function brandOf(k){ for(var i=0;i<B.length;i++) if(B[i].k===k) return B[i]; return B[0]; }
+
+function logRows(k){
+  var arr = (LOG[k]||[]).slice().sort(function(a,b){ return a.d < b.d ? -1 : 1; });
+  return arr.map(function(e,i){
+    if(i===0) return {d:e.d, c:e.c, days:null, add:null, per:null};
+    var prev = arr[i-1];
+    var days = Math.round((new Date(e.d) - new Date(prev.d))/86400000);
+    var add = e.c - prev.c;
+    return {d:e.d, c:e.c, days:days, add:add,
+            per: days>0 ? add/days*30.44 : null};
+  });
+}
+
+function logRender(){
+  var k = selBrand.value, b = brandOf(k);
+  var rows = logRows(k);
+  document.getElementById('logEmpty').style.display = rows.length ? 'none' : 'block';
+
+  document.getElementById('tblLog').innerHTML = rows.length ?
+    '<thead><tr><th>날짜</th><th>누적 호수</th><th>구간(일)</th><th>구간 개점</th><th>월 환산</th><th></th></tr></thead><tbody>'+
+    rows.map(function(r,i){
+      function cell(v,suf){ return v===null?'<td class="na">—</td>':'<td>'+fmt(v)+(suf||'')+'</td>'; }
+      return '<tr><td style="font-family:var(--mono);font-size:13px;font-weight:400">'+esc(r.d)+'</td>'+
+        '<td>'+fmt(r.c)+'</td>'+cell(r.days)+cell(r.add)+
+        (r.per===null?'<td class="na">—</td>':'<td>'+r.per.toFixed(1)+'</td>')+
+        '<td><button class="del" data-logdel="'+i+'" aria-label="삭제">×</button></td></tr>';
+    }).join('')+'</tbody>' : '';
+
+  var el = document.getElementById('chLog');
+  var pts = rows.filter(function(r){ return r.per!==null; });
+  if(!pts.length){ el.innerHTML = '<p class="logempty">두 번 이상 기록하면 그래프가 그려집니다.</p>'; monthTable(); return; }
+  var max = nice(Math.max.apply(null, pts.map(function(p){return p.per;})));
+  var rowH=32, W=760, L=132, R=70, H=pts.length*rowH+14;
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="구간별 월 환산 개점 수">';
+  pts.forEach(function(p,i){
+    var cy=i*rowH+20, w=(p.per/max)*(W-L-R);
+    s+='<text x="'+(L-10)+'" y="'+(cy+4)+'" text-anchor="end" font-size="11.5" fill="#6E7681">'+esc(p.d)+'</text>'+
+       '<line x1="'+L+'" y1="'+(cy+11)+'" x2="'+(W-R)+'" y2="'+(cy+11)+'" stroke="#EBEDEF"/>'+
+       '<rect x="'+L+'" y="'+(cy-8)+'" width="'+Math.max(w,0)+'" height="16" rx="2" fill="'+b.color+'"/>'+
+       '<text x="'+(L+Math.max(w,0)+8)+'" y="'+(cy+4)+'" font-size="12" font-weight="600" fill="#131A22">'+p.per.toFixed(1)+'</text>';
+  });
+  el.innerHTML = s+'</svg>';
+  monthTable();
+}
+
+selBrand.addEventListener('change', logRender);
+
+document.getElementById('logAdd').addEventListener('click', function(){
+  var k=selBrand.value;
+  var d=document.getElementById('logDate').value;
+  var c=parseFloat(document.getElementById('logCount').value);
+  if(!d || !isFinite(c)){ alert('날짜와 누적 호수를 모두 넣어 주세요.'); return; }
+  if(!LOG[k]) LOG[k]=[];
+  var ex = LOG[k].filter(function(e){return e.d===d;})[0];
+  if(ex) ex.c = c; else LOG[k].push({d:d, c:c});
+  document.getElementById('logCount').value='';
+  logRender(); dirty = true; saveLog();
+});
+
+document.getElementById('tblLog').addEventListener('click', function(e){
+  var i = e.target.getAttribute('data-logdel'); if(i===null) return;
+  var k = selBrand.value;
+  var sorted = (LOG[k]||[]).slice().sort(function(a,b){return a.d<b.d?-1:1;});
+  var target = sorted[+i];
+  LOG[k] = LOG[k].filter(function(x){ return x.d !== target.d; });
+  logRender(); saveLog();
+});
+
+document.getElementById('logSave').addEventListener('click', function(){
+  var blob=new Blob([JSON.stringify({v:1,log:LOG},null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='store-log-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+});
+
+var logFile=document.getElementById('logFile');
+document.getElementById('logLoad').addEventListener('click',function(){ logFile.click(); });
+logFile.addEventListener('change',function(){
+  var f=logFile.files[0]; if(!f) return;
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{
+      var d=JSON.parse(fr.result);
+      if(!d || typeof d.log!=='object') throw 0;
+      LOG=d.log; logRender(); saveLog();
+    }catch(err){ alert('이 파일은 읽을 수 없습니다. 이 화면에서 저장한 JSON을 선택하세요.'); }
+    logFile.value='';
+  };
+  fr.readAsText(f);
+});
+
+var panes=['overview','compare','open','store','tool'];
+document.querySelector('nav').addEventListener('click',function(e){
+  var btn=e.target.closest('button[data-tab]'); if(!btn) return;
+  var t=btn.getAttribute('data-tab');
+  document.querySelectorAll('nav button').forEach(function(x){
+    x.setAttribute('aria-selected',x===btn?'true':'false');
+  });
+  panes.forEach(function(p){ document.getElementById(p).hidden=(p!==t); });
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+/* ── 브랜드별 분기 호수 ── */
+var QTRS = ['24.12','25.03','25.06','25.10','25.12','26.03','26.06'];
+var QSEED = {            /* 순천·광양·여수 합계 */
+  mega:    {'24.12':39,'25.03':43,'25.06':43,'25.10':43,'25.12':45,'26.03':50,'26.06':52},
+  compose: {'24.12':21,'25.03':22,'25.06':23,'25.10':22,'25.12':25,'26.03':27,'26.06':26},
+  paik:    {'24.12':21,'25.03':22,'25.06':22,'25.10':23,'25.12':23,'26.03':23,'26.06':22},
+  venti:   {'24.12':42,'25.03':43,'25.06':46,'25.10':44,'25.12':49,'26.03':52,'26.06':55},
+  ten:     {'24.12':6,'25.03':7,'25.06':7,'25.10':8,'25.12':8,'26.03':9,'26.06':9},
+  mammoth: {'24.12':1,'25.03':1,'25.06':1,'25.10':1,'25.12':1,'26.03':1,'26.06':1},
+  hasam:   {'24.12':2,'25.03':2,'25.06':2,'25.10':2,'25.12':2,'26.03':2,'26.06':2},
+  hio:     {'24.12':17,'25.03':17,'25.06':20,'25.10':19,'25.12':19,'26.03':21,'26.06':24},
+  wooji:   {'24.12':0,'25.03':0,'25.06':0,'25.10':0,'25.12':1,'26.03':1,'26.06':2}
+};
+function cloneSeed(){
+  var o = {};
+  for(var k in QSEED){ o[k] = {}; for(var q in QSEED[k]) o[k][q] = QSEED[k][q]; }
+  return o;
+}
+var QDATA = cloneSeed();
+
+/* 괄호 안 숫자 = 전남광주 권역 전체 (같은 상가정보 파일에서 센 값) */
+var RSEED = {            /* 전남 전체 · 26.06 은 통합본에서 광주 제외 */
+  mega:    {'24.12':103,'25.03':109,'25.06':110,'25.10':110,'25.12':115,'26.03':121,'26.06':126},
+  compose: {'24.12':65,'25.03':71,'25.06':75,'25.10':76,'25.12':79,'26.03':86,'26.06':89},
+  paik:    {'24.12':60,'25.03':65,'25.06':66,'25.10':67,'25.12':67,'26.03':67,'26.06':68},
+  venti:   {'24.12':61,'25.03':61,'25.06':64,'25.10':62,'25.12':69,'26.03':74,'26.06':78},
+  ten:     {'24.12':14,'25.03':17,'25.06':18,'25.10':19,'25.12':22,'26.03':25,'26.06':30},
+  mammoth: {'24.12':7,'25.03':6,'25.06':5,'25.10':5,'25.12':5,'26.03':5,'26.06':5},
+  hasam:   {'24.12':5,'25.03':5,'25.06':6,'25.10':5,'25.12':5,'26.03':7,'26.06':7},
+  hio:     {'24.12':20,'25.03':20,'25.06':24,'25.10':24,'25.12':25,'26.03':27,'26.06':30},
+  wooji:   {'24.12':1,'25.03':1,'25.06':1,'25.10':1,'25.12':2,'26.03':2,'26.06':3}
+};
+function cloneR(){
+  var o={}; for(var k in RSEED){ o[k]={}; for(var q in RSEED[k]) o[k][q]=RSEED[k][q]; } return o;
+}
+var QREG = cloneR();
+
+var QORDER = ['mega','compose','venti','paik','hio','ten','hasam','mammoth','wooji'];
+
+function qRender(){
+  var head = '<thead><tr><th>브랜드</th>' +
+    QTRS.map(function(q){ return '<th>' + esc(q) + '</th>'; }).join('') + '</tr></thead>';
+
+  var body = QORDER.map(function(key){
+    var b = null;
+    for(var i=0;i<B.length;i++){ if(B[i].k === key) b = B[i]; }
+    if(!b) return '';
+    var cells = QTRS.map(function(q, i){
+      var v  = (QDATA[key]||{})[q];
+      var rv = (QREG[key]||{})[q];
+      if(v === undefined && rv === undefined) return '<td class="na">—</td>';
+      var txt = (rv === undefined ? '—' : fmt(rv)) + '<span class="slash">/</span>' +
+                (v  === undefined ? '—' : fmt(v));
+      var d = '';
+      if(i > 0 && v !== undefined){
+        var pv = (QDATA[key]||{})[QTRS[i-1]];
+        if(pv !== undefined){
+          var g = v - pv;
+          var cls = g > 0 ? 'up' : (g < 0 ? 'dn' : 'flat');
+          d = '<span class="delta ' + cls + '">(' + (g > 0 ? '+' : '') + fmt(g) + ')</span>';
+        }
+      }
+      return '<td>' + txt + d + '</td>';
+    }).join('');
+    return '<tr><td>' + esc(b.name) + '</td>' + cells + '</tr>';
+  }).join('');
+
+  document.getElementById('tblQ').innerHTML = head + '<tbody>' + body + '</tbody>';
+}
+
+/* ── 월별 개점 수 표 ── */
+function monthTable(){
+  var k = selBrand.value, b = brandOf(k);
+  var rows = logRows(k).filter(function(r){ return r.add!==null && r.days>0; });
+  var el = document.getElementById('tblMonth');
+  if(!rows.length){ el.innerHTML = ''; return; }
+
+  var byY = {};
+  rows.forEach(function(r){
+    var y = r.d.slice(0,4), m = parseInt(r.d.slice(5,7),10);
+    byY[y] = byY[y] || {};
+    byY[y][m] = (byY[y][m]||0) + r.add;
+  });
+  var years = Object.keys(byY).sort();
+  var MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12];
+  var head = '<thead><tr><th>'+esc(b.name)+'</th>'+
+    MONTHS.map(function(m){ return '<th>'+m+'</th>'; }).join('')+
+    '<th>합계</th></tr></thead>';
+  var body = years.map(function(y){
+    var t = 0;
+    var tds = MONTHS.map(function(m){
+      var v = byY[y][m];
+      if(v===undefined) return '<td class="na">—</td>';
+      t += v;
+      return '<td>'+fmt(v)+'</td>';
+    }).join('');
+    return '<tr><td>'+esc(y)+'</td>'+tds+'<td>'+fmt(t)+'</td></tr>';
+  }).join('');
+  el.innerHTML = head+'<tbody>'+body+'</tbody>';
+}
+
+/* ── 서버 저장 (Cloudflare Worker + KV) ────────────────
+   배포 후 아래 두 줄만 본인 값으로 바꾸면 자동 저장이 켜집니다.
+   API 를 빈 문자열로 두면 파일 저장·불러오기만 동작합니다. */
+var API   = 'https://coffee-board.kghwang1.workers.dev';   /* 예: 'https://coffee-board.kghwang1.workers.dev' */
+var TOKEN = '';   /* ← 여기에 WRITE_TOKEN 값을 따옴표 안에 넣으세요 */
+
+var badge = document.getElementById('syncBadge');
+function setBadge(txt, cls){ badge.textContent = txt; badge.className = 'sync' + (cls?' '+cls:''); }
+
+var timers = {};
+var dirty = false;   /* 화면에서 값을 고쳤는지 */
+function pushSave(key, payload){
+  if(!API){ setBadge('로컬 저장'); return; }
+  if(!TOKEN){ setBadge('토큰 미설정 — 저장 안 됨', 'err'); return; }
+  clearTimeout(timers[key]);
+  setBadge('저장 중…', 'busy');
+  timers[key] = setTimeout(function(){
+    fetch(API.replace(/\/+$/,'') + '/' + key, {
+      method:'PUT',
+      headers:{'content-type':'application/json','x-token':TOKEN},
+      body: JSON.stringify(payload)
+    }).then(function(r){
+      setBadge(r.ok ? '저장됨 ' + new Date().toTimeString().slice(0,5) : '저장 실패 (' + r.status + ')', r.ok ? 'on' : 'err');
+    }).catch(function(e){ setBadge('연결 실패', 'err'); });
+  }, 900);
+}
+
+function putNow(key, payload){
+  var base = API.replace(/\/+$/,'');
+  return fetch(base + '/' + key, {
+    method:'PUT',
+    headers:{'content-type':'application/json','x-token':TOKEN},
+    body: JSON.stringify(payload)
+  });
+}
+
+function saveOne(key, payload){
+  if(!API){ alert('서버 주소(API)가 비어 있습니다.'); return; }
+  if(!TOKEN){ alert('TOKEN 이 비어 있습니다.\nindex.html 의 var TOKEN 줄에 WRITE_TOKEN 값을 넣어 주세요.'); return; }
+  clearTimeout(timers[key]); timers[key] = null;
+  setBadge('저장 중…', 'busy');
+  putNow(key, payload).then(function(r){
+    return r.text().then(function(t){ return {ok:r.ok, st:r.status, body:t}; });
+  }).then(function(x){
+    if(x.ok){
+      setBadge('저장됨 ' + new Date().toTimeString().slice(0,5), 'on');
+      alert('서버에 저장되었습니다.');
+    } else {
+      setBadge('저장 실패 (' + x.st + ')', 'err');
+      alert('저장 실패\n\nHTTP ' + x.st + '\n' + x.body +
+            '\n\n401 이면 TOKEN 이 Cloudflare 의 WRITE_TOKEN 과 다릅니다.');
+    }
+  }).catch(function(e){
+    setBadge('연결 실패', 'err');
+    alert('서버에 연결하지 못했습니다.\n\n' + e);
+  });
+}
+
+document.getElementById('logPush').addEventListener('click', function(){
+  saveOne('log', {v:1, log:LOG});
+});
+
+document.getElementById('saveNow').addEventListener('click', function(){
+  if(!API){ setBadge('서버 미설정', 'err'); return; }
+  if(!TOKEN){ setBadge('토큰 미설정 — 저장 안 됨', 'err'); return; }
+  for(var k in timers){ clearTimeout(timers[k]); timers[k] = null; }
+  setBadge('저장 중…', 'busy');
+  saveOne('log', {v:1, log:LOG});
+});
+
+document.getElementById('reloadNow').addEventListener('click', function(){
+  if(!confirm('서버에 저장된 내용으로 되돌립니다. 화면에서 고친 내용은 사라집니다. 계속할까요?')) return;
+  pullAll(true);
+});
+
+function saveLog(){ pushSave('log', {v:1, log:LOG}); }
+window.addEventListener('beforeunload', flushSaves);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden') flushSaves();
+});
+function flushSaves(){
+  if(!API || !TOKEN) return;
+  var base = API.replace(/\/+$/,'');
+  for(var key in timers){
+    if(!timers[key]) continue;
+    clearTimeout(timers[key]);
+    timers[key] = null;
+    if(key !== 'log') continue;
+    var payload = {v:1, log:LOG};
+    try{
+      var blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+      if(navigator.sendBeacon) navigator.sendBeacon(base+'/'+key+'?t='+encodeURIComponent(TOKEN), blob);
+    }catch(e){}
   }
 }
-function alertBox(t, m) {
-  const bg = document.createElement('div'); bg.className = 'mbg';
-  bg.innerHTML = `<div class="modal"><h3>${esc(t)}</h3><div style="color:var(--sub);font-size:14px">${esc(m)}</div><div class="btns" style="margin-top:14px"><button class="pri">확인</button></div></div>`;
-  document.body.appendChild(bg); bg.querySelector('button').onclick = () => bg.remove();
+
+function pullAll(force){
+  if(!API){ setBadge('로컬 저장'); return; }
+  if(dirty && !force){ return; }
+  setBadge('불러오는 중…', 'busy');
+  var base = API.replace(/\/+$/,'');
+  Promise.all([
+    fetch(base+'/log').then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
+  ]).then(function(res){
+    var ok = false;
+    if(res[0] && typeof res[0].log === 'object' && res[0].log){ LOG = res[0].log; logRender(); ok = true; }
+    setBadge(ok ? '불러옴' : '저장된 기록 없음', ok ? 'on' : '');
+  }).catch(function(){ setBadge('연결 실패', 'err'); });
 }
-// 관리자 PIN을 근무관리 서버에서 확인
-function askPin() {
-  const bg = document.createElement('div'); bg.className = 'mbg';
-  bg.innerHTML = `<div class="modal"><h3>사장님 메뉴</h3><div style="color:var(--sub);font-size:14px">근무관리 앱의 관리자 PIN을 입력하세요.</div>
-    <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"><div class="err" id="perr"></div>
-    <div class="btns"><button class="sec" id="pc">취소</button><button class="pri" id="po">확인</button></div></div>`;
-  document.body.appendChild(bg);
-  const inp = bg.querySelector('#pin'); inp.focus();
-  const go = async () => {
-    const pin = inp.value.trim(); if (pin.length < 4) { bg.querySelector('#perr').textContent = '4자리 이상 입력하세요'; return; }
-    bg.querySelector('#perr').textContent = '확인 중...';
-    try {
-      const r = await fetch(CFG.API + '/login', { headers: { 'X-Pin': pin } });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j.role === 'admin') { store.set(true); bg.remove(); renderOwner(); }
-      else bg.querySelector('#perr').textContent = '관리자 PIN이 아닙니다';
-    } catch (e) { bg.querySelector('#perr').textContent = '서버에 연결하지 못했습니다. 인터넷을 확인하세요'; }
-  };
-  bg.querySelector('#po').onclick = go;
-  inp.onkeydown = e => { if (e.key === 'Enter') go(); };
-  bg.querySelector('#pc').onclick = () => bg.remove();
+
+/* ── 분기 호수 추이 선그래프 ── */
+var TREND = ['mega','compose','venti','paik','hio','ten','wooji'];   /* 매머드·하삼동 제외 */
+var trendOn = {}; TREND.forEach(function(k){ trendOn[k] = true; });
+
+function brandByKey(k){ for(var i=0;i<B.length;i++){ if(B[i].k===k) return B[i]; } return null; }
+
+function trendChart(elId, store){
+  var el = document.getElementById(elId);
+  var W=760, H=330, L=44, R=54, T=16, Bm=32;
+  var keys = TREND.filter(function(k){ return trendOn[k]; });
+  var max = 0;
+  keys.forEach(function(k){
+    QTRS.forEach(function(q){ var v=(store[k]||{})[q]; if(v!==undefined && v>max) max=v; });
+  });
+  max = nice(max || 1);
+  var x = function(i){ return QTRS.length>1 ? L + i*(W-L-R)/(QTRS.length-1) : L; };
+  var y = function(v){ return T + (1 - v/max)*(H-T-Bm); };
+
+  var s = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="브랜드별 매장 수 추이">';
+  for(var g=0; g<=4; g++){
+    var gv = max*g/4, gy = y(gv);
+    s += '<line x1="'+L+'" y1="'+gy+'" x2="'+(W-R)+'" y2="'+gy+'" stroke="#EBEDEF"/>'+
+         '<text x="'+(L-8)+'" y="'+(gy+4)+'" text-anchor="end" font-size="11" fill="#6E7681">'+fmt(gv)+'</text>';
+  }
+  QTRS.forEach(function(q,i){
+    s += '<text x="'+x(i)+'" y="'+(H-11)+'" text-anchor="middle" font-size="10.5" fill="#6E7681">'+esc(q)+'</text>';
+  });
+
+  keys.forEach(function(k){
+    var b = brandByKey(k); if(!b) return;
+    var pts = [];
+    QTRS.forEach(function(q,i){
+      var v = (store[k]||{})[q];
+      if(v !== undefined) pts.push([x(i), y(v), v]);
+    });
+    if(!pts.length) return;
+    if(pts.length > 1){
+      s += '<polyline fill="none" stroke="'+b.color+'" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" points="'+
+           pts.map(function(p){ return p[0]+','+p[1]; }).join(' ')+'"/>';
+    }
+    pts.forEach(function(p){
+      s += '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3" fill="#fff" stroke="'+b.color+'" stroke-width="2"/>';
+    });
+    var last = pts[pts.length-1];
+    s += '<text x="'+(W-R+6)+'" y="'+(last[1]+4)+'" font-size="11" font-weight="600" fill="'+b.color+'">'+fmt(last[2])+'</text>';
+  });
+  s += '</svg>';
+  el.innerHTML = s;
 }
-renderOwner();
+
+function trendAll(){
+  trendChart('chTrendJn', QREG);
+  trendChart('chTrend3',  QDATA);
+}
+
+function trendLegend(){
+  document.getElementById('lgTrend').innerHTML = TREND.map(function(k){
+    var b = brandByKey(k); if(!b) return '';
+    return '<button class="lg" data-t="'+k+'" aria-pressed="'+(trendOn[k]?'true':'false')+'">'+
+           '<i style="background:'+b.color+'"></i>'+esc(b.name)+'</button>';
+  }).join('');
+}
+
+document.getElementById('lgTrend').addEventListener('click', function(e){
+  var btn = e.target.closest('.lg'); if(!btn) return;
+  var k = btn.getAttribute('data-t');
+  trendOn[k] = !trendOn[k];
+  btn.setAttribute('aria-pressed', trendOn[k]?'true':'false');
+  trendAll();
+});
+
+overview(); legend(); tables(); drawAll(); logRender(); trendLegend(); trendAll(); qRender(); pullAll();
+})();
 </script>
 </body>
 </html>
