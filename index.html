@@ -1,1038 +1,157 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>우지커피 레시피 찾기</title>
-<meta name="app-version" content="2026-10-09.4">
-<meta http-equiv="Cache-Control" content="no-cache">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#5b3a29">
+<title>우지커피 광양용강점</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b3a29'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle'%3E%E2%98%95%3C/text%3E%3C/svg%3E">
 <style>
-:root{
-  --green:#2E3B21; --green2:#3E4E2C; --butter:#F2E66B; --paper:#FBFAF4; --card:#FFFFFF;
-  --ink:#1E2318; --muted:#6B7160; --line:#E2E0D2; --hot:#C23B22; --ice:#2563A8; --etc:#4F6B2E;
-  --amt-bg:#FFF4A8; --act:#B4531A; --less-bg:#F1F5E9;
-  --fs:22px;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --paper:#151912; --card:#1E2419; --ink:#ECEFE4; --muted:#A3AA96; --line:#323A2A;
-    --hot:#FF7A5C; --ice:#7DB4F0; --etc:#A9C97E; --amt-bg:#4A4416; --act:#F0A060; --less-bg:#26301D;
-  }
-}
-:root[data-theme="dark"]{
-  --paper:#151912; --card:#1E2419; --ink:#ECEFE4; --muted:#A3AA96; --line:#323A2A;
-  --hot:#FF7A5C; --ice:#7DB4F0; --etc:#A9C97E; --amt-bg:#4A4416; --act:#F0A060; --less-bg:#26301D;
-}
-*,*::before,*::after{box-sizing:inherit}
-html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 150px)}
-body{margin:0;background:var(--paper);color:var(--ink);
-  font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
-  font-size:var(--fs);line-height:1.5;-webkit-text-size-adjust:100%}
-header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--green);color:#fff;
-  padding:12px 14px 12px;box-shadow:0 2px 0 var(--butter)}
-.top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.brand{font-weight:700;font-size:17px;letter-spacing:.02em;flex:1;white-space:nowrap}
-.tabs{display:flex;gap:4px}
-.tab{background:transparent;color:#fff;border:1.5px solid #6E7E5A;border-radius:8px;font:inherit;font-size:16px;
-  font-weight:600;padding:6px 10px;min-height:40px}
-.tab.on{background:var(--butter);color:var(--green);border-color:var(--butter)}
-.top{flex-wrap:wrap}
-@media (max-width:440px){.brand{font-size:14px}.tab{padding:5px 7px;font-size:14px;min-height:38px}.sz{min-width:34px;padding:4px 6px;font-size:14px;min-height:38px}.top{gap:4px}.tabs{gap:3px}}
-@media (max-width:430px){.brand b{display:none}}
-.mg-jump{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:4px 0 6px}
-.mbox{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:6px 16px 10px;margin-bottom:10px}
-.mname{font-weight:700;color:var(--etc);font-size:.9em;padding:8px 0 2px}
-.mrow{display:flex;align-items:flex-start;gap:10px;border-top:1px dashed var(--line);padding:8px 0}
-.mrow:first-of-type{border-top:0}
-.mitem{flex:1;font-weight:600;font-size:.85em;line-height:1.4}
-.mspec{display:block;font-weight:400;color:var(--muted);font-size:.8em;margin-top:2px}
-.cyc{flex:none;font-size:15px;font-weight:700;border-radius:6px;padding:3px 8px;background:var(--less-bg);color:var(--etc);text-align:center;max-width:46%}
-.cyc.d{background:var(--hot);color:#fff}.cyc.w{background:var(--ice);color:#fff}.cyc.m{background:var(--etc);color:#fff}
-.sub-t{font-size:15px;color:var(--muted);margin:-6px 2px 10px}
-.vbtn{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink);background:var(--card);
-  border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
-.vbtn:active{border-color:var(--green)}
-.vplay{flex:none;width:46px;height:46px;border-radius:50%;background:var(--hot);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px}
-.vtxt{flex:1;line-height:1.35}
-.vtxt b{display:block;font-size:.9em}
-.vtxt span{font-size:15px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:4px 0 10px}
-.grid.sub{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));padding-top:10px;border-top:2px solid var(--green)}
-.gbtn{border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px;font-weight:600;
-  padding:10px 4px;border-radius:10px;line-height:1.25;word-break:keep-all;min-height:48px}
-.grid.sub .gbtn{font-size:16px;text-align:left;padding:10px 12px}
-.gbtn.on{background:var(--green);color:var(--butter);border-color:var(--green)}
-.detail{background:var(--card);border:2px solid var(--green);border-radius:14px;padding:12px 16px 16px;margin-top:4px}
-.dhead{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin-bottom:8px}
-.dname{font-weight:700;font-size:1.3em;line-height:1.25}
-.back{border:1.5px solid var(--green);background:transparent;color:var(--green);font:inherit;font-size:16px;font-weight:600;
-  border-radius:20px;padding:4px 12px;min-height:36px}
-:root[data-theme="dark"] .back{color:var(--butter);border-color:var(--butter)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .back{color:var(--butter);border-color:var(--butter)}}
-.sec{font-size:1.1em;font-weight:700;color:var(--green);border-bottom:3px solid var(--butter);margin:26px 2px 10px;padding-bottom:4px}
-:root[data-theme="dark"] .sec{color:var(--butter)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sec{color:var(--butter)}}
-.brand span{color:var(--butter)}
-.sz{background:var(--green2);color:#fff;border:0;border-radius:8px;font:inherit;font-size:16px;
-  font-weight:600;padding:6px 12px;min-width:44px;min-height:40px}
-.searchwrap{position:relative}
-#q{width:100%;font:inherit;font-size:30px;font-weight:700;color:var(--butter);background:var(--green2);
-  border:2px solid transparent;border-radius:12px;padding:10px 54px 10px 16px;outline:none;caret-color:var(--butter)}
-#q::placeholder{color:#B9C3A8;font-weight:400;font-size:22px}
-#q:focus{border-color:var(--butter)}
-#q::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
-#clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:#fff;
-  font-size:30px;width:44px;height:44px;line-height:1;display:none}
-.chips{display:flex;gap:6px;overflow-x:auto;padding:12px 14px 4px;scrollbar-width:none}
-.chips::-webkit-scrollbar{display:none}
-.chip{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;
-  font-size:15px;font-weight:600;padding:7px 12px;border-radius:20px;white-space:nowrap}
-.chip.on{background:var(--green);color:var(--butter);border-color:var(--green)}
-main{max-width:860px;margin:0 auto;padding:8px 12px 60px}
-.count{color:var(--muted);font-size:15px;margin:6px 4px 10px}
-.empty{color:var(--muted);font-size:18px;padding:24px 6px;line-height:1.7}
-.empty b{color:var(--ink)}
-.item{background:var(--card);border:1.5px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
-.item.open{border-color:var(--green)}
-.head{width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:12px 16px;
-  display:flex;align-items:baseline;gap:10px;cursor:pointer}
-.name{font-weight:700;font-size:1.15em;line-height:1.3}
-.cat{color:var(--muted);font-size:14px;margin-left:auto;white-space:nowrap}
-.body{display:none;padding:0 16px 16px}
-.item.open .body{display:block}
-.info{font-size:15px;color:var(--muted);margin:-4px 0 8px}
-.notice{font-size:15px;background:var(--amt-bg);color:var(--hot);border-radius:8px;padding:6px 10px;margin:0 0 10px;font-weight:600}
-.row{border-top:1px dashed var(--line);padding:12px 0 6px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
-.tag{font-size:15px;font-weight:700;color:#fff;background:var(--etc);border-radius:6px;padding:3px 8px;
-  align-self:start;margin-top:4px;white-space:nowrap}
-.tag.HOT{background:var(--hot)} .tag.ICE{background:var(--ice)}
-.tag.light{background:var(--green);color:var(--butter);border:1.5px solid var(--butter)}
-.lines{margin:0;padding:0;list-style:none}
-.lines li{padding:2px 0 2px 1.1em;text-indent:-1.1em}
-.lines li::before{content:"+";color:var(--muted);display:inline-block;width:1.1em;text-indent:0;font-weight:700}
-.lines li:first-child::before{content:"";}
-.amt{font-weight:700}
-.act{color:var(--act);font-weight:700}
-.cr{color:var(--hot);font-weight:700}.cb{color:var(--ice);font-weight:700}
-.legend{font-size:14px;color:var(--muted);margin:0 0 8px}.legend .cr,.legend .cb{font-size:14px}
-.warn{color:var(--hot);font-weight:600}
-.less{grid-column:2;background:var(--less-bg);border-radius:8px;padding:6px 10px;font-size:.85em;margin-top:4px}
-.less b{color:var(--etc)}
-.note{font-size:.8em;color:var(--hot);margin-top:8px;font-weight:600}
-.rnote{grid-column:2;margin-top:4px}
-.vtop{display:flex;align-items:flex-start;gap:12px}.vtop-l{flex:1;min-width:0}
-.qr{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;margin:-6px 0 10px;
-  text-decoration:none;color:var(--hot);font-size:14px;font-weight:700;line-height:1}
-.qr svg{width:84px;height:84px;display:block;border:2px solid var(--hot);border-radius:6px;padding:3px;background:#fff}
-.upd{position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:20;
-  display:flex;align-items:center;gap:10px;background:var(--hot);color:#fff;border-radius:14px;padding:12px 14px;
-  font-size:17px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:600px;margin:0 auto}
-.upd[hidden]{display:none}
-.upd span{flex:1}
-.upd button{flex:none;background:#fff;color:var(--hot);border:0;border-radius:10px;font:inherit;font-size:16px;padding:10px 14px;min-height:44px}
-.ver{font-size:13px;color:var(--muted);text-align:center;margin:24px 0 8px}
-.inote{color:var(--hot);font-weight:600;font-size:.8em}
-button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline-offset:2px}
-@media (prefers-reduced-motion:no-preference){.item.open .body{animation:fade .15s ease-out}}
-@keyframes fade{from{opacity:0}to{opacity:1}}
+/* 매장 홈: 위에 매장 이름과 오픈 날짜, 아래에 큰 앱 버튼. 알바용 앱 먼저, 사장님 앱은 PIN 확인 후 */
+:root{--bg:#f5f2ee;--card:#fff;--ink:#231f1c;--sub:#7a726b;--line:#e5dfd8;--brand:#5b3a29;--cream:#efe6dc;--ok:#1d8a4b;--bad:#d32f2f}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent}
+button,input{font:inherit}
+.wrap{max-width:560px;margin:0 auto;padding:max(18px,env(safe-area-inset-top)) 16px 40px}
+header{background:var(--brand);color:#fff;border-radius:20px;padding:20px 20px 18px;position:relative;overflow:hidden}
+header::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;border:18px solid rgba(255,255,255,.07)}
+header .eyebrow{font-size:12px;letter-spacing:2px;opacity:.75}
+header h1{margin:4px 0 10px;font-size:24px;letter-spacing:-.5px}
+header .meta{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+header .pill{background:rgba(255,255,255,.15);border-radius:99px;padding:4px 10px}
+header .pill b{font-variant-numeric:tabular-nums}
+h2{font-size:14px;color:var(--sub);margin:22px 4px 10px;font-weight:600;letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.app{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 14px;min-height:118px;position:relative;transition:transform .08s}
+.app:active{transform:scale(.97)}
+.app .cover{position:absolute;inset:0;border-radius:16px;z-index:0}
+.app .cover:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.app .subs{position:relative;z-index:1}
+.app .ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.app b{font-size:17px}
+.app span{font-size:12.5px;color:var(--sub);line-height:1.4}
+.app.wide{grid-column:1/-1;flex-direction:row;align-items:center;min-height:0;gap:12px}
+.app.wide .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app.off{opacity:.55;border-style:dashed}
+.subs{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.subs a{font-size:12px;text-decoration:none;color:var(--brand);background:var(--cream);border-radius:99px;padding:4px 10px}
+.lock{width:100%;border:1.5px dashed #c8b9aa;background:transparent;color:var(--brand);border-radius:16px;padding:16px;font-size:15px;font-weight:600;cursor:pointer}
+.owner-bar{display:flex;justify-content:space-between;align-items:center;margin:22px 4px 10px}
+.owner-bar h2{margin:0}
+.owner-bar button{border:0;background:none;color:var(--sub);font-size:12px;text-decoration:underline;cursor:pointer}
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal{background:#fff;border-radius:18px;padding:20px;width:100%;max-width:360px}
+.modal h3{margin:0 0 6px}
+.modal input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:20px;letter-spacing:6px;text-align:center;margin:10px 0}
+.modal .btns{display:flex;gap:8px;margin-top:6px}
+.modal .btns button{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;cursor:pointer}
+.modal .btns .pri{background:var(--brand);color:#fff}
+.modal .btns .sec{background:#ece6df}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+.tip{margin-top:26px;font-size:12.5px;color:var(--sub);line-height:1.6;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.tip b{color:var(--ink)}
+@media (max-width:340px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div id="upd" class="upd" role="status" hidden>
-  <span>새 레시피로 업데이트되었어요</span>
-  <button id="updBtn">지금 새로고침</button>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">OOZY COFFEE</div>
+    <h1>우지커피 광양용강점</h1>
+    <div class="meta"><span class="pill" id="today"></span><span class="pill" id="dday"></span><span class="pill" id="hours"></span></div>
+  </header>
+
+  <h2>매장 · 알바</h2>
+  <div class="grid" id="staffApps"></div>
+
+  <div id="ownerArea"></div>
+
+  <div class="tip"><b>휴대폰 바탕화면에 추가하기</b><br>
+    안드로이드 크롬: 오른쪽 위 ⋮ → <b>홈 화면에 추가</b><br>
+    아이폰 사파리: 아래 공유 버튼 → <b>홈 화면에 추가</b><br>
+    각 앱에서 돌아올 때는 휴대폰의 <b>뒤로가기</b>를 누르세요.</div>
 </div>
-<header>
-  <div class="top">
-    <div class="brand"><b>OOZY </b><span>레시피찾기</span></div>
-    <div class="tabs" id="tabs">
-      <button class="tab" data-m="search">초성</button>
-      <button class="tab" data-m="cat">항목</button>
-      <button class="tab" data-m="all">전체</button>
-      <button class="tab" data-m="mgmt">관리</button>
-    </div>
-    <button class="sz" id="dn" aria-label="글씨 작게">가−</button>
-    <button class="sz" id="up" aria-label="글씨 크게">가+</button>
-  </div>
-  <div class="searchwrap" id="sw">
-    <input id="q" type="search" inputmode="search" autocomplete="off" autocorrect="off" spellcheck="false"
-      placeholder="초성 입력 (예: ㅇㅁㄹㅋ)" aria-label="메뉴 검색">
-    <button id="clear" aria-label="지우기">×</button>
-  </div>
-</header>
-<main>
-  <div id="catgrid" class="grid"></div>
-  <div id="subgrid" class="grid sub"></div>
-  <div id="count" class="count"></div>
-  <div id="list"></div>
-</main>
-
-<script id="data" type="text/plain">
-# 아메리카노 | HOT 20oz(온수 375ml) / ICE 24oz(225ml)
-! 디카페인은 디카페인 2shot 추출. 32oz 디카페인은 4shot 투입
-## 아메리터
-- 32oz | 32oz 아이스컵 + 얼음 수북히 + 물 컵윗선(350ml) + ⟦r:3shot⟧
-- 1.1L | 1.1L 보틀 + 물 350ml + 얼음 수북히 + ⟦r:3shot⟧
-## 아메리카노
-- HOT | 20oz 종이컵 + 온수 8부(375ml) + 2shot
-- ICE | 24oz 아이스컵 + 얼음 수북히 + 물 컵윗선(225ml) + 2shot
-## 헤이즐넛 아메리카노
-- HOT | 20oz 종이컵 + 헤이즐넛시럽 3p(38g) + 온수 8부(375ml) + 2shot | 해당 시럽 1.5p 투입
-- ICE | 24oz 아이스컵 + 얼음 평평 + 물 컵윗선(225ml) + (계량컵 : 헤이즐넛시럽 4p(51g) + 2shot) | 해당 시럽 2p 투입
-## 제로 헤이즐넛 아메리카노
-- HOT | 20oz 종이컵 + 제로헤이즐넛시럽 3p + 온수 8부(375ml) + 2shot | 해당 시럽 1.5p만 투입
-- ICE | 24oz 아이스컵 + 얼음 평평 + 물 컵윗선(225ml) + (계량컵 : 제로헤이즐넛시럽 4p + 2shot) | 해당 시럽 2p만 투입
-## 꿀아메리카노
-- HOT | 20oz 종이컵 + 꿀 2래들(50g) + 온수 8부(375ml) + 2shot | 꿀 1래들 투입
-- ICE | 24oz 아이스컵 + 얼음 평평 + 물 컵윗선(225ml) + (계량컵 : 꿀 2래들(50g) + 2shot = 섞어줌) | 꿀 1래들 투입
-## 우지믹스커피
-- 24oz | 24oz 아이스컵 + ⟦r:레시피선 A⟧(우지믹스커피베이스 150ml(165g)) + 얼음 수북히 + 물 가득(150ml) + 섞어줌 | 우지믹스B 125ml + 물 200ml 투입
-- 32oz | 32oz 아이스컵 + (우지믹스커피베이스 250ml(290g) + 물 250ml = ⟦r:섞어줌⟧) + 얼음 평평 | 우지믹스B 225ml + 물 275ml 투입
-- 1.1L | 1.1L 보틀 + (우지믹스커피베이스 250ml(290g) + 물 250ml = ⟦r:섞어줌⟧) + 얼음 가득 | 우지믹스B 225ml + 물 275ml 투입
-## 레모니카노
-- ICE | 24oz 아이스컵 + (레몬슬라이스 2ea + 레몬퓨레 1p(35g) + 꿀 1t = 눌러줌) + 물 200ml + 얼음 평평 + ⟦r:리스트레또 2shot⟧ | 꿀 1t만 제거
-## 커피오렌망
-- ICE | ⟦r:10oz 아이스컵⟧ + (오렌지주스 120g + 슈가시럽 4p = ⟦r:섞어줌⟧) + ⟦r:얼음 8알⟧ + 컵 롤링 + 에스프레소베이스 60g + ⟦b:오렌지슬라이스 반쪽 2ea⟧ + ⟦b:민트잎 1ea⟧ | 슈가시럽 2p만 투입
-* 제공 시 층 분리 필수
-
-# 콜드브루 | HOT 20oz / ICE 20oz
-! 디카페인은 디카페인 콜드브루 투입
-## 콜드브루커피
-- HOT | 20oz 종이컵 + 콜드브루원액 4래들(75ml(70g)) + 온수 8부(375ml)
-- ICE | 20oz 아이스컵 + 얼음 수북히 + 물 O윗선(200ml) + 콜드브루원액 4래들(75ml(70g))
-## 콜드브루라떼
-- HOT | 20oz 종이컵 + 콜드브루원액 4래들(75ml) + 스팀우유(스팀전 225ml)
-- ICE | 20oz 아이스컵 + 얼음 수북히 + 우유 O윗선(200ml) + 콜드브루원액 4래들(75ml)
-## 바닐라크림 콜드브루
-- ICE | 20oz 아이스컵 + 콜드브루원액 컵아랫선(75ml) + 바닐라시럽 3p + 컵 롤링 + 얼음 수북히 + (큰 계량컵 : 우유 150ml + 달럽크림 3래들 = ⟦r:크림 덩어리 없어지게 충분히 섞어주기⟧) | 바닐라시럽 1.5p + 달럽 용량 그대로 투입
-## 라이트 바닐라크림 콜드브루
-- ICE | 20oz 아이스컵 + 콜드브루원액 컵아랫선(75ml) + 제로바닐라시럽 3p + 컵 롤링(섞어주기) + 얼음 수북히 + (계량컵 : 우유 150ml + 달럽 3래들 = ⟦r:크림 덩어리 없어지게 충분히 섞어주기⟧) | 해당 시럽 1.5p만 투입
-## 리얼말차 콜드브루
-- ICE | 20oz 아이스컵 + 녹차베이스 컵아랫선(75ml) + 얼음 수북히 + 우유 컵윗선(175ml) + 콜드브루원액 4래들(75ml) | 녹차베이스 50ml + 우유 200ml 투입
-## 연유 크리미슈페너
-- ICE | 20oz 아이스컵 + (콜드브루원액 컵아랫선(75ml) + 연유 2래들 + 우유 150ml = ⟦r:섞어줌⟧) + ⟦r:얼음 컵윗선⟧ + 바닐라크림 70g + ⟦b:분쇄원두 기울여서 3톡⟧ | 연유 1래들만 투입
-## 오렌지 크리미슈페너
-- ICE | ⟦r:10oz 아이스컵⟧ + (오렌지주스 30g + 슈가시럽 2p = ⟦r:컵 롤링⟧) + ⟦r:얼음 10알⟧ + 우유 30g + 콜드브루 50g + 바닐라크림 30g + ⟦b:오렌지슬라이스 반쪽 1ea⟧ + ⟦b:분쇄원두 소량 톡톡⟧ | 슈가시럽 1p만 투입
-
-# 라떼 | HOT 20oz / ICE 20oz / 우유 투입량 200ml
-! 디카페인은 디카페인 2shot 추출. 32oz 디카페인은 4shot 투입
-## 딥 카페라떼
-- HOT | 20oz 종이컵 + 2shot + ⟦r:스팀 딥베이스(스팀전 250ml)⟧
-- ICE | 20oz 아이스컵 + 얼음 수북히 + 딥베이스 O윗선(200ml) + 2shot
-- 32oz | ⟦r:32oz 아이스컵 / 1.1L 보틀⟧ + 얼음 평평 + 딥베이스 375ml/g + ⟦r:3shot⟧
-* [HOT] 딥베이스 믹싱피처 10회 혼합 후 제조
-* [ICE] 딥베이스 믹싱피처 10회 혼합 후 제조
-## 카페라떼
-- HOT | 20oz 종이컵 + 2shot + 스팀우유(스팀전 225ml)
-- ICE | 20oz 아이스컵 + 얼음 수북히 + 우유 O윗선(200ml) + 2shot
-- 32oz | ⟦r:32oz 아이스컵 / 1.1L 보틀⟧ + 얼음 평평 + 우유 350ml/g + ⟦r:3shot⟧
-## 카푸치노
-- HOT | 20oz 종이컵 + 2shot + 스팀우유(스팀전 225ml) + ⟦b:시나몬 기울여서 3톡⟧
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유폼(⟦r:냉장우유 175ml⟧ = 펌핑 10-12회) + 2shot + ⟦b:시나몬 기울여서 3톡⟧
-* [HOT] 일반 라떼보다 거품 풍성하게 스팀
-## 시나몬슈가 카푸치노
-- HOT | 20oz 종이컵 + 2shot + 슈가시럽 2p + 시나몬 기울여서 3톡 + 스팀우유(스팀전 225ml) + ⟦b:(시나몬 + 황설탕 = 모두 윗면전체)⟧ | 슈가시럽 1p만 제거
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유폼(⟦r:냉장우유 175ml⟧ = 펌핑 10-12회) + (계량컵 : 슈가시럽 2p + 시나몬 기울여서 3톡 + 2shot) + ⟦b:(시나몬 + 황설탕 = 모두 윗면전체)⟧ | 슈가시럽 1p만 제거
-* [HOT] 일반 라떼보다 거품 풍성하게 스팀
-## 바닐라라떼
-- HOT | 20oz 종이컵 + 바닐라시럽 2p + 바닐라파우더 1래들 + 2shot + 스팀우유(스팀전 225ml) | 바닐라시럽 1p + 파우더 1래들 투입
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유 O아랫선(200ml) + (계량컵 : 바닐라시럽 2p + 바닐라파우더 1래들 + 2shot = 섞어줌) | 바닐라시럽 1p + 파우더 1래들 투입
-- 32oz | ⟦r:32oz 아이스컵 / 1.1L 보틀⟧ + 얼음 평평 + 우유 350ml/g + (계량컵 : 바닐라시럽 4p + ⟦r:바닐라파우더 1래들 + 1t + 3shot⟧ = 섞어줌) | 바닐라시럽 2p + 파우더 1래들 + 1t 투입
-## 라이트 바닐라라떼
-- HOT | 20oz 종이컵 + 제로바닐라시럽 3p + 2shot + 스팀우유(스팀전 225ml) | 시럽 1.5p만 투입
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유 O아랫선(200ml) + (계량컵 : 제로바닐라시럽 4p + 2shot = 섞어줌) | 해당 시럽 2p만 투입
-## 헤이즐넛라떼
-- HOT | 20oz 종이컵 + 헤이즐넛시럽 3p + 2shot + 스팀우유(스팀전 225ml) | 해당 시럽 1.5p 투입
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유 O아랫선(200ml) + (계량컵 : 헤이즐넛시럽 4p + 2shot = 섞어줌) | 해당 시럽 2p 투입
-## 꿀카페라떼
-- HOT | 20oz 종이컵 + 꿀 2래들 + 2shot + 스팀우유(스팀전 225ml) | 꿀 1래들 투입
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유 O아랫선(200ml) + (계량컵 : 꿀 2래들 + 2shot = 섞어줌) | 꿀 1래들 투입
-## 카라멜 마끼아또
-- HOT | 20oz 종이컵 + 바닐라시럽 2p + 카라멜소스 1p + 스팀우유(스팀전 225ml) + ⟦r:2shot⟧ + ⟦b:카라멜드리즐 지그재그⟧ | 바닐라시럽 1p + 카라멜소스 0.5p 투입
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유 O아랫선(200ml) + (계량컵 : 바닐라시럽 2p + 카라멜소스 1p + 2shot = 섞어줌) + ⟦b:카라멜드리즐 컵벽 2바퀴⟧ | 바닐라시럽 1p + 카라멜소스 0.5p 투입
-## 고구마 카페라떼
-- HOT | 20oz 종이컵 + 고구마퓨레 80g + 슈가시럽 2p + 스팀우유(스팀전 225ml) + 2shot | 슈가시럽 2p만 제거
-- ICE | 20oz 아이스컵 + ⟦r:얼음 컵윗선⟧ + (블렌더 : 우유 225ml + 슈가시럽 2p + 고구마퓨레 80g) + 2shot | 슈가시럽 2p만 제거
-* [HOT] 최대한 뜨겁게
-## 연유라떼
-- HOT | 20oz 종이컵 + 연유 2래들 + 슈가시럽 1p + 2shot + 스팀우유(스팀전 225ml) | 연유 1래들만 제거
-- ICE | 20oz 아이스컵 + 얼음 평평 + 우유 O아랫선(200ml) + (계량컵 : 연유 2래들 + 슈가시럽 1p + 2shot = 섞어줌) | 연유 1래들만 제거
-## 연유큐브라떼
-- ICE | 20oz 아이스컵 + ⟦r:얼음 컵윗선⟧ + 우유 O아랫선(200ml) + (계량컵 : 연유 2래들 + 슈가시럽 1p + 2shot = 섞어줌) + 큐브 1ea | 슈가시럽 1p만 제거
-## 아이스크림 라떼
-- ICE | 20oz 아이스컵 + ⟦r:얼음 컵윗선⟧ + 아이스크림 3바퀴 + (계량컵 : 우유 150ml + 2shot)
-## 딥 바닐라 더블샷
-- ICE | ⟦r:10oz 아이스컵⟧ + (계량컵 : 바닐라시럽 2p + 바닐라파우더 1t + 2shot = 섞어줌) + 딥베이스 70g + 얼음 평평 | 바닐라시럽 1p + 바닐라파우더 1t 투입
-## 딥 헤이즐넛 더블샷
-- ICE | ⟦r:10oz 아이스컵⟧ + (계량컵 : 헤이즐넛시럽 2p + 바닐라파우더 1t + 2shot = 섞어줌) + 딥베이스 70g + 얼음 평평 | 헤이즐넛시럽 1p + 바닐라파우더 1t 투입
-## 딥 플랫화이트
-- ICE | ⟦r:10oz 아이스컵⟧ + 딥베이스 125ml/g + 얼음 평평 + 에스프레소 2shot
-* 포터필터 스파웃 밑에 컵을 두고 에스프레소 추출
-## 프루티슈페너
-- ICE | ⟦r:10oz 아이스컵⟧ + 우지플럼베이스 1.5래들(33g) + 우유 100ml/g + 얼음 12알 + 에스프레소 2shot + 바닐라크림 가득(20g) + ⟦b:체리파우더 톡톡⟧ | 우지플럼베이스 0.5래들만 투입
-
-# 시그니처 라떼 | HOT 20oz / ICE 20oz
-! 디카페인은 디카페인 2shot 추출. 32oz 디카페인은 4shot 투입
-## 송파라떼
-- HOT | 20oz 종이컵 + 우지곡물베이스 40g + 2shot + [스팀우유(우유 175ml/g + 오트밀크 3래들)]
-- ICE | 20oz 아이스컵 + 얼음 수북히 + 우유 150ml/g + 오트밀크 3래들 + (계량컵 : 우지곡물베이스 40g + 2shot = ⟦r:섞어줌⟧)
-## 깻페라떼 20oz
-- HOT | 20oz 종이컵 + (깻잎 4ea + 슈가시럽 3p = ⟦r:15회 눌러줌⟧) + 스팀우유(225ml/g) + ⟦b:깻잎 1ea⟧ + 2shot
-- ICE | 20oz 아이스컵 + (깻잎 4ea + 슈가시럽 3p + 우유 200ml/g = ⟦r:15회 눌러줌⟧) + 얼음 수북히 + ⟦b:깻잎 1ea⟧ + 2shot
-## 깻페라떼 10oz
-- ICE | ⟦r:10oz 아이스컵⟧ + (깻잎 3ea + 슈가시럽 2p + 우유 150ml/g = ⟦r:10회 눌러줌⟧) + 얼음 수북히 + ⟦b:깻잎 1ea⟧ + ⟦r:리스트레또 2shot⟧
-## 피넛크림라떼
-- ICE | ⟦r:10oz 아이스컵⟧ + 우유 120g + 우유큐브 2ea + 컵 롤링 + 피넛크림 50g⟦r:(20cm 높이에서 떨어트림)⟧ + ⟦r:리스트레또 2shot⟧ ⟦n:(스파웃을 음료표면에 붙여서 추출하며 컵을 돌려 샷이 벽면으로 흘러내리게 추출)⟧ + ⟦b:(바닐라파우더 0.3t) = 윗면 전체 골고루 토핑⟧ | 우유 150g + 피넛크림 25g 투입
-
-# 카페모카 | HOT 20oz / ICE 20oz
-## 카페모카
-- HOT | 20oz 종이컵 + 초코파우더 2래들 + 2shot + 스팀우유(스팀전 200ml) + ⟦b:휘핑⟧ + ⟦b:초코드리즐⟧ | 초코파우더 1래들 투입
-- ICE | 20oz 아이스컵 + 초코베이스 컵아랫선(75ml) + 얼음 평평 + 우유 OO아랫선(125ml) + 2shot + 섞어줌 + ⟦b:휘핑⟧ + ⟦b:초코드리즐⟧ | 초코베이스 50ml + 우유 150ml 투입
-## 오모테산도 커피
-- ICE | 20oz 아이스컵 + 벽면 초코드리즐 10회 + ⟦r:얼음 O윗선⟧ + (블렌더 : 우유 175ml/g + 에스프레소베이스 90g + 연유 1래들 + 슈가시럽 2p) + ⟦b:코코아 파우더 윗면 전체⟧
-* 반드시 얼음 먼저 투입 후 액상 투입
-
-# 가을시즌 | 2026 가을시즌메뉴
-! 디카페인은 디카페인 2shot 추출. 32oz 디카페인은 4shot 투입
-## 딥 흑임자라떼
-- HOT | 20oz 종이컵 + 흑임자파우더 4래들 + 소금베이스 ⟦r:0.5t(3g)⟧ + 스팀 딥베이스(스팀전 250ml/g)
-- ICE | 20oz 아이스컵 + 얼음 평평 + [블렌더 : 딥베이스 250ml/g + 흑임자파우더 4래들 + 소금베이스 ⟦r:0.5t(3g)⟧]
-## 흑임자 모닝커피
-- HOT | 20oz 종이컵 + [흑임자파우더 2래들 + 슈가시럽 1p + 소금베이스 ⟦r:0.5t(3g)⟧ + 2shot = 섞어줌] + 스팀 오트밀크(스팀전 225ml/g) | 슈가시럽 1p 제거
-- ICE | 20oz 아이스컵 + [오트밀크 200ml + 흑임자파우더 2래들 + 슈가시럽 1p + 소금베이스 ⟦r:0.5t(3g)⟧ = 섞어줌] + 얼음 수북히 + 2shot | 슈가시럽 1p 제거
-## 흑임자 밀크티
-- ICE | 20oz 아이스컵 + 얼음 평평 + (블렌더 : 우유 250ml/g + 흑임자파우더 3래들 + 홍차파우더 1래들)
-## 솔티드 브라운버터 라떼
-> https://m.site.naver.com/2e4NK
-- ICE | 20oz 아이스컵 + 우유 200ml/g + 얼음 컵윗선 + [(계량컵 : 버터스카치파우더 1래들 + 카라멜시럽 1p + 소금베이스 ⟦r:1t(5g)⟧ + 2shot = 섞어줌) + (바닐라크림 70g = 섞어줌)] + ⟦b:코코아파우더 3톡⟧
-## 블루베리 팬케이크 라떼
-> https://m.site.naver.com/2e4O4
-- ICE | 20oz 아이스컵 + (블루베리베이스 40g = 벽면 굴려줌) + 딥베이스 200ml/g + 얼음 컵윗선 + [(계량컵 : 버터스카치파우더 1래들 + 2shot = 섞어줌) + (바닐라크림 50g = 섞어줌)]
-
-# 과일라떼 | 논커피 · HOT 20oz / ICE 20oz
-! 바스푼으로 혼합 후 제공
-## 리얼 블루베리라떼
-- ICE | 20oz 아이스컵 + 블루베리베이스 100g + 우유 200ml + ⟦r:바스푼으로 혼합⟧ + 얼음 평평 + ⟦b:민트잎 1ea⟧ | 블루베리베이스 75g + 우유 250ml 투입
-## 리얼딸기라떼
-- 20oz | 20oz 아이스컵 + 딸기베이스 ETC 아랫선(6래들/120g) + 얼음 평평 + 우유 가득(200ml) + ⟦b:민트잎 1ea⟧ | 딸기베이스 100g + 우유 225ml 투입
-- 32oz | 32oz 아이스컵 + (딸기베이스 200g + 우유 300ml = ⟦r:섞어줌⟧) + 얼음 평평 + ⟦b:민트잎 1ea⟧ | 딸기베이스 180g + 우유 325ml 투입
-- 1.1L | 1.1L 보틀 + (딸기베이스 200g + 우유 300ml = ⟦r:섞어줌⟧) + 얼음 완성선까지 | 딸기베이스 180g + 우유 325ml 투입
-
-# 논커피 블렌더X | HOT 20oz / ICE 20oz
-## 초코라떼
-- HOT | 20oz 종이컵 + (온수 50ml + 초코파우더 4래들 = ⟦r:섞어줌⟧) + 스팀우유(스팀전 225ml) | 초코파우더 2래들 투입
-- 20oz | 20oz 아이스컵 + 초코베이스 ETC 중간선(125ml) + 얼음 평평 + 우유 가득(200ml) + ⟦r:섞어줌⟧ | 초코베이스 75ml 투입
-- 32oz | 32oz 아이스컵 + (초코베이스 215g(200ml) + 우유 300ml = ⟦r:섞어줌⟧) + 얼음 평평 | 초코베이스 150ml + 우유 325ml 투입
-- 1.1L | 1.1L 보틀 + (초코베이스 215g(200ml) + 우유 300ml = ⟦r:섞어줌⟧) + 얼음 완성선까지 | 초코베이스 150ml + 우유 325ml 투입
-## 리얼초코라떼
-- HOT | 20oz 종이컵 + (온수 50ml + 초코파우더 4래들 = ⟦r:섞어줌⟧) + 스팀우유(스팀전 200ml) + ⟦b:휘핑⟧ + ⟦b:초코드리즐⟧ + ⟦b:다크블라썸 1래들⟧ | 초코파우더 2래들 투입
-- ICE | 20oz 아이스컵 + 초코베이스 ETC 중간선(125ml) + 얼음 평평 + 우유 컵윗선(125ml) + ⟦r:섞어줌⟧ + ⟦b:휘핑⟧ + ⟦b:초코드리즐⟧ + ⟦b:다크블라썸 1래들⟧ | 초코베이스 75ml 투입
-## 녹차라떼
-- HOT | 20oz 종이컵 + 온수 50ml + 녹차파우더 2.5래들 + 스팀우유(스팀전 225ml) | 녹차파우더 2래들 투입
-- ICE | 20oz 아이스컵 + 녹차베이스 컵아랫선(75ml) + 얼음 평평 + 우유 가득(200ml) + ⟦r:섞어줌⟧ | 녹차베이스 50ml 투입
-## 우지 딥 말차라떼
-- HOT | 20oz 종이컵 + [(계량컵 : 온수 30g + 말차파우더 ⟦r:3t⟧ = ⟦r:섞어줌⟧) + 녹차베이스 40g + 슈가시럽 2p = ⟦r:섞어줌⟧] + 스팀 딥베이스 225ml/g | 슈가시럽 2p만 제거
-- ICE | 20oz 아이스컵 + 얼음 수북히 + 딥베이스 O윗선(200ml/g) + [(계량컵 : 온수 30g + 말차파우더 ⟦r:3t⟧ = ⟦r:섞어줌⟧) + 녹차베이스 30g + 슈가시럽 2p = ⟦r:섞어줌⟧] | 슈가시럽 2p만 제거
-## 우지 딥 말차베리 라떼
-- ICE | 20oz 아이스컵 + 딸기베이스 100g + 얼음 평평 + 딥베이스 150ml/g + (계량컵 : 온수 25ml/g + 말차파우더 1t + 녹차베이스 30g = ⟦r:섞어줌⟧) + ⟦b:냉동딸기다이스 4래들⟧
-
-# 논커피 블렌더O | HOT 20oz / ICE 20oz
-## 얼그레이 초코라떼
-- HOT | 20oz 종이컵 + 온수 50ml + 홍차파우더 1래들 + 초코소스 1.5p + 스팀우유(스팀전 225ml) | 홍차파우더 0.5래들 + 초코소스 1p 투입
-- ICE | 20oz 아이스컵 + 얼음 평평 + (블렌더 : 우유 250ml + 홍차파우더 1래들 + 초코소스 1.5p) | 홍차파우더 0.5래들 + 초코소스 1p 투입
-## 곡물라떼
-- HOT | 20oz 종이컵 + (온수 50ml + 오곡파우더 4래들 + 슈가시럽 1p + ⟦r:스팀우유 1/2 넣고 혼합⟧) + 스팀우유 1/2(스팀전 225ml) | 슈가시럽 1p만 제거
-- ICE | 20oz 아이스컵 + 얼음 평평 + (블렌더 : 우유 250ml + 오곡파우더 4래들 + 슈가시럽 1p) | 슈가시럽 1p만 제거
-## 밀크티
-- HOT | 20oz 종이컵 + (온수 50ml + 홍차파우더 2래들 + 연유 1래들) + 스팀우유(스팀전 225ml) | 홍차파우더 1.5래들 + 연유 0.5래들 투입
-- ICE | 20oz 아이스컵 + 얼음 평평 + (블렌더 : 우유 250ml + 홍차파우더 2래들 + 연유 1래들) | 홍차파우더 1.5래들 + 연유 0.5래들 투입
-## 고구마라떼
-- HOT | 20oz 종이컵 + (고구마퓨레 100g + 슈가시럽 1p) + 스팀우유(⟦r:스팀전 250ml⟧) | 슈가시럽 1p만 제거
-- ICE | 20oz 아이스컵 + 얼음 평평 + (블렌더 : 우유 250ml + 고구마퓨레 100g + 슈가시럽 1p) | 슈가시럽 1p만 제거
-* [HOT] 최대한 뜨겁게
-## 토피넛라떼
-- HOT | 20oz 종이컵 + (온수 50ml + 슈가시럽 1p + 토피넛파우더 4래들) + 스팀우유(스팀전 225ml) + ⟦b:아몬드슬라이스 0.5래들⟧ | 슈가시럽 1p만 제거
-- ICE | 20oz 아이스컵 + 얼음 평평 + (블렌더 : 우유 250ml + 슈가시럽 1p + 토피넛파우더 4래들) + ⟦b:아몬드슬라이스 0.5래들⟧ | 슈가시럽 1p만 제거
-## 율무차
-- HOT | 20oz 종이컵 + (온수 50ml + 율무파우더 5래들 + 슈가시럽 2p + 소금베이스 ⟦r:1t⟧) + 스팀우유(스팀전 225ml) + ⟦b:아몬드분태 1t⟧ | 슈가시럽 2p만 제거
-- ICE | 20oz 아이스컵 + (블렌더 ⟦r:1번⟧ : 우유 250ml + 율무파우더 5래들 + 슈가시럽 2p + 소금베이스 ⟦r:1t⟧ + ⟦r:얼음 컵윗선⟧) + ⟦b:아몬드분태 1t⟧ | 슈가시럽 2p만 제거
-* [ICE] 블렌더에 얼음 넣고 갈기
-## 할미숫가루
-- 20oz | 20oz 아이스컵 + (블렌더 ⟦r:1번⟧ : 물 200g + 오곡파우더 6래들 + 설탕베이스 60g(50ml)) + 얼음 수북히 + ⟦r:섞어줌⟧ | 설탕베이스 30g(25ml)만 투입
-- 32oz | 32oz 아이스컵 + (블렌더 ⟦r:1번⟧ : 물 400g + 오곡파우더 11래들 + 설탕베이스 120g(100ml)) + 얼음 수북히 + ⟦r:섞어줌⟧ | 설탕베이스 60g(50ml)만 투입
-- 1.1L | 1.1L 보틀 + (블렌더 ⟦r:1번⟧ : 물 400g + 오곡파우더 11래들 + 설탕베이스 120g(100ml)) + 얼음 수북히 + ⟦r:섞어줌⟧ | 설탕베이스 60g(50ml)만 투입
-
-# 허브티·아이스티 | HOT 20oz / ICE 24oz
-## 허브티 (페퍼민트·캐모마일·히비스커스·얼그레이)
-- HOT | 20oz 종이컵 + 티백 1ea + 온수 9부(425ml)
-- ICE | 24oz 아이스컵 + 얼음 수북히 + (계량컵 : 온수 200ml + ⟦r:티백 2ea⟧ = 3분 우리기) + 섞어줌
-* [ICE] 얼그레이 티는 1분만 우리기. 양이 모자라면 얼음으로 채우기
-## 아이스티 (복숭아·석류)
-- 24oz | 24oz 아이스컵 + 해당 아이스티 베이스 ⟦r:컵아랫선(120ml)⟧ + 얼음 평평 + 물 가득(200ml) + 섞어줌 + ⟦b:민트잎 1ea⟧ | 아이스티B 100ml + 물 225ml 투입
-- 32oz | 32oz 아이스컵 + (해당 아이스티 베이스 200ml + 물 300ml = ⟦r:섞어줌⟧) + 얼음 평평 + ⟦b:민트잎 1ea⟧ | 아이스티B 175ml + 물 325ml 투입
-- 1.1L | 1.1L 보틀 + (해당 아이스티 베이스 200ml + 물 300ml = ⟦r:섞어줌⟧) + 얼음 완성선까지 | 아이스티B 175ml + 물 325ml 투입
-* [24oz] 1잔 분량 : 석류파우더 4래들 + 온수 75ml
-* [32oz] 1잔 분량 : 석류파우더 7래들 + 온수 100ml
-* [1.1L] 1잔 분량 : 석류파우더 7래들 + 온수 100ml
-## 제로 복숭아아이스티
-- ICE | 24oz 아이스컵 + (계량컵 : 제로복숭아아이스티파우더 50g + 온수 75g = 섞어줌) + 물 200ml + 얼음 수북히 + ⟦b:민트잎 1ea⟧ | 아이스티파우더 30g + 온수 75g 투입
-
-# 과일티 | HOT 20oz / ICE 24oz
-## 유자차 레몬차 청귤차
-- HOT | 20oz 종이컵 + 해당 과일청 4래들 + 온수 8부(350ml) | 해당 과일청 3래들만 투입
-- ICE | 24oz 아이스컵 + (해당 과일청 5래들 + 온수 50ml = 섞어줌) + 얼음 평평 + 물 가득(200ml) + 섞어줌 + ⟦b:민트잎 1ea⟧ | 해당 과일청 4래들만 투입
-* [HOT] 레몬차 : 레몬슬라이스 추가 토핑
-* [ICE] 레몬차 : 레몬슬라이스 추가 토핑
-## 자몽차 생강차
-- HOT | 20oz 종이컵 + (해당 과일청 3래들 + 슈가시럽 1p + 온수 8부(350ml)) | 해당 과일청 2래들 + 슈가시럽 1p 투입
-- ICE | 24oz 아이스컵 + (해당 과일청 3래들 + 슈가시럽 2p + 온수 50ml = 섞어줌) + 얼음 평평 + 물 가득(200ml) + 섞어줌 + ⟦b:민트잎 1ea⟧ | 해당 과일청 2래들 + 슈가시럽 1p 투입
-* [HOT] 자몽차 : 자몽슬라이스 추가 토핑
-* [ICE] 자몽차 : 자몽슬라이스 추가 토핑
-## 레몬생강차
-- HOT | 20oz 종이컵 + (레몬청 3래들 + 생강청 1래들 + 슈가시럽 1p + 온수 8부(350ml)) + ⟦b:레몬슬라이스 1ea⟧ | 레몬청 2래들 + 생강청 0.5래들 + 슈가시럽 1p 투입
-- ICE | 24oz 아이스컵 + (레몬청 3래들 + 생강청 1래들 + 슈가시럽 2p + 온수 50ml = 섞어줌) + 얼음 평평 + 물 가득(200ml) + 섞어줌 + ⟦b:레몬슬라이스 1ea⟧ + ⟦b:민트잎 1ea⟧ | 레몬청 2래들 + 생강청 0.5래들 + 슈가시럽 1p 투입
-## 쿨민트실론티 (모히또레몬홍차)
-- HOT | 20oz 종이컵 + 레몬청 2래들 + 복숭아아이스티B 1래들 + 모히또시럽 2p + 온수 8부(350ml) + 얼그레이티백 1ea + ⟦r:(티백 30초 우린 후 제거)⟧ + ⟦b:레몬슬라이스 1ea⟧ | 레몬청 1래들 + 복숭아B 0.5래들 + 모히또시럽 1p 투입
-- ICE | 24oz 아이스컵 + (레몬청 2래들 + 복숭아아이스티B 1래들 + 모히또시럽 2p = 섞어줌) + (계량컵 : 온수 200ml + 얼그레이티백 1ea ⟦r:= 30초 우린 후 제거⟧) + 얼음 평평 + 섞어줌 + ⟦b:레몬슬라이스 1ea⟧ + ⟦b:민트잎 1ea⟧ | 레몬청 1래들 + 복숭아B 0.5래들 + 모히또시럽 1p + 온수 225ml 투입
-## 자몽허니 블랙티
-- HOT | 20oz 종이컵 + (유자청 1t + 자몽청 3래들 + 온수 100ml = ⟦r:섞어줌⟧) + (계량컵 : 온수 200ml + 얼그레이티백 1ea = ⟦r:1분 우린 후 제거⟧)
-- ICE | 24oz 아이스컵 + (유자청 1래들 + 자몽청 3래들 + 물 100ml/g = ⟦r:섞어줌⟧) + 얼음 수북히 + (계량컵 : 온수 100ml + 얼그레이티백 1ea = ⟦r:1분 우린 후 제거⟧)
-## 망고오렌망
-- ICE | ⟦r:20oz 아이스컵⟧ + 자몽시럽 1p + 망고오렌지베이스 150ml + ⟦r:얼음 수북히⟧ + [(계량컵 : 온수 100ml + 얼그레이티백 1ea = ⟦r:1분 우린 후 제거⟧) + 얼음 5알 + 컵 롤링] + ⟦b:오렌지슬라이스 반쪽 3ea(벽면 2ea + 상단 1ea)⟧ + ⟦b:민트잎 1ea⟧ | 망고오렌지B 125ml + (온수 125ml + 얼그레이티백 1ea) 투입
-## 우지말차 유자티
-- ICE | 24oz 아이스컵 + (유자청 3래들 + 슈가시럽 2p + 물 150ml/g = ⟦r:섞어줌⟧) + 얼음 수북히 + (계량컵 : 온수 30g + 말차파우더 2t = ⟦r:섞어줌⟧)
-
-# 에이드 | ONLY ICE / 24oz
-! 탄산 증발 방지 — 사이다·콜라 선투입 금지, 바스푼으로 4~5회만 혼합
-## 레몬에이드
-- ICE | 24oz 아이스컵 + (레몬퓨레 1.5p + 슈가시럽 1p + 얼음 평평 + 사이다 250ml = 섞어줌) + ⟦b:레몬슬라이스 1ea⟧ + ⟦b:민트잎 1ea⟧ | 레몬퓨레 1.5p만 투입
-## 청포도에이드
-- ICE | 24oz 아이스컵 + (청포도퓨레 2p + 라임시럽 1p + 얼음 평평 + 사이다 250ml = 섞어줌) + ⟦b:민트잎 1ea⟧ | 청포도퓨레 1p + 라임시럽 1p 투입
-## 자몽에이드
-- ICE | 24oz 아이스컵 + (자몽퓨레 1p + 자몽시럽 1p + 슈가시럽 1p + 자몽슬라이스 ⟦r:1ea = 눌러줌⟧) + 얼음 평평 + 사이다 250ml = 섞어줌 + ⟦b:민트잎 1ea⟧ | 자몽퓨레 1p + 자몽시럽 1p 투입
-## 쿨라임에이드 (라임모히또)
-- ICE | 24oz 아이스컵 + (라임시럽 3p + 모히또시럽 4p + 슈가시럽 1p + 라임슬라이스 ⟦r:4ea = 눌러줌⟧) + 얼음 평평 + 사이다 250ml = 섞어줌 + ⟦b:민트잎 1ea⟧ | 라임시럽 3p + 모히또시럽 3p 투입
-## 체리콕
-- ICE | 24oz 아이스컵 + 체리베이스 120g(계량컵 100ml) + 얼음 평평 + 콜라 가득(1캔) + ⟦b:민트잎 1ea⟧ | 체리베이스 75ml만 투입
-
-# 주스 | ONLY ICE / 20oz
-## 리얼홍시주스
-- ICE | 20oz 아이스컵 + (블렌더 ⟦r:6번⟧ : 물 250ml + 냉동홍시 180g + 황설탕 2래들 + 프루믹스파우더 ⟦r:1t⟧) + 얼음 가득 + ⟦b:냉동홍시 1/6ea⟧ + ⟦b:민트잎 1ea⟧ | 황설탕 1래들만 투입
-
-# 스무디 | 얼음 평평 270g / 얼음 수북히 330g
-! 항상 블렌더 먼저 제조
-## 플레인 요거트스무디
-- ICE | 20oz 아이스컵 + (블렌더 : 우유 200ml + 요거트파우더 5래들 + 슈가시럽 1p + 얼음 수북히) | 슈가시럽 1p만 제거
-## 딸기 요거트스무디
-- ICE | 20oz 아이스컵 + (블렌더 : 우유 150ml + 요거트파우더 4래들 + 딸기퓨레 1.5p + 얼음 수북히) | 요거트파우더 3래들 + 딸기퓨레 1.5p 투입
-## 망고 요거트스무디
-- ICE | 20oz 아이스컵 + (블렌더 : 우유 150ml + 요거트파우더 4래들 + 망고퓨레 1.5p + 얼음 수북히) | 요거트파우더 3래들 + 망고퓨레 1.5p 투입
-## 블루베리 요거트스무디
-- ICE | 20oz 아이스컵 + (블렌더 : 우유 150ml + 요거트파우더 4래들 + 블루베리베이스 50g + 얼음 수북히) | 요거트파우더 3래들 + 블루베리 2래들 투입
-## 스크류 딸기스무디
-- ICE | 20oz 아이스컵 + 딸기베이스 컵아랫선(75g) + 컵 롤링 + [블렌더 : 물 100ml + 사과청 3래들 + 슈가시럽 3p + ⟦r:얼음 평평 + 8알⟧] + ⟦b:딸기베이스 1래들⟧ + ⟦b:민트잎 1ea⟧ | 딸기베이스 50g + 슈가시럽 1.5p 투입
-## 홍시스무디
-- ICE | 20oz 아이스컵 + (블렌더 : 물 175ml + 슈가시럽 8p + 냉동홍시 200g + ⟦r:얼음 컵윗선⟧) + ⟦b:민트잎 1ea⟧ | 슈가시럽 4p만 투입
-## 깻잎스무디
-- ICE | 20oz 아이스컵 + (블렌더 : 물 125ml/g + 설탕베이스 2래들(40g) + 사과청 2래들(60g) + 라임시럽 1p + 라임슬라이스 1ea + 깻잎 5ea + 얼음 수북히) + ⟦b:깻잎 1ea⟧ + ⟦b:레몬슬라이스 1ea⟧ + ⟦b:홍체리 1ea⟧
-## 웰니스 딸기 스무디
-- ICE | 20oz 아이스컵 + ⟦b:요거트크림 = 컵 벽면 한 바퀴⟧ + (블렌더 : 오트밀크 200ml/g + 꿀 1래들 + 요거트파우더 2래들 + 냉동딸기 75g + 얼음 컵윗선) + ⟦r:(블렌더 뚜껑 열고 피넛소스 2t + 딸기베이스 50g = 섞어줌)⟧
-## 웰니스 블루베리 스무디 볼
-- ICE | 20oz 아이스컵 + ⟦b:요거트크림 = 컵 벽면 한 바퀴⟧ + (블렌더 : 오트밀크 175ml/g + 꿀 1래들 + 요거트파우더 2래들 + 냉동블루베리 3래들 + 얼음 컵윗선) + ⟦r:(블렌더 뚜껑 열고 피넛소스 2t = 섞어줌)⟧ + ⟦b:냉동블루베리 2래들⟧ + ⟦b:냉동딸기다이스 2래들⟧ + ⟦b:그래놀라 1래들⟧ + ⟦b:꿀 1t 드리즐⟧
-## 웰니스 말차 요거트 스무디
-- ICE | 20oz 아이스컵 + ⟦b:요거트크림 = 컵 벽면 한 바퀴⟧ + (블렌더 : 우유 200ml/g + 슈가시럽 3p + 요거트파우더 4래들 + 말차파우더 3t + 얼음 수북히)
-## 웰니스 오트 트로피컬 스무디
-- ICE | 20oz 아이스컵 + ⟦b:요거트크림 = 컵 벽면 한 바퀴⟧ + [(블렌더 : 오트밀크 200ml/g + 망고퓨레 2p + 요거트파우더 2래들 + 얼음 수북히) + ⟦r:우지플럼베이스 1.5래들(33g) = 블렌더 뚜껑 열고 3~4회 섞어줌⟧]
-## 웰니스 시트러스 카카오 스무디
-- ICE | 20oz 아이스컵 + ⟦b:요거트크림 = 컵 벽면 한 바퀴⟧ + [(블렌더 : 레몬퓨레 1p + 망고오렌지베이스 175ml + 꿀 2래들 + 냉동블루베리 4래들(40g) + 얼음 수북히) + ⟦r:다크블라썸 1래들 = 블렌더 뚜껑 열고 3~4회 섞어줌⟧]
-
-# 프라페 | 얼음 평평 270g / 얼음 수북히 330g
-! 프라페는 덜달게 옵션 없음
-## 더블커피 프라페 (더블커피칩 프라페)
-- ICE | 20oz 아이스컵 + (블렌더 : 프라페베이스 150ml + 냉장샷 2래들 + 슈가시럽 4p + 얼음 평평) + ⟦r:냉장샷 1래들⟧ + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:분쇄원두 기울여서 3톡⟧
-## 자바칩 프라페
-- ICE | 20oz 아이스컵 + (블렌더 : 프라페베이스 100ml + 초코베이스 100ml + 다크블라썸 1래들 + 얼음 평평) + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:초코드리즐⟧ + ⟦b:다크블라썸 1래들⟧
-## 녹차 프라페
-- ICE | 20oz 아이스컵 + (블렌더 : 프라페베이스 150ml + 녹차베이스 100ml + 얼음 평평) + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:녹차파우더 기울여서 3톡⟧
-## 오레오 프라페
-- ICE | 20oz 아이스컵 + ⟦b:쿠키분태 1래들⟧ + (블렌더 : 프라페베이스 250ml + 쿠키분태 3래들 + 얼음 평평) + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:컷팅오레오 8ea⟧ + ⟦b:쿠키분태 0.5래들⟧
-## 딸기오레오 프라페
-- ICE | 20oz 아이스컵 + ⟦b:쿠키분태 1래들⟧ + (블렌더 : 프라페베이스 150ml + 우유 50ml + 딸기퓨레 1p + 쿠키분태 2래들 + 얼음 평평) + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:딸기베이스 1래들⟧ + ⟦b:쿠키분태 0.5래들⟧ + ⟦b:오레오 1ea(비틀어서)⟧
-## 율무크림 프라페
-- ICE | 20oz 아이스컵 + (블렌더 : 우유 150ml + 율무파우더 5래들 + 슈가시럽 3p + 소금베이스 ⟦r:1t⟧ + 얼음 평평) + ⟦b:아이스크림 컵 중앙⟧ + ⟦b:피넛크림 2래들⟧ + ⟦b:아몬드분태 1t⟧
-## 딥 밀크쉐이크
-- ICE | 20oz 아이스컵 + (블렌더 : 프라페베이스 100g + 우유 100g + 연유 2래들(44g) + 슈가시럽 4p + ⟦r:소금베이스 1t⟧ + 얼음 수북히) + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:홍체리 1ea⟧
-## 로열밀크티 밀크쉐이크
-- ICE | 20oz 아이스컵 + (블렌더 : 프라페베이스 100g + 우유 75g + 연유 2래들(44g) + 홍차파우더 1.5래들(26g) + 얼음 수북히) + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:홍체리 1ea⟧
-## 리얼초코 밀크쉐이크
-- ICE | 20oz 아이스컵 + ⟦r:컵 벽면 초코드리즐⟧ + (블렌더 : 프라페베이스 100g + 우유 75g + 연유 2래들(44g) + 초코파우더 4래들(61g) + 쿠키분태 1래들(9g) + 얼음 수북히) + ⟦b:휘핑 or 아이스크림⟧ + ⟦b:홍체리 1ea⟧
-
-# 아이스크림 | 소프트 아이스크림 / 10oz
-! 토핑류는 아이스크림을 컵 한쪽 벽에 붙여 토출해 토핑 공간 확보
-## 소프트 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧
-## 아포가토
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧ + 냉장샷 2래들(1shot)
-## 딸기 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧ + 딸기베이스 50ml + ⟦b:냉동딸기다이스 2래들⟧
-## 블루베리 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧ + 블루베리베이스 25g + ⟦b:냉동블루베리 2래들⟧
-## 리얼말차 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧ + 녹차베이스 25ml + ⟦b:말차파우더 톡톡(4번)⟧
-## 초코쉘 아이스크림
-- 10oz | 10oz 아이스컵 + (초코쉘 7g = ⟦r:컵 벽면 한 바퀴⟧) + 아이스크림 ⟦r:6바퀴⟧ + ⟦b:초코쉘 15g⟧
-## 허니 그래놀라 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧ + ⟦b:그래놀라 2래들⟧ + ⟦b:꿀 1래들⟧
-## 오레오 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧ + 초코베이스 25ml + ⟦b:쿠키분태 1래들⟧ + ⟦b:초코크런치볼 ⟧⟦r:2t⟧ + ⟦b:컷팅오레오 4ea⟧
-## 츄러스 아이스크림
-- 10oz | 10oz 아이스컵 + (에어프라이어 : 츄러스 ⟦r:1ea⟧ 190도 5분 조리 + 시나몬슈가 코팅) + 아이스크림 ⟦r:6바퀴⟧ + ⟦b:조리된 츄러스 토핑⟧
-## 솔티 카라멜 아이스크림
-- 10oz | 10oz 아이스컵 + (카라멜소스 0.5p + 소금베이스 0.5t + 섞어줌 = ⟦r:벽면 굴리기⟧) + 아이스크림 ⟦r:5바퀴⟧ + ⟦b:메이플팝콘 2래들⟧ + ⟦b:카라멜소스 드리즐⟧
-## 딸기 초코쉘 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:5바퀴⟧ + 딸기베이스 25ml + ⟦b:초코쉘 15g⟧ + ⟦b:냉동딸기다이스 3래들⟧ + ⟦b:초코크런치볼 ⟧⟦r:2t⟧
-## 티라미수 아이스크림
-- 10oz | 10oz 아이스컵 + (냉장샷 1래들 + 초코베이스 25ml + 섞어줌 = ⟦r:벽면 굴리기⟧) + 아이스크림 ⟦r:5바퀴⟧ + ⟦b:핑거쿠키 2ea⟧ + ⟦b:코코아파우더 톡톡(6번)⟧
-## 도넛 딸기 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:4바퀴⟧ + 딸기베이스 25ml + ⟦b:글레이즈도넛 1ea⟧ + ⟦b:휘핑크림 한바퀴⟧ + ⟦b:홍체리 1ea⟧
-## 도넛 블루베리 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:4바퀴⟧ + 블루베리베이스 25g + ⟦b:글레이즈도넛 1ea⟧ + ⟦b:휘핑크림 한바퀴⟧ + ⟦b:홍체리 1ea⟧
-## 도넛 초코 아이스크림
-- 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:4바퀴⟧ + ⟦b:초코쉘 15g⟧ + ⟦b:초코크런치볼 ⟧⟦r:2t⟧ + ⟦b:글레이즈도넛 1ea⟧ + ⟦b:휘핑크림 한바퀴⟧ + ⟦b:홍체리 1ea⟧
-
-# 옵션 | 옵션 추가시 투입량
-@ 비고
-## 얼음 조금
-- 24·20oz | 기존 제공량의 1/2만 제공
-## 우유 조금
-- 라떼 | HOT 175ml / ICE 150ml
-- 시럽라떼 | 150ml
-- 논커피 | 기존 제공량에서 50ml 제거
-## 물 조금
-- HOT 아메 | 300ml
-- ICE 아메 | 125ml
-- 아메리터 | 200ml
-## 우유 추가
-- 투입 | 기존 제공량에 150ml 추가
-## 오트밀크 변경
-- 투입 | 우유 투입량만큼 오트밀크로 대체
-## 시그니처밀크 변경
-- 투입 | 우유 투입량만큼 딥베이스로 대체
-## 디카페인 샷 추가
-- 투입 | 디카페인 2샷 추가
-## 말차 추가
-- 투입 | 계량컵에 녹일 때 온수 10g + 말차파우더 1t 추가
-## 그래놀라 추가
-- 투입 | 그래놀라 2래들 추가
-## 덜달게
-- 투입 | 메뉴별 별도 기재 (각 메뉴의 덜달게 참고)
-## 연하게
-- 투입 | 1샷 제거
-## 연유 꿀 추가
-- 투입 | 1래들
-## 콜드브루 원액 추가
-- 투입 | 2래들
-## 샷 추가
-- 투입 | 1샷 추가 (프라페류 샷 추가 시 냉장샷 2래들)
-## 시럽 추가 (제로·바닐라·헤이즐넛·카라멜)
-- 투입 | 해당 시럽 2펌프
-## 펄 추가
-- 투입 | 펄 1팩을 음료 투입 전 컵 하단에 투입 (조리 및 헹굼까지 완료 후 투입)
-## 제로사이다 변경
-- 투입 | 제로사이다 1캔(250ml) 투입
-## 제로콜라 변경
-- 투입 | 제로콜라 1캔(250ml) 투입
-## 요거트크림 추가
-- 투입 | 요거트크림 60g 추가
-## 초코볼 추가
-- 투입 | 초코볼 2t 추가
-
-# 베이스 | 블렌더X / 블렌더O(바이타믹스 전용)
-@ 비고
-## 딥베이스
-- 블렌더X | 우지밸런스베이스 100g + 우유 1000g ⟦r:= 큰 바스푼으로 혼합(최대한 거품 안 생기게)⟧
-* 제조 시 믹싱피처 위아래로 10회 혼합 후 사용
-## 체리베이스
-- 블렌더X | 온수 500ml + 체리파우더 500g
-## 석류아이스티B
-- 블렌더X | 온수 250ml + 아이스티 250g(1/4봉지)
-## 망고오렌지B
-- 블렌더X | 오렌지주스 500ml + 슈가시럽 90g + 망고퓨레 175g
-## 에스프레소B
-- 블렌더X | 에스프레소 50ml + 정수 100ml
-* 냉장샷 우선 사용 / 냉장샷 소진 시 에스프레소 투입
-## 타피오카펄
-- 블렌더X | (계량컵 : 냉동 펄 4등분으로 조각내기 + 렌지 ⟦r:1분 30초⟧ = 스푼으로 교반) + ⟦r:채망으로 시럽 제거 후 찬물로 헹궈줌⟧
-* 절대 해동 금지
-## 우유큐브
-- 블렌더X | 트레이 1칸당 우유 15g
-## 설탕B
-- 블렌더X | 온수 1000ml + 황설탕 1kg | ⟦r:프라페B 제조 시 사용⟧
-## 소금B
-- 블렌더X | 온수 150ml + 맛소금 25g | ⟦r:차갑게 식힌 후 사용 필수⟧
-## 시나몬슈가
-- 블렌더X | 황설탕 200g + 시나몬 5g | ⟦r:츄러스 코팅용으로만 사용⟧
-## 초코B
-- 블렌더O | 온수 550ml + 초코파우더 400g(0.5봉지) | 6번 버튼 2회
-## 녹차B
-- 블렌더O | 온수 500ml + 녹차파우더 500g(0.5봉지) | 6번 버튼 2회
-## 아이스크림B
-- 블렌더O | 물 550ml + 아이스크림파우더 250g | 6번 버튼 2회
-## 우지믹스커피B
-- 블렌더O | 온수 300ml + 달럽 100ml + 프림커피파우더 300g + 슈가시럽 120g | 6번 버튼 2회
-## 프라페B
-- 블렌더O | 우유 275ml + 설탕베이스 100ml + 에버휩 75ml + 프라페파우더 50g + 아이스크림파우더 75g | 6번 버튼 2회
-## 피넛크림B
-- 블렌더O | 에버휩 400ml + 피넛소스 200g + ⟦r:카라멜시럽 6p⟧ | 1번 버튼 1회
-## 바닐라크림B
-- 블렌더O | 우유 75g + 에버휩 200g + 슈가시럽 25g + 바닐라파우더 15g | 1번 버튼 1회
-## 요거트크림B
-- 블렌더O | 우유 150g + 에버휩 150g + 요거트파우더 75g | 1번 버튼 1회
-## 큐브B (1판 분량 / 6ea)
-- 블렌더O | [블렌더 : 물 225ml + 아이스크림파우더 7.5래들(105g)] + 에스프레소 225ml 블렌더 믹싱 후 따로 혼합 | 1번 버튼 1회
-* 냉장샷 우선 사용 / 냉장샷 소진 시 에스프레소 투입
-## 딸기B
-- 블렌더O | 슈가시럽 600g + 딸기퓨레 400g + 냉동딸기 1kg | 딸기 버튼 1초씩 3회
-* 냉동딸기는 100% 해동된 것을 사용
-## 아몬드분태
-- 블렌더O | 아몬드슬라이스 150g | 딸기 버튼 1초씩 10회
-* 건조된 블렌더 사용
-
-# 베이커리 | 냉동상태에서 조리 (예열X)
-@ 포장
-## 샐러드믹스 (에그듬뿍모닝빵 토핑용)
-- ① | 에그포테이토샐러드 500g + 마카로니샐러드 500g 심플저장용기(대)에 1:1로 소분
-- ② | 가위로 30회 이상 찹핑
-- ③ | 스패출러로 고루 섞어 냉장보관
-## 화이트롤슈
-- ① | ⟦r:렌지 10초⟧ (3~4개 15초) | 포장박스(소)
-## 케이크 3종
-- ① | ⟦r:렌지 20초⟧ | 포장박스(소)
-## 글레이즈도넛 (2ea·4ea)
-- ① | ⟦r:렌지 10초⟧ (2~4개 10초 / 6개 20초 / 최대 6개까지) | 2ea 파우치봉투 · ⟦r:4ea 포장박스(대)⟧
-## 빅 글레이즈도넛 / 흑임자 빅 글레이즈도넛
-- ① | ⟦r:렌지 20초⟧ (2개 20초 / 최대 2개까지) | 파우치봉투
-## 에그듬뿍모닝빵 (1ea·2ea)
-- ① | 내열용기 바닥 물 25ml + 모닝빵 1개 투입
-- ② | ⟦r:1~2개 렌지 30초 / 3~4개 렌지 1분⟧
-- ③ | 모닝빵 사이에 샐러드믹스 ⟦r:2스쿱(80g)⟧ 토핑 | 포장박스(대) (1~2ea)
-## 더블치즈베이글
-- ① | 포장지 한쪽 면 완전 개봉
-- ② | ⟦r:1개 전자레인지 1분 30초⟧ (2개 2분 30초 / 3개 3분 30초 / 최대 3개까지)
-- ③ | 베이글 상단에 체다치즈 1장 토핑 | 포장박스(대) · 치폴레소스 추가 시 소스용기에 30g 제공
-## 딥 미니버거 (1ea·2ea)
-- ① | 내열용기 바닥 물 50ml + 미니버거 1개
-- ② | ⟦r:1개 전자레인지 1분 30초 / 2개 2분⟧ (최대 2개까지)
-- ③ | 소스용기에 치폴레소스 30g 담아 제공 | 1ea 포장박스(소) · 2ea 포장박스(대)
-## 소금빵
-- ① | ⟦r:1개 전자레인지 30초⟧ (2개 1분)
-- ② | ⟦r:에어프라이어 180도 3분⟧ (예열X) (2개 3분 / 한 칸당 최대 2개) | 파우치봉투 + 각대봉투
-## 바삭츄러스 호두과자 (3ea)
-- ① | ⟦r:3개 전자레인지 30초⟧ (6개 30초 / 9개 1분)
-- ② | ⟦r:에어프라이어 180도 5분⟧ (예열X) (3개 5분 / 6개 6분 / 9개 7분)
-- ③ | 시나몬슈가 코팅 | 파우치봉투 + 각대봉투
-## 클래식도넛 (2ea·4ea)
-- ① | ⟦r:에어프라이어 200도 3분⟧ (예열X) (2~4개 3분 / 6~8개 4분 / 최대 8개까지)
-- ② | 시나몬슈가 코팅 | 2ea 파우치봉투 · ⟦r:4ea 포장박스(소)⟧
-## 츄러스
-- ① | ⟦r:에어프라이어 190도 5분⟧ (예열X) (2~3개 5분 / 한 칸당 최대 3개)
-- ② | 시나몬슈가 코팅 | 파우치봉투 + 각대봉투 · 휘핑크림 추가 시 10oz 컵에 30g 담아 제공
-## 클래식 프렌치토스트
-- ① | 냉동 토스트 2장을 꺼내 색이 연한 면 한쪽에 우유 10g 펴 바른 뒤 2장 겹치기
-- ② | 윗면(색이 진한 면)에 케이크시럽 5g + 황설탕 5g 펴 바르기
-- ③ | 2장 겹친 상태로 ⟦r:에어프라이어 195도 5분⟧ (예열X) (한 칸당 최대 1개)
-- ④ | 케이크시럽 드리즐 + 포션버터 1개 토핑 | 포장박스(대) · 토핑은 소스용기에 케이크시럽 10g + 포션버터 1개
-
-# 유통기한 | BBD 매뉴얼
-@ 미개봉
-## 원두 / 토핑용 원두가루
-- 개봉후 | 개봉 및 소분 후 BBD 3일 (상온보관) | BBD 3개월
-## 디카페인 원두
-- 개봉후 | 개봉 후 BBD 7일 (상온보관) | BBD 3개월
-## 샷 냉장보관용
-- 개봉후 | 소분 후 7일 (냉장보관)
-## 콜드브루 원액
-- 개봉후 | 개봉 후 7일 (냉장보관) | UBD
-## 우유
-- 개봉후 | 개봉 후 BBD 24시간 | UBD
-## 연유
-- 개봉후 | 개봉 후 BBD 5일 (냉장보관) | UBD
-## 체다치즈
-- 개봉후 | 소분 후 BBD 30일 (냉장보관) | UBD
-## 휘핑스프레이
-- 개봉후 | 개봉 후 BBD 3일 (냉장보관) | UBD
-## 오트밀크 / 홍체리
-- 개봉후 | 개봉 후 7일 (냉장보관) | UBD
-## 냉동 타피오카 펄
-- 개봉후 | 예열 후 즉시 사용 (냉동보관) | UBD
-* 해동보관 금지
-## 카라멜팝콘 / 핑거쿠키
-- 개봉후 | 개봉 및 소분 후 7일 (상온보관) | UBD
-## 초코쉘
-- 개봉후 | 개봉 후 15일, 소분 후 7일 (상온보관) | UBD
-## 우지곡물베이스
-- 개봉후 | 개봉 후 UBD (냉장보관) / 소분 후 BBD 7일 (냉장보관) | UBD
-## 파우더류 / 황설탕 / 쿠키분태 / 아몬드분태 / 그래놀라
-- 개봉후 | 소분 후 BBD 30일 (상온보관) | UBD
-## 과일퓨레 / 블루베리베이스 / 과일청 / 오렌지주스
-- 개봉후 | 개봉 후 BBD 30일 (냉장보관) / 소분 후 BBD 7일 (냉장보관) | UBD
-## 시럽류 / 티백류 / 토핑류 (오레오·아몬드슬라이스)
-- 개봉후 | 개봉·소분 후 UBD (상온보관) | UBD
-## 소스류 (카라멜·초코·꿀·피넛)
-- 개봉후 | 개봉 후 UBD (상온보관) / 소분 후 7일 (상온보관) | UBD
-## 냉동 토핑류 (다크블라썸)
-- 개봉후 | 개봉 후 UBD (냉동보관) / 소분 후 UBD (냉동보관) | UBD
-## 에그포테이토샐러드 / 마카로니샐러드
-- 개봉후 | 개봉 후 BBD 10일 (냉장보관) / 제조 후 BBD 5일 (냉장보관) | UBD
-## 우지플럼베이스 / 초코크런치볼
-- 개봉후 | 개봉 및 소분 후 30일 (냉장보관) | UBD
-## 치폴레소스
-- 개봉후 | 개봉 후 30일 (냉장보관) / 소분 시 7일 (냉장보관) | UBD
-## 깻잎
-- 개봉후 | 개봉 후 QI, 3일 권장 (냉장보관) | QI
-## 애플민트
-- 개봉후 | 개봉 후 QI, 5일 권장 (냉장보관) | QI
-## 슬라이스용 과일 (레몬·자몽·라임·오렌지)
-- 개봉후 | 제조·슬라이스 후 3일 (냉장보관) | QI
-## 냉동 과일류 (냉동딸기·냉동홍시·냉동딸기다이스·냉동블루베리)
-- 개봉후 | 개봉·소분 후 UBD (냉동보관) | UBD
-* 해동보관 금지
-## 제조 베이스 3일 (딸기B·딥베이스·피넛크림B·프라페B·아이스크림B·망고오렌지B·바닐라크림B·요거트크림B)
-- 제조후 | 제조 후 BBD 3일 (냉장보관)
-## 물 베이스 7일 (설탕B·초코B·녹차B·석류아이스티B·체리B·우지믹스커피B·소금B)
-- 제조후 | 제조 후 BBD 7일 (냉장보관)
-## 에스프레소 베이스
-- 제조후 | 제조 후 당일 폐기 (냉장보관)
-## 에스프레소 큐브
-- 제조후 | 제조 후 BBD 7일 (냉동보관)
-## 우유큐브 (유통기한)
-- 제조후 | 제조 후 BBD 5일 (냉동보관)
-## 시나몬슈가 (유통기한)
-- 제조후 | 제조 후 BBD 7일 (상온보관)
-## 냉동 케익류
-- 개봉후 | 해동시간 포함 BBD 72시간 (냉장보관) / 제조 후 즉시 판매(모형 제작했을 시) | UBD
-## 그 외 베이커리
-- 개봉후 | 제조 후 즉시 제공 | UBD
-## 쿠키 3종
-- 개봉후 | 제조 없이 즉시 제공 | UBD
-</script>
 
 <script>
-(function(){
-  const APP_VERSION = '2026-10-09.4';
-  // ---------- 새 버전 확인 ----------
-  let latest = null;
-  async function checkUpdate() {
-    if (!/^https?:/.test(location.protocol)) return;
-    try {
-      const r = await fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' });
-      if (!r.ok) return;
-      const m = (await r.text()).match(/name="app-version" content="([^"]+)"/);
-      if (m && m[1] !== APP_VERSION) { latest = m[1]; document.getElementById('upd').hidden = false; }
-    } catch (e) {}
-  }
-  document.getElementById('updBtn').onclick = () => location.replace(location.pathname + '?v=' + encodeURIComponent(latest || Date.now()));
-  checkUpdate();
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
-  setInterval(checkUpdate, 30 * 60 * 1000);
+// ===== 설정: 앱 주소는 여기서 바꾸세요 =====
+const CFG = {
+  OPEN_DATE: '2026-10-21',                                   // 오픈일
+  API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
+  HOURS: '07:00~22:00',
+  STAFF_APPS: [
+    { name: '근무 · 급여', desc: '출퇴근, 근무시간표, 내 급여명세서', ic: '🕐', bg: '#e3f1e8', url: 'https://kghwang1.github.io/oo-recipe/oozy-work.html' },
+    { name: '레시피', desc: '초성 검색, 청소 · 소모품 관리', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/oo-recipe/oozy-recipe.html' },
+  ],
+  OWNER_APPS: [
+    { name: '가계부', desc: '매출 · 지출, 결산, 메모', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/oo-recipe/oozy-ledger.html' },
+    { name: '커피브랜드 조사', desc: '저가커피 프랜차이즈 비교', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
+      subs: [['장비 견적', 'https://kghwang1.github.io/coffee-board/equipment.html'], ['매장 지도', 'https://kghwang1.github.io/coffee-board/map.html']] },
+  ],
+};
 
-  // ---------- parse ----------
-  const src = document.getElementById('data').textContent.split('\n');
-  const cats = [], items = [];
-  let cat = null, item = null;
-  for (const raw of src) {
-    const l = raw.trim();
-    if (!l) continue;
-    if (l.startsWith('## ')) {
-      item = { name: l.slice(3).trim(), cat, rows: [], notes: [] };
-      items.push(item); cat.items.push(item);
-    } else if (l.startsWith('# ')) {
-      const [n, info] = l.slice(2).split('|').map(s => s.trim());
-      cat = { name: n, info: info || '', notices: [], label: '덜달게', items: [] };
-      cats.push(cat); item = null;
-    } else if (l.startsWith('> ') && item) { item.video = l.slice(2).trim();
-    } else if (l.startsWith('! ')) { cat.notices.push(l.slice(2));
-    } else if (l.startsWith('@ ')) { cat.label = l.slice(2).trim();
-    } else if (l.startsWith('* ')) {
-      const t = l.slice(2), m = t.match(/^\[([^\]]+)\]\s*(.*)$/);
-      const row = m && item ? item.rows.find(r => r.tag === m[1]) : null;
-      if (row) (row.notes = row.notes || []).push(m[2]);
-      else if (item && item.rows.length === 1) (item.rows[0].notes = item.rows[0].notes || []).push(t);
-      else (item ? item.notes : cat.notices).push(t);
-    } else if (l.startsWith('- ') && item) {
-      const p = l.slice(2).split('|').map(s => s.trim());
-      item.rows.push({ tag: p[0], recipe: p[1] || '', extra: p[2] || '' });
-    }
-  }
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const KEY = 'oozyHomeOwner';
+const store = { get: () => { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }, set: v => { try { v ? localStorage.setItem(KEY, '1') : localStorage.removeItem(KEY); } catch (e) { } } };
 
-  // ---------- hangul helpers ----------
-  const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
-  const JONG = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-  const SPLIT = {'ㄳ':'ㄱㅅ','ㄵ':'ㄴㅈ','ㄶ':'ㄴㅎ','ㄺ':'ㄹㄱ','ㄻ':'ㄹㅁ','ㄼ':'ㄹㅂ','ㄽ':'ㄹㅅ','ㄾ':'ㄹㅌ','ㄿ':'ㄹㅍ','ㅀ':'ㄹㅎ','ㅄ':'ㅂㅅ'};
-  const isSyl = c => c >= '가' && c <= '힣';
-  const cho = c => isSyl(c) ? CHO[Math.floor((c.charCodeAt(0) - 0xAC00) / 588)] : c;
-  const norm = s => s.toLowerCase().replace(/[^0-9a-z가-힣ㄱ-ㅎ]/g, '');
-  const prepQ = s => norm(s).replace(/[ㄳㄵㄶㄺㄻㄼㄽㄾㄿㅀㅄ]/g, m => SPLIT[m]);
-
-  function variants(q) {
-    const out = [q];
-    const last = q[q.length - 1];
-    if (last && isSyl(last)) {
-      const code = last.charCodeAt(0) - 0xAC00, j = code % 28;
-      if (j) {
-        const jj = JONG[j];
-        const base = String.fromCharCode(0xAC00 + code - j);
-        if (CHO.includes(jj)) out.push(q.slice(0, -1) + base + jj);
-      }
-    }
-    return out;
-  }
-  function find(name, q) {
-    for (let i = 0; i + q.length <= name.length; i++) {
-      let ok = true;
-      for (let k = 0; k < q.length; k++) {
-        const qc = q[k], nc = name[i + k];
-        if (CHO.includes(qc)) { if (cho(nc) !== qc) { ok = false; break; } }
-        else if (qc !== nc) { ok = false; break; }
-      }
-      if (ok) return i;
-    }
-    return -1;
-  }
-  items.forEach(it => { it.key = norm(it.name); });
-
-  // ---------- render helpers ----------
-  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  function splitTop(s) {
-    const out = []; let d = 0, cur = '';
-    for (let i = 0; i < s.length; i++) {
-      const c = s[i];
-      if ('([{⟦'.includes(c)) d++;
-      else if (')]}⟧'.includes(c)) d = Math.max(0, d - 1);
-      if (d === 0 && s.startsWith(' + ', i)) { out.push(cur); cur = ''; i += 2; continue; }
-      cur += c;
-    }
-    out.push(cur);
-    return out.map(x => x.trim()).filter(Boolean);
-  }
-  const AMT = /(\d+(?:\.\d+)?(?:[~\-\/]\d+(?:\.\d+)?)?\s?(?:ml\/g|ml|kg|g|shot|oz|L|p|t|래들|ea|알|바퀴|회|초|분|도|개|장|번|부|펌프|캔|스쿱|톡|시간|일|개월|cm)(?![a-z]))/g;
-  const ACT = /(섞어줌|섞어주기|눌러줌|컵 ?롤링|벽면 굴리기|벽면 굴려줌|바스푼으로 혼합|우린 후 제거|우리기)/g;
-  const deco = s => esc(s).replace(AMT, '<span class="amt">$1</span>')
-    .replace(/⟦r:(.*?)⟧/g, '<span class="cr">$1</span>').replace(/⟦b:(.*?)⟧/g, '<span class="cb">$1</span>').replace(/⟦n:(.*?)⟧/g, '<span class="inote">$1</span>');
-
-  function card(it, open) {
-    const c = it.cat;
-    return `<div class="item${open ? ' open' : ''}"><button class="head" aria-expanded="${open}"><span class="name">${esc(it.name)}</span><span class="cat">${esc(c.name)}</span></button><div class="body">` + bodyHtml(it) + `</div></div>`;
-  }
-  const QR = {"https://m.site.naver.com/2e4NK": "<svg viewBox=\"0 0 31 31\" shape-rendering=\"crispEdges\"><rect width=\"31\" height=\"31\" fill=\"#fff\"/><path d=\"M1,1h1v1h-1zM2,1h1v1h-1zM3,1h1v1h-1zM4,1h1v1h-1zM5,1h1v1h-1zM6,1h1v1h-1zM7,1h1v1h-1zM12,1h1v1h-1zM13,1h1v1h-1zM16,1h1v1h-1zM17,1h1v1h-1zM19,1h1v1h-1zM23,1h1v1h-1zM24,1h1v1h-1zM25,1h1v1h-1zM26,1h1v1h-1zM27,1h1v1h-1zM28,1h1v1h-1zM29,1h1v1h-1zM1,2h1v1h-1zM7,2h1v1h-1zM9,2h1v1h-1zM10,2h1v1h-1zM11,2h1v1h-1zM12,2h1v1h-1zM14,2h1v1h-1zM15,2h1v1h-1zM17,2h1v1h-1zM18,2h1v1h-1zM21,2h1v1h-1zM23,2h1v1h-1zM29,2h1v1h-1zM1,3h1v1h-1zM3,3h1v1h-1zM4,3h1v1h-1zM5,3h1v1h-1zM7,3h1v1h-1zM9,3h1v1h-1zM11,3h1v1h-1zM14,3h1v1h-1zM16,3h1v1h-1zM20,3h1v1h-1zM23,3h1v1h-1zM25,3h1v1h-1zM26,3h1v1h-1zM27,3h1v1h-1zM29,3h1v1h-1zM1,4h1v1h-1zM3,4h1v1h-1zM4,4h1v1h-1zM5,4h1v1h-1zM7,4h1v1h-1zM9,4h1v1h-1zM11,4h1v1h-1zM12,4h1v1h-1zM17,4h1v1h-1zM18,4h1v1h-1zM21,4h1v1h-1zM23,4h1v1h-1zM25,4h1v1h-1zM26,4h1v1h-1zM27,4h1v1h-1zM29,4h1v1h-1zM1,5h1v1h-1zM3,5h1v1h-1zM4,5h1v1h-1zM5,5h1v1h-1zM7,5h1v1h-1zM10,5h1v1h-1zM12,5h1v1h-1zM16,5h1v1h-1zM17,5h1v1h-1zM18,5h1v1h-1zM19,5h1v1h-1zM20,5h1v1h-1zM21,5h1v1h-1zM23,5h1v1h-1zM25,5h1v1h-1zM26,5h1v1h-1zM27,5h1v1h-1zM29,5h1v1h-1zM1,6h1v1h-1zM7,6h1v1h-1zM13,6h1v1h-1zM16,6h1v1h-1zM23,6h1v1h-1zM29,6h1v1h-1zM1,7h1v1h-1zM2,7h1v1h-1zM3,7h1v1h-1zM4,7h1v1h-1zM5,7h1v1h-1zM6,7h1v1h-1zM7,7h1v1h-1zM9,7h1v1h-1zM11,7h1v1h-1zM13,7h1v1h-1zM15,7h1v1h-1zM17,7h1v1h-1zM19,7h1v1h-1zM21,7h1v1h-1zM23,7h1v1h-1zM24,7h1v1h-1zM25,7h1v1h-1zM26,7h1v1h-1zM27,7h1v1h-1zM28,7h1v1h-1zM29,7h1v1h-1zM9,8h1v1h-1zM10,8h1v1h-1zM12,8h1v1h-1zM15,8h1v1h-1zM16,8h1v1h-1zM17,8h1v1h-1zM20,8h1v1h-1zM21,8h1v1h-1zM1,9h1v1h-1zM7,9h1v1h-1zM9,9h1v1h-1zM12,9h1v1h-1zM13,9h1v1h-1zM17,9h1v1h-1zM18,9h1v1h-1zM19,9h1v1h-1zM20,9h1v1h-1zM22,9h1v1h-1zM23,9h1v1h-1zM26,9h1v1h-1zM27,9h1v1h-1zM28,9h1v1h-1zM4,10h1v1h-1zM10,10h1v1h-1zM14,10h1v1h-1zM17,10h1v1h-1zM18,10h1v1h-1zM19,10h1v1h-1zM20,10h1v1h-1zM21,10h1v1h-1zM22,10h1v1h-1zM24,10h1v1h-1zM25,10h1v1h-1zM27,10h1v1h-1zM28,10h1v1h-1zM2,11h1v1h-1zM3,11h1v1h-1zM4,11h1v1h-1zM5,11h1v1h-1zM6,11h1v1h-1zM7,11h1v1h-1zM8,11h1v1h-1zM9,11h1v1h-1zM12,11h1v1h-1zM14,11h1v1h-1zM15,11h1v1h-1zM16,11h1v1h-1zM17,11h1v1h-1zM18,11h1v1h-1zM24,11h1v1h-1zM25,11h1v1h-1zM9,12h1v1h-1zM10,12h1v1h-1zM11,12h1v1h-1zM13,12h1v1h-1zM14,12h1v1h-1zM20,12h1v1h-1zM26,12h1v1h-1zM1,13h1v1h-1zM7,13h1v1h-1zM8,13h1v1h-1zM10,13h1v1h-1zM14,13h1v1h-1zM16,13h1v1h-1zM17,13h1v1h-1zM19,13h1v1h-1zM20,13h1v1h-1zM23,13h1v1h-1zM24,13h1v1h-1zM29,13h1v1h-1zM2,14h1v1h-1zM3,14h1v1h-1zM6,14h1v1h-1zM8,14h1v1h-1zM12,14h1v1h-1zM13,14h1v1h-1zM17,14h1v1h-1zM20,14h1v1h-1zM21,14h1v1h-1zM23,14h1v1h-1zM24,14h1v1h-1zM25,14h1v1h-1zM28,14h1v1h-1zM29,14h1v1h-1zM2,15h1v1h-1zM5,15h1v1h-1zM6,15h1v1h-1zM7,15h1v1h-1zM12,15h1v1h-1zM13,15h1v1h-1zM18,15h1v1h-1zM19,15h1v1h-1zM21,15h1v1h-1zM24,15h1v1h-1zM26,15h1v1h-1zM27,15h1v1h-1zM1,16h1v1h-1zM4,16h1v1h-1zM5,16h1v1h-1zM8,16h1v1h-1zM9,16h1v1h-1zM10,16h1v1h-1zM13,16h1v1h-1zM16,16h1v1h-1zM19,16h1v1h-1zM22,16h1v1h-1zM23,16h1v1h-1zM25,16h1v1h-1zM27,16h1v1h-1zM29,16h1v1h-1zM4,17h1v1h-1zM5,17h1v1h-1zM6,17h1v1h-1zM7,17h1v1h-1zM8,17h1v1h-1zM9,17h1v1h-1zM10,17h1v1h-1zM11,17h1v1h-1zM12,17h1v1h-1zM13,17h1v1h-1zM17,17h1v1h-1zM18,17h1v1h-1zM22,17h1v1h-1zM24,17h1v1h-1zM26,17h1v1h-1zM27,17h1v1h-1zM1,18h1v1h-1zM6,18h1v1h-1zM8,18h1v1h-1zM11,18h1v1h-1zM12,18h1v1h-1zM13,18h1v1h-1zM14,18h1v1h-1zM15,18h1v1h-1zM19,18h1v1h-1zM20,18h1v1h-1zM21,18h1v1h-1zM23,18h1v1h-1zM24,18h1v1h-1zM25,18h1v1h-1zM27,18h1v1h-1zM28,18h1v1h-1zM29,18h1v1h-1zM1,19h1v1h-1zM2,19h1v1h-1zM4,19h1v1h-1zM6,19h1v1h-1zM7,19h1v1h-1zM8,19h1v1h-1zM9,19h1v1h-1zM10,19h1v1h-1zM11,19h1v1h-1zM12,19h1v1h-1zM16,19h1v1h-1zM18,19h1v1h-1zM20,19h1v1h-1zM21,19h1v1h-1zM24,19h1v1h-1zM26,19h1v1h-1zM29,19h1v1h-1zM1,20h1v1h-1zM3,20h1v1h-1zM4,20h1v1h-1zM5,20h1v1h-1zM8,20h1v1h-1zM9,20h1v1h-1zM11,20h1v1h-1zM12,20h1v1h-1zM14,20h1v1h-1zM20,20h1v1h-1zM21,20h1v1h-1zM23,20h1v1h-1zM24,20h1v1h-1zM1,21h1v1h-1zM3,21h1v1h-1zM4,21h1v1h-1zM6,21h1v1h-1zM7,21h1v1h-1zM9,21h1v1h-1zM10,21h1v1h-1zM11,21h1v1h-1zM13,21h1v1h-1zM15,21h1v1h-1zM16,21h1v1h-1zM18,21h1v1h-1zM19,21h1v1h-1zM21,21h1v1h-1zM22,21h1v1h-1zM23,21h1v1h-1zM24,21h1v1h-1zM25,21h1v1h-1zM27,21h1v1h-1zM28,21h1v1h-1zM29,21h1v1h-1zM9,22h1v1h-1zM13,22h1v1h-1zM15,22h1v1h-1zM20,22h1v1h-1zM21,22h1v1h-1zM25,22h1v1h-1zM26,22h1v1h-1zM1,23h1v1h-1zM2,23h1v1h-1zM3,23h1v1h-1zM4,23h1v1h-1zM5,23h1v1h-1zM6,23h1v1h-1zM7,23h1v1h-1zM10,23h1v1h-1zM12,23h1v1h-1zM20,23h1v1h-1zM21,23h1v1h-1zM23,23h1v1h-1zM25,23h1v1h-1zM26,23h1v1h-1zM27,23h1v1h-1zM1,24h1v1h-1zM7,24h1v1h-1zM10,24h1v1h-1zM11,24h1v1h-1zM12,24h1v1h-1zM13,24h1v1h-1zM15,24h1v1h-1zM16,24h1v1h-1zM17,24h1v1h-1zM19,24h1v1h-1zM20,24h1v1h-1zM21,24h1v1h-1zM25,24h1v1h-1zM29,24h1v1h-1zM1,25h1v1h-1zM3,25h1v1h-1zM4,25h1v1h-1zM5,25h1v1h-1zM7,25h1v1h-1zM10,25h1v1h-1zM12,25h1v1h-1zM13,25h1v1h-1zM14,25h1v1h-1zM15,25h1v1h-1zM17,25h1v1h-1zM18,25h1v1h-1zM20,25h1v1h-1zM21,25h1v1h-1zM22,25h1v1h-1zM23,25h1v1h-1zM24,25h1v1h-1zM25,25h1v1h-1zM26,25h1v1h-1zM1,26h1v1h-1zM3,26h1v1h-1zM4,26h1v1h-1zM5,26h1v1h-1zM7,26h1v1h-1zM11,26h1v1h-1zM12,26h1v1h-1zM15,26h1v1h-1zM18,26h1v1h-1zM19,26h1v1h-1zM20,26h1v1h-1zM22,26h1v1h-1zM26,26h1v1h-1zM27,26h1v1h-1zM28,26h1v1h-1zM1,27h1v1h-1zM3,27h1v1h-1zM4,27h1v1h-1zM5,27h1v1h-1zM7,27h1v1h-1zM10,27h1v1h-1zM13,27h1v1h-1zM16,27h1v1h-1zM17,27h1v1h-1zM18,27h1v1h-1zM22,27h1v1h-1zM23,27h1v1h-1zM25,27h1v1h-1zM26,27h1v1h-1zM27,27h1v1h-1zM28,27h1v1h-1zM1,28h1v1h-1zM7,28h1v1h-1zM10,28h1v1h-1zM11,28h1v1h-1zM12,28h1v1h-1zM14,28h1v1h-1zM15,28h1v1h-1zM16,28h1v1h-1zM17,28h1v1h-1zM19,28h1v1h-1zM22,28h1v1h-1zM24,28h1v1h-1zM25,28h1v1h-1zM26,28h1v1h-1zM27,28h1v1h-1zM29,28h1v1h-1zM1,29h1v1h-1zM2,29h1v1h-1zM3,29h1v1h-1zM4,29h1v1h-1zM5,29h1v1h-1zM6,29h1v1h-1zM7,29h1v1h-1zM9,29h1v1h-1zM13,29h1v1h-1zM14,29h1v1h-1zM20,29h1v1h-1zM22,29h1v1h-1zM23,29h1v1h-1zM24,29h1v1h-1zM27,29h1v1h-1z\" fill=\"#000\"/></svg>", "https://m.site.naver.com/2e4O4": "<svg viewBox=\"0 0 31 31\" shape-rendering=\"crispEdges\"><rect width=\"31\" height=\"31\" fill=\"#fff\"/><path d=\"M1,1h1v1h-1zM2,1h1v1h-1zM3,1h1v1h-1zM4,1h1v1h-1zM5,1h1v1h-1zM6,1h1v1h-1zM7,1h1v1h-1zM11,1h1v1h-1zM13,1h1v1h-1zM14,1h1v1h-1zM17,1h1v1h-1zM18,1h1v1h-1zM19,1h1v1h-1zM20,1h1v1h-1zM23,1h1v1h-1zM24,1h1v1h-1zM25,1h1v1h-1zM26,1h1v1h-1zM27,1h1v1h-1zM28,1h1v1h-1zM29,1h1v1h-1zM1,2h1v1h-1zM7,2h1v1h-1zM10,2h1v1h-1zM11,2h1v1h-1zM13,2h1v1h-1zM14,2h1v1h-1zM15,2h1v1h-1zM16,2h1v1h-1zM19,2h1v1h-1zM21,2h1v1h-1zM23,2h1v1h-1zM29,2h1v1h-1zM1,3h1v1h-1zM3,3h1v1h-1zM4,3h1v1h-1zM5,3h1v1h-1zM7,3h1v1h-1zM10,3h1v1h-1zM12,3h1v1h-1zM13,3h1v1h-1zM14,3h1v1h-1zM17,3h1v1h-1zM18,3h1v1h-1zM20,3h1v1h-1zM23,3h1v1h-1zM25,3h1v1h-1zM26,3h1v1h-1zM27,3h1v1h-1zM29,3h1v1h-1zM1,4h1v1h-1zM3,4h1v1h-1zM4,4h1v1h-1zM5,4h1v1h-1zM7,4h1v1h-1zM10,4h1v1h-1zM12,4h1v1h-1zM14,4h1v1h-1zM15,4h1v1h-1zM16,4h1v1h-1zM19,4h1v1h-1zM20,4h1v1h-1zM23,4h1v1h-1zM25,4h1v1h-1zM26,4h1v1h-1zM27,4h1v1h-1zM29,4h1v1h-1zM1,5h1v1h-1zM3,5h1v1h-1zM4,5h1v1h-1zM5,5h1v1h-1zM7,5h1v1h-1zM10,5h1v1h-1zM11,5h1v1h-1zM13,5h1v1h-1zM14,5h1v1h-1zM15,5h1v1h-1zM17,5h1v1h-1zM18,5h1v1h-1zM19,5h1v1h-1zM23,5h1v1h-1zM25,5h1v1h-1zM26,5h1v1h-1zM27,5h1v1h-1zM29,5h1v1h-1zM1,6h1v1h-1zM7,6h1v1h-1zM9,6h1v1h-1zM11,6h1v1h-1zM14,6h1v1h-1zM15,6h1v1h-1zM19,6h1v1h-1zM20,6h1v1h-1zM21,6h1v1h-1zM23,6h1v1h-1zM29,6h1v1h-1zM1,7h1v1h-1zM2,7h1v1h-1zM3,7h1v1h-1zM4,7h1v1h-1zM5,7h1v1h-1zM6,7h1v1h-1zM7,7h1v1h-1zM9,7h1v1h-1zM11,7h1v1h-1zM13,7h1v1h-1zM15,7h1v1h-1zM17,7h1v1h-1zM19,7h1v1h-1zM21,7h1v1h-1zM23,7h1v1h-1zM24,7h1v1h-1zM25,7h1v1h-1zM26,7h1v1h-1zM27,7h1v1h-1zM28,7h1v1h-1zM29,7h1v1h-1zM11,8h1v1h-1zM15,8h1v1h-1zM18,8h1v1h-1zM19,8h1v1h-1zM20,8h1v1h-1zM21,8h1v1h-1zM1,9h1v1h-1zM4,9h1v1h-1zM6,9h1v1h-1zM7,9h1v1h-1zM9,9h1v1h-1zM12,9h1v1h-1zM13,9h1v1h-1zM16,9h1v1h-1zM19,9h1v1h-1zM20,9h1v1h-1zM22,9h1v1h-1zM24,9h1v1h-1zM4,10h1v1h-1zM5,10h1v1h-1zM6,10h1v1h-1zM8,10h1v1h-1zM11,10h1v1h-1zM12,10h1v1h-1zM13,10h1v1h-1zM15,10h1v1h-1zM16,10h1v1h-1zM23,10h1v1h-1zM26,10h1v1h-1zM29,10h1v1h-1zM4,11h1v1h-1zM5,11h1v1h-1zM6,11h1v1h-1zM7,11h1v1h-1zM12,11h1v1h-1zM17,11h1v1h-1zM18,11h1v1h-1zM20,11h1v1h-1zM21,11h1v1h-1zM22,11h1v1h-1zM24,11h1v1h-1zM25,11h1v1h-1zM26,11h1v1h-1zM27,11h1v1h-1zM28,11h1v1h-1zM2,12h1v1h-1zM3,12h1v1h-1zM9,12h1v1h-1zM15,12h1v1h-1zM16,12h1v1h-1zM19,12h1v1h-1zM21,12h1v1h-1zM22,12h1v1h-1zM25,12h1v1h-1zM27,12h1v1h-1zM28,12h1v1h-1zM1,13h1v1h-1zM2,13h1v1h-1zM3,13h1v1h-1zM4,13h1v1h-1zM5,13h1v1h-1zM7,13h1v1h-1zM11,13h1v1h-1zM13,13h1v1h-1zM17,13h1v1h-1zM18,13h1v1h-1zM19,13h1v1h-1zM22,13h1v1h-1zM23,13h1v1h-1zM26,13h1v1h-1zM28,13h1v1h-1zM29,13h1v1h-1zM1,14h1v1h-1zM2,14h1v1h-1zM5,14h1v1h-1zM6,14h1v1h-1zM8,14h1v1h-1zM10,14h1v1h-1zM11,14h1v1h-1zM16,14h1v1h-1zM18,14h1v1h-1zM19,14h1v1h-1zM20,14h1v1h-1zM21,14h1v1h-1zM22,14h1v1h-1zM3,15h1v1h-1zM7,15h1v1h-1zM8,15h1v1h-1zM9,15h1v1h-1zM10,15h1v1h-1zM11,15h1v1h-1zM12,15h1v1h-1zM13,15h1v1h-1zM16,15h1v1h-1zM17,15h1v1h-1zM19,15h1v1h-1zM21,15h1v1h-1zM22,15h1v1h-1zM23,15h1v1h-1zM26,15h1v1h-1zM27,15h1v1h-1zM28,15h1v1h-1zM29,15h1v1h-1zM3,16h1v1h-1zM12,16h1v1h-1zM14,16h1v1h-1zM15,16h1v1h-1zM17,16h1v1h-1zM18,16h1v1h-1zM20,16h1v1h-1zM21,16h1v1h-1zM24,16h1v1h-1zM26,16h1v1h-1zM28,16h1v1h-1zM5,17h1v1h-1zM6,17h1v1h-1zM7,17h1v1h-1zM9,17h1v1h-1zM12,17h1v1h-1zM14,17h1v1h-1zM15,17h1v1h-1zM16,17h1v1h-1zM17,17h1v1h-1zM18,17h1v1h-1zM20,17h1v1h-1zM21,17h1v1h-1zM24,17h1v1h-1zM28,17h1v1h-1zM4,18h1v1h-1zM6,18h1v1h-1zM8,18h1v1h-1zM9,18h1v1h-1zM12,18h1v1h-1zM13,18h1v1h-1zM16,18h1v1h-1zM22,18h1v1h-1zM23,18h1v1h-1zM24,18h1v1h-1zM26,18h1v1h-1zM29,18h1v1h-1zM1,19h1v1h-1zM6,19h1v1h-1zM7,19h1v1h-1zM9,19h1v1h-1zM10,19h1v1h-1zM12,19h1v1h-1zM13,19h1v1h-1zM14,19h1v1h-1zM21,19h1v1h-1zM22,19h1v1h-1zM28,19h1v1h-1zM29,19h1v1h-1zM5,20h1v1h-1zM6,20h1v1h-1zM8,20h1v1h-1zM9,20h1v1h-1zM10,20h1v1h-1zM11,20h1v1h-1zM14,20h1v1h-1zM16,20h1v1h-1zM17,20h1v1h-1zM18,20h1v1h-1zM19,20h1v1h-1zM20,20h1v1h-1zM21,20h1v1h-1zM22,20h1v1h-1zM25,20h1v1h-1zM28,20h1v1h-1zM29,20h1v1h-1zM1,21h1v1h-1zM3,21h1v1h-1zM5,21h1v1h-1zM7,21h1v1h-1zM9,21h1v1h-1zM10,21h1v1h-1zM11,21h1v1h-1zM12,21h1v1h-1zM15,21h1v1h-1zM17,21h1v1h-1zM19,21h1v1h-1zM21,21h1v1h-1zM22,21h1v1h-1zM23,21h1v1h-1zM24,21h1v1h-1zM25,21h1v1h-1zM27,21h1v1h-1zM9,22h1v1h-1zM10,22h1v1h-1zM11,22h1v1h-1zM12,22h1v1h-1zM14,22h1v1h-1zM16,22h1v1h-1zM17,22h1v1h-1zM18,22h1v1h-1zM19,22h1v1h-1zM21,22h1v1h-1zM25,22h1v1h-1zM27,22h1v1h-1zM28,22h1v1h-1zM29,22h1v1h-1zM1,23h1v1h-1zM2,23h1v1h-1zM3,23h1v1h-1zM4,23h1v1h-1zM5,23h1v1h-1zM6,23h1v1h-1zM7,23h1v1h-1zM11,23h1v1h-1zM14,23h1v1h-1zM15,23h1v1h-1zM16,23h1v1h-1zM21,23h1v1h-1zM23,23h1v1h-1zM25,23h1v1h-1zM28,23h1v1h-1zM1,24h1v1h-1zM7,24h1v1h-1zM9,24h1v1h-1zM10,24h1v1h-1zM11,24h1v1h-1zM12,24h1v1h-1zM13,24h1v1h-1zM14,24h1v1h-1zM17,24h1v1h-1zM21,24h1v1h-1zM25,24h1v1h-1zM26,24h1v1h-1zM27,24h1v1h-1zM28,24h1v1h-1zM29,24h1v1h-1zM1,25h1v1h-1zM3,25h1v1h-1zM4,25h1v1h-1zM5,25h1v1h-1zM7,25h1v1h-1zM10,25h1v1h-1zM12,25h1v1h-1zM15,25h1v1h-1zM16,25h1v1h-1zM17,25h1v1h-1zM21,25h1v1h-1zM22,25h1v1h-1zM23,25h1v1h-1zM24,25h1v1h-1zM25,25h1v1h-1zM28,25h1v1h-1zM1,26h1v1h-1zM3,26h1v1h-1zM4,26h1v1h-1zM5,26h1v1h-1zM7,26h1v1h-1zM9,26h1v1h-1zM10,26h1v1h-1zM11,26h1v1h-1zM12,26h1v1h-1zM13,26h1v1h-1zM15,26h1v1h-1zM16,26h1v1h-1zM17,26h1v1h-1zM20,26h1v1h-1zM23,26h1v1h-1zM24,26h1v1h-1zM25,26h1v1h-1zM26,26h1v1h-1zM27,26h1v1h-1zM29,26h1v1h-1zM1,27h1v1h-1zM3,27h1v1h-1zM4,27h1v1h-1zM5,27h1v1h-1zM7,27h1v1h-1zM10,27h1v1h-1zM11,27h1v1h-1zM12,27h1v1h-1zM14,27h1v1h-1zM17,27h1v1h-1zM24,27h1v1h-1zM25,27h1v1h-1zM26,27h1v1h-1zM27,27h1v1h-1zM29,27h1v1h-1zM1,28h1v1h-1zM7,28h1v1h-1zM12,28h1v1h-1zM16,28h1v1h-1zM17,28h1v1h-1zM18,28h1v1h-1zM19,28h1v1h-1zM20,28h1v1h-1zM21,28h1v1h-1zM23,28h1v1h-1zM28,28h1v1h-1zM1,29h1v1h-1zM2,29h1v1h-1zM3,29h1v1h-1zM4,29h1v1h-1zM5,29h1v1h-1zM6,29h1v1h-1zM7,29h1v1h-1zM9,29h1v1h-1zM11,29h1v1h-1zM12,29h1v1h-1zM13,29h1v1h-1zM17,29h1v1h-1zM18,29h1v1h-1zM19,29h1v1h-1zM21,29h1v1h-1zM23,29h1v1h-1zM24,29h1v1h-1zM26,29h1v1h-1zM28,29h1v1h-1z\" fill=\"#000\"/></svg>"};
-  function bodyHtml(it) {
-    const c = it.cat;
-    let h = '';
-    let top = '';
-    if (c.info) top += `<div class="info">${esc(c.info)}</div>`;
-    c.notices.forEach(n => top += `<div class="notice">${esc(n)}</div>`);
-    if (it.video) h += `<div class="vtop"><div class="vtop-l">${top}</div><a class="qr" href="${it.video}" target="_blank" rel="noopener">${QR[it.video] || ''}<span>▶ 제조 영상</span></a></div>`;
-    else h += top;
-    it.rows.forEach(r => {
-      const cls = /^HOT$|^ICE$/.test(r.tag) ? r.tag : 'light';
-      h += `<div class="row"><span class="tag ${cls}">${esc(r.tag)}</span><ul class="lines">`;
-      splitTop(r.recipe).forEach(p => h += `<li>${deco(p)}</li>`);
-      h += `</ul>`;
-      (r.notes || []).forEach(n => h += `<div class="note rnote">※ ${esc(n)}</div>`);
-      if (r.extra && r.extra !== '-') h += `<div class="less"><b>${esc(c.label)}</b> ${deco(r.extra)}</div>`;
-      h += `</div>`;
-    });
-    it.notes.forEach(n => h += `<div class="note">※ ${esc(n)}</div>`);
-    return h;
-  }
-
-  // ---------- 관리 (청소·소모품) ----------
-  const MG = {
-    parts: [
-      ['커피 머신', [['샤워스크린','60mm','3~6개월'],['가스켓','내경 72×56×8mm · 외경 73×57×8.5mm','3~6개월'],['포터필터 바스켓','2샷 바스켓(70×24.5) · 57~58mm 탬퍼 전용','파손·마모 시']]],
-      ['그라인더', [['상부/하부 칼날','83mm 플랫 버','6개월 / 마모 시']]],
-      ['블렌더', [['블렌더 볼 칼날','','마모 시 교체'],['커플링','','마모 시 교체']]],
-      ['정수 필터', [['전처리 하우징 필터','','1~2개월 (최대 3개월)'],['4FC 필터','','3개월 권장'],['IMF 필터','','약품 소진 시 (6개월 권장)'],['2FC 필터 (제빙기용)','','3개월 권장']]],
-      ['아이스크림 기계', [['비터가스켓, 스크래퍼, 피스톤 O링','','3~6개월']]]
-    ],
-    clean: [
-      ['커피 머신', [['그룹헤드 약품 청소','매일'],['포터필터(바스켓) 세척','매일'],['스팀봉 세척','매일'],['샤워스크린/가스켓, 스팀노즐 분해 청소','주 1회'],['포터필터(바스켓) 약품 청소','주 1회'],['포터필터 스파웃 약품 청소','월 1회']]],
-      ['그라인더', [['호퍼통 세척','매일'],['그라인더 약품 청소','주 1회'],['그라인더 칼날 분해 청소','월 1회']]],
-      ['제빙기', [['제빙기 약품 청소','주 1회']]],
-      ['냉장/냉동고', [['문짝, 틈새 청소','매일'],['내부 물기 제거','매일'],['내부 성에 제거 / 칸막이 세척','주 1회']]],
-      ['아이스크림 기계', [['분해 청소','매일']]],
-      ['토핑 냉장고', [['밧드(토핑용) 뚜껑 세척','매일'],['토핑 냉장고 내부 물기 제거','매일']]],
-      ['블렌더', [['블렌더 볼 세제 청소','매일'],['블렌더 케이스 분리 세척','매일'],['블렌더 칼날 분해 청소','주 1회']]],
-      ['전자레인지', [['오븐판, 받침대, 유리쟁반 세척','매일'],['내부 세척 및 정리','매일']]],
-      ['핫워터 디스펜서', [['온수탭 스케일 제거','월 1회']]]
-    ],
-    videos: [
-      ['커피 머신', [['커피머신 마감 청소법','매일 마감','http://m.site.naver.com/1bzPy'],['포터필터 마감 청소법','매일 마감','http://m.site.naver.com/1bzOE'],['스팀완드 청소법 및 소모품 교체법','가스켓 · 샤워스크린 3~6개월','http://m.site.naver.com/1bzOT']]],
-      ['블렌더', [['블렌더볼 청소법','매일 세척','http://m.site.naver.com/1bzOZ'],['블렌더볼 칼날 분해 및 조립법','주 1회 분해 청소','https://m.site.naver.com/1Xs4X'],['블렌더 커플링 분해 및 조립법','마모 시 교체','https://m.site.naver.com/20x6j']]],
-      ['아이스크림 기계 · 제빙기', [['아이스크림 기계 사용 가이드','비터·가스켓 분해 및 장착','http://m.site.naver.com/1bzQo'],['제빙기 사용 가이드','세척 및 제빙 작동','http://m.site.naver.com/1bzOw']]],
-      ['정수 필터', [['전처리 필터 교체법','1~2개월 (최대 3개월 권장)','https://m.site.naver.com/1XzeA'],['4FC 필터 교체법','3개월 권장','https://m.site.naver.com/1XrgU'],['IMF 필터 교체법','약품 소진 시 (6개월 권장)','https://m.site.naver.com/1XrMF'],['2FC 필터 교체법','3개월 권장 (제빙기용)','https://m.site.naver.com/1Xzoi']]]
-    ]
-  };
-  const cycCls = s => s.startsWith('매일') ? 'd' : s.startsWith('주') ? 'w' : s.startsWith('월') ? 'm' : '';
-  function mgmtHtml() {
-    let h = `<div class="mg-jump"><button class="gbtn" data-j="mg1">청소 주기</button><button class="gbtn" data-j="mg2">소모품 교체</button><button class="gbtn" data-j="mg3">동영상</button></div>`;
-    h += `<div class="sec" id="mg1">기기 청소 주기</div><div class="sub-t">매일 = 하루도 빠짐없이</div>`;
-    MG.clean.forEach(([m, rows]) => {
-      h += `<div class="mbox"><div class="mname">${esc(m)}</div>` + rows.map(([t, c]) =>
-        `<div class="mrow"><span class="mitem">${esc(t)}</span><span class="cyc ${cycCls(c)}">${esc(c)}</span></div>`).join('') + `</div>`;
-    });
-    h += `<div class="sec" id="mg2">소모품 교체 주기</div><div class="sub-t">규격을 확인하고 주기에 맞춰 미리 재고를 준비하세요</div>`;
-    MG.parts.forEach(([m, rows]) => {
-      h += `<div class="mbox"><div class="mname">${esc(m)}</div>` + rows.map(([t, s, c]) =>
-        `<div class="mrow"><span class="mitem">${esc(t)}${s ? `<span class="mspec">${esc(s)}</span>` : ''}</span><span class="cyc">${esc(c)}</span></div>`).join('') + `</div>`;
-    });
-    h += `<div class="sec" id="mg3">청소·교체 동영상</div><div class="sub-t">누르면 새 창에서 영상이 열려요</div>`;
-    MG.videos.forEach(([g, list]) => {
-      h += `<div class="mname" style="padding:6px 2px">${esc(g)}</div>` + list.map(([t, d, u]) =>
-        `<a class="vbtn" href="${u}" target="_blank" rel="noopener"><span class="vplay">▶</span><span class="vtxt"><b>${esc(t)}</b><span>${esc(d)}</span></span></a>`).join('');
-    });
-    h += `<div class="ver">앱 버전 ${APP_VERSION}</div>`;
-    return h;
-  }
-
-  // ---------- UI ----------
-  const $q = document.getElementById('q'), $list = document.getElementById('list'),
-        $count = document.getElementById('count'), $clear = document.getElementById('clear'),
-        $sw = document.getElementById('sw'), $cg = document.getElementById('catgrid'),
-        $sg = document.getElementById('subgrid'), $hdr = document.querySelector('header');
-  let mode = 'search', selCat = null, selItem = null;
-  try { const m = localStorage.getItem('oozy-mode'); if (['search','cat','all','mgmt'].includes(m)) mode = m; } catch (e) {}
-
-  const fixPad = () => { document.documentElement.style.scrollPaddingTop = ($hdr.offsetHeight + 8) + 'px'; };
-  const goTop = el => { fixPad(); el.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
-
-  function setMode(m) {
-    mode = m;
-    if (m !== 'cat') selItem = null;
-    try { localStorage.setItem('oozy-mode', m); } catch (e) {}
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.m === m));
-    $sw.style.display = m === 'search' ? 'block' : 'none';
-    $cg.style.display = (m === 'cat' || m === 'all') ? 'grid' : 'none';
-    $sg.style.display = 'none';
-    $count.textContent = ''; $list.innerHTML = '';
-    if (m === 'search') renderSearch();
-    else if (m === 'cat') renderCat();
-    else if (m === 'mgmt') $list.innerHTML = mgmtHtml();
-    else renderAll();
-    fixPad(); window.scrollTo(0, 0);
-  }
-  document.getElementById('tabs').addEventListener('click', e => {
-    const t = e.target.closest('.tab'); if (t) setMode(t.dataset.m);
-  });
-
-  // 항목 / 전체 공통 분류 버튼
-  function drawCats() {
-    $cg.innerHTML = cats.map((c, i) => `<button class="gbtn${mode === 'cat' && c === selCat ? ' on' : ''}" data-i="${i}">${esc(c.name)}</button>`).join('');
-  }
-  $cg.addEventListener('click', e => {
-    const b = e.target.closest('.gbtn'); if (!b) return;
-    const c = cats[+b.dataset.i];
-    if (mode === 'all') { const s = document.getElementById('sec' + b.dataset.i); if (s) goTop(s); return; }
-    selCat = c; selItem = null; renderCat();
-  });
-
-  // ----- 항목 -----
-  function renderCat() {
-    drawCats();
-    if (selCat && selItem) {
-      $cg.style.display = 'none'; $sg.style.display = 'none'; $count.textContent = '';
-      $list.innerHTML = `<div class="detail"><div class="dhead"><span class="dname">${esc(selItem.name)}</span>`
-        + `<button class="back" id="back">← ${esc(selCat.name)}</button></div>${bodyHtml(selItem)}</div>`;
-      document.getElementById('back').onclick = () => history.back();
-      fixPad(); window.scrollTo(0, 0);
-      return;
-    }
-    $cg.style.display = 'grid';
-    if (!selCat) {
-      $sg.style.display = 'none';
-      $count.textContent = '';
-      $list.innerHTML = '<div class="empty">위에서 <b>항목</b>을 고르면 메뉴 목록이 나와요.</div>';
-      return;
-    }
-    $sg.style.display = 'grid';
-    $sg.innerHTML = selCat.items.map((it, i) => `<button class="gbtn${it === selItem ? ' on' : ''}" data-i="${i}">${esc(it.name)}</button>`).join('');
-    $count.textContent = '';
-    $list.innerHTML = `<div class="empty">${esc(selCat.name)} 메뉴 ${selCat.items.length}개 · 메뉴를 누르면 레시피가 나와요.</div>`;
-  }
-  $sg.addEventListener('click', e => {
-    const b = e.target.closest('.gbtn'); if (!b) return;
-    selItem = selCat.items[+b.dataset.i];
-    history.pushState({ item: 1 }, '');
-    renderCat();
-  });
-
-  // ----- 전체 -----
-  function renderAll() {
-    drawCats();
-    $count.textContent = `전체 ${items.length}개 · 위 항목을 누르면 해당 위치로 이동해요`;
-    $list.innerHTML = cats.map((c, i) =>
-      `<div class="sec" id="sec${i}">${esc(c.name)}</div>` + c.items.map(it => card(it, true)).join('')
-    ).join('');
-  }
-
-  // ----- 초성 -----
-  function renderSearch() {
-    const raw = $q.value;
-    $clear.style.display = raw ? 'block' : 'none';
-    const q = prepQ(raw);
-    if (!q) {
-      $count.textContent = '';
-      $list.innerHTML = `<div class="empty">메뉴 이름의 <b>초성</b>을 입력하세요.<br>예: <b>ㅇㅁㄹㅋ</b> → 아메리카노, <b>ㅂㄴㄹ</b> → 바닐라라떼<br>완성 글자와 섞어도 돼요 (<b>딥ㅋ</b>)</div>`;
-      return;
-    }
-    const vs = variants(q), res = [];
-    items.forEach((it, idx) => {
-      let best = -1;
-      for (const v of vs) { const p = find(it.key, v); if (p >= 0 && (best < 0 || p < best)) best = p; }
-      if (best >= 0) res.push({ it, s: best * 100 + it.key.length + idx / 1000 });
-    });
-    res.sort((a, b) => a.s - b.s);
-    if (!res.length) {
-      $count.textContent = '';
-      $list.innerHTML = `<div class="empty">“${esc(raw)}”에 맞는 메뉴가 없어요.<br>초성을 하나 지우거나 <b>항목</b>에서 찾아보세요.</div>`;
-      return;
-    }
-    const few = res.length <= 3;
-    $count.textContent = `${res.length}개 찾음${few ? '' : ' · 이름을 누르면 레시피가 열려요'}`;
-    $list.innerHTML = res.map((r, i) => card(r.it, few || i === 0)).join('');
-  }
-
-  $list.addEventListener('click', e => {
-    const j = e.target.closest('[data-j]');
-    if (j) { const t = document.getElementById(j.dataset.j); if (t) goTop(t); return; }
-    const h = e.target.closest('.head'); if (!h) return;
-    const el = h.parentElement, open = !el.classList.contains('open');
-    el.classList.toggle('open', open); h.setAttribute('aria-expanded', open);
-    if (open && mode === 'search') { $q.blur(); goTop(el); }
-  });
-  $q.addEventListener('input', renderSearch);
-  $q.addEventListener('keydown', e => { if (e.key === 'Enter') $q.blur(); });
-  $clear.addEventListener('click', () => { $q.value = ''; renderSearch(); $q.focus(); });
-  window.addEventListener('resize', fixPad);
-  window.addEventListener('popstate', () => {
-    if (mode === 'cat' && selItem) { selItem = null; renderCat(); goTop($sg); }
-  });
-
-  // font size
-  let fs = 22;
-  try { const v = parseInt(localStorage.getItem('oozy-fs'), 10); if (v >= 16 && v <= 36) fs = v; } catch (e) {}
-  const applyFs = () => { document.documentElement.style.setProperty('--fs', fs + 'px'); fixPad(); try { localStorage.setItem('oozy-fs', fs); } catch (e) {} };
-  document.getElementById('up').onclick = () => { fs = Math.min(36, fs + 2); applyFs(); };
-  document.getElementById('dn').onclick = () => { fs = Math.max(16, fs - 2); applyFs(); };
-  applyFs();
-  setMode(mode);
+// 날짜 · 오픈 D-day
+(function () {
+  const now = new Date(), d = ['일', '월', '화', '수', '목', '금', '토'][now.getDay()];
+  $('#today').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 (${d})`;
+  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()), o = new Date(CFG.OPEN_DATE + 'T00:00');
+  const diff = Math.round((o - t0) / 864e5);
+  $('#dday').innerHTML = diff > 0 ? `오픈 <b>D-${diff}</b>` : diff === 0 ? '<b>오늘 오픈!</b>' : `오픈 <b>${-diff + 1}일째</b>`;
+  $('#hours').textContent = `영업 ${CFG.HOURS}`;
 })();
+
+function card(a) {
+  const off = !a.url;
+  const subs = a.subs ? `<div class="subs">${a.subs.map(([n, u]) => `<a href="${esc(u)}">${esc(n)}</a>`).join('')}</div>` : '';
+  // 카드 전체를 덮는 링크 + 그 위에 작은 바로가기 (링크 안에 링크를 넣지 않음)
+  return `<div class="app${off ? ' off' : ''}"><a class="cover" ${off ? 'href="#" data-missing="1"' : `href="${esc(a.url)}"`} aria-label="${esc(a.name)}"></a>
+    <div class="ic" style="background:${a.bg}">${a.ic}</div><b>${esc(a.name)}</b><span>${off ? '주소를 아직 넣지 않았습니다' : esc(a.desc)}</span>${subs}</div>`;
+}
+$('#staffApps').innerHTML = CFG.STAFF_APPS.map(card).join('');
+
+function renderOwner() {
+  if (store.get()) {
+    $('#ownerArea').innerHTML = `<div class="owner-bar"><h2>사장님 전용</h2><button id="lockAgain">잠그기</button></div>
+      <div class="grid">${CFG.OWNER_APPS.map(card).join('')}</div>`;
+    $('#lockAgain').onclick = () => { store.set(false); renderOwner(); };
+    document.querySelectorAll('[data-missing]').forEach(a => a.onclick = e => { e.preventDefault(); alertBox('가계부 주소가 아직 없습니다', '이 파일 위쪽 설정(CFG)의 가계부 url에 주소를 넣어주세요.'); });
+  } else {
+    $('#ownerArea').innerHTML = `<h2>사장님 전용</h2><button class="lock" id="unlock">🔒 사장님 메뉴 열기 (가계부 · 브랜드 조사)</button>`;
+    $('#unlock').onclick = askPin;
+  }
+}
+function alertBox(t, m) {
+  const bg = document.createElement('div'); bg.className = 'mbg';
+  bg.innerHTML = `<div class="modal"><h3>${esc(t)}</h3><div style="color:var(--sub);font-size:14px">${esc(m)}</div><div class="btns" style="margin-top:14px"><button class="pri">확인</button></div></div>`;
+  document.body.appendChild(bg); bg.querySelector('button').onclick = () => bg.remove();
+}
+// 관리자 PIN을 근무관리 서버에서 확인
+function askPin() {
+  const bg = document.createElement('div'); bg.className = 'mbg';
+  bg.innerHTML = `<div class="modal"><h3>사장님 메뉴</h3><div style="color:var(--sub);font-size:14px">근무관리 앱의 관리자 PIN을 입력하세요.</div>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"><div class="err" id="perr"></div>
+    <div class="btns"><button class="sec" id="pc">취소</button><button class="pri" id="po">확인</button></div></div>`;
+  document.body.appendChild(bg);
+  const inp = bg.querySelector('#pin'); inp.focus();
+  const go = async () => {
+    const pin = inp.value.trim(); if (pin.length < 4) { bg.querySelector('#perr').textContent = '4자리 이상 입력하세요'; return; }
+    bg.querySelector('#perr').textContent = '확인 중...';
+    try {
+      const r = await fetch(CFG.API + '/login', { headers: { 'X-Pin': pin } });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.role === 'admin') { store.set(true); bg.remove(); renderOwner(); }
+      else bg.querySelector('#perr').textContent = '관리자 PIN이 아닙니다';
+    } catch (e) { bg.querySelector('#perr').textContent = '서버에 연결하지 못했습니다. 인터넷을 확인하세요'; }
+  };
+  bg.querySelector('#po').onclick = go;
+  inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+  bg.querySelector('#pc').onclick = () => bg.remove();
+}
+renderOwner();
 </script>
 </body>
 </html>
