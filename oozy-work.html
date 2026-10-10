@@ -26,9 +26,9 @@ label{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
 .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:99px;background:#eee;margin-left:4px}
 .badge.bad{background:#fde0e0;color:var(--bad)}.badge.warn{background:#fff1d6;color:#9a5c00}.badge.ok{background:#dcf3e5;color:var(--ok)}
 .punchbtn{width:100%;font-size:24px;font-weight:700;padding:22px;border-radius:16px;margin-top:10px}
-.outbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.outbtns button{font-size:17px;font-weight:700;padding:16px 8px;border-radius:14px}
-.outbtns .go{grid-column:1/-1;font-size:22px;padding:20px}
+.outbtns{display:flex;gap:8px;margin-top:10px}
+.outbtns button{flex:1 1 0;min-width:0;font-size:17px;font-weight:700;padding:14px 4px;border-radius:14px;line-height:1.25;white-space:nowrap}
+.outbtns button small{display:block;font-size:12px;font-weight:400;opacity:.85}
 button.warn{background:var(--warn);color:#fff}
 .list>div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
 .list>div:last-child{border:0}
@@ -1028,10 +1028,10 @@ function statusCard(st) {
     return `<div class="muted">현재 상태</div>
       <div class="big" style="margin-top:4px"><span style="color:var(--ok)">근무 중</span> <span class="muted">${hhmm(o.start)}~${pe ? hhmm(pe) : ''}</span></div>
       ${pe ? `<div class="muted" style="margin-top:4px">퇴근 버튼을 누르지 않아도 <b>${hhmm(pe)}</b> 퇴근으로 기록됩니다.<br>일찍 가거나 더 일할 때만 아래 버튼을 눌러주세요.</div>`
-           : `<div class="warnlist">예정에 없는 근무입니다. 갈 때 꼭 <b>연장근무</b>를 눌러야 퇴근 시각이 기록됩니다.</div>`}
+           : `<div class="warnlist">예정에 없는 근무입니다. 갈 때 꼭 <b>조퇴/연장근무</b>를 눌러야 퇴근 시각이 기록됩니다.</div>`}
       <div class="outbtns">
-        ${pe ? `<button class="bad" data-act="early">조기퇴근</button>` : ''}<button class="warn" data-act="extra">연장근무</button>
-        <button class="pri${pe ? ' go' : ''}" data-act="normal">나가기${pe ? ` <span style="font-size:14px;font-weight:400">(${hhmm(pe)} 퇴근 그대로)</span>` : ''}</button>
+        ${pe ? `<button class="bad" data-act="early">조기퇴근<small>일찍 감</small></button>` : ''}<button class="warn" data-act="extra">${pe ? '연장근무<small>더 일함</small>' : '조퇴/연장근무<small>지금 퇴근</small>'}</button>
+        <button class="pri" data-act="normal">나가기${pe ? `<small>${hhmm(pe)} 퇴근</small>` : ''}</button>
       </div>`;
   }
   return `<div class="muted">현재 상태</div><div class="big" style="margin-top:4px">퇴근 상태</div>
@@ -1053,7 +1053,7 @@ async function leave(type, row) {
   // 나가기: 기록은 건드리지 않고 화면만 닫음 (예정 퇴근 시각으로 자동 기록됨)
   if (type === 'normal') {
     logout();
-    toast(pe ? `예정대로 ${pe} 퇴근으로 기록됩니다.` : '퇴근 시각은 기록되지 않았습니다. 갈 때 연장근무를 눌러주세요.', 4000);
+    toast(pe ? `예정대로 ${pe} 퇴근으로 기록됩니다.` : '퇴근 시각은 기록되지 않았습니다. 갈 때 조퇴/연장근무를 눌러주세요.', 4000);
     return;
   }
   const msg = type === 'early' ? `지금 <b>${now}</b> <b style="color:var(--bad)">조기퇴근</b>으로 기록할까요?`
