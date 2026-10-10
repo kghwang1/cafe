@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>우지커피 가계부</title>
+<title>우지커피 카페 운영</title>
 <style>
 :root{
   --ink:#1c2333; --ink2:#4a5468; --mute:#8792a8;
@@ -330,6 +330,12 @@ ol.steps small{color:var(--mute);display:block}
   .sign div{border-top:.6pt solid #000}
   ol.steps{font-size:8.6pt}
 }
+/* 홈 버튼 */
+.homeln{display:inline-flex;align-items:center;gap:4px;text-decoration:none;font-size:13px;font-weight:600;color:#fff;background:rgba(255,255,255,.18);border-radius:99px;padding:5px 11px;margin-right:8px;white-space:nowrap;flex:none}
+.homeln.dark{color:var(--ink2,#4a5468);background:#eef0f3;margin:0 0 12px}
+@media print{.homeln{display:none!important}}
+#hTitle{white-space:nowrap}
+@media (max-width:440px){header .homeln{padding:5px 8px;margin-right:6px}header .homeln .ht{display:none}#hTitle{font-size:18px}.ttl{gap:8px}.ttl #hSave{gap:5px}.ttl button.nsave{padding:6px 11px}}
 </style>
 
 <header>
@@ -339,7 +345,8 @@ ol.steps small{color:var(--mute);display:block}
       <span class="st" id="hSt"></span>
     </div>
     <div class="ttl">
-      <h1 id="hTitle">부서 회계장부</h1>
+      <a class="homeln" href="./" aria-label="홈으로">🏠<span class="ht"> 홈</span></a>
+      <h1 id="hTitle">카페 운영</h1>
       <span id="hSave"></span>
       <input type="file" id="deptFiles" multiple accept=".xlsx,.csv,.txt,.json" style="display:none">
       <input type="file" id="myFile" accept=".xlsx,.csv,.txt,.json" style="display:none">
@@ -1192,7 +1199,7 @@ function render(){
   if(tab==='guide' && authRole==='home') tab='settle';
   document.getElementById('hTitle').textContent = ro
     ? `${S.meta.year}년 ${roName} 자료열람`
-    : (authRole==='home' ? `${S.meta.dept||''} 회계장부`
+    : (authRole==='home' ? '카페 운영'
                          : `${S.meta.year}년 ${S.meta.dept||'부서'} 회계장부`);
   document.getElementById('hSub').textContent = (authRole==='home') ? '' : (S.meta.church || '');
   document.body.classList.toggle('viewing', !!(ro || guideMode==='view'));
@@ -1419,8 +1426,9 @@ function vCover(){
     : authRole==='view' ? true : x.name===authDept);
   return `<div class="lg-wrap">
     <div class="lg-card">
+      <a class="homeln dark" href="./">🏠 홈</a>
       <div class="lg-church">우지커피 광양용강점</div>
-      <h1 class="lg-title">카페 가계부</h1>
+      <h1 class="lg-title">카페 운영</h1>
 
       ${authRole?`
       <div class="lg-sec">
@@ -2987,7 +2995,20 @@ function tryLogin(){
         : '부서와 이름이 맞지 않습니다.');
     return;
   }
+  if(authRole==='home'){ try{ localStorage.setItem(PWKEY, authName) }catch(e){} render(); autoOpen(); return }
   render();
+}
+// 가장 최근 카페 장부를 바로 열기 (결산 화면으로 시작)
+const PWKEY = 'oozy_ledger_pw';
+let autoTried = false;
+function autoOpen(){
+  if(screen!=='cover') return;
+  if(!authName){ try{ authName = localStorage.getItem(PWKEY)||'' }catch(e){} }
+  if(!authOK()){ render(); return }
+  const mine = deptList.filter(x=>x.name===authDept).sort((a,b)=>b.year-a.year);
+  if(!mine.length){ render(); return }
+  selFile = mine[0].name+'|'+mine[0].year; render();
+  const b=$('#lgStart'); if(b) b.click();
 }
 function enterApp(){
   locked = (authRole==='home');            // 가계부는 열람으로 시작
@@ -3517,6 +3538,7 @@ function readOldExcel(wb){
     await saveCache();
   }catch(e){}
   cvBusy=false; render();
+  if(!autoTried){ autoTried=true; autoOpen() }      // 홈에서 들어오면 바로 결산 화면
   checkUpdate(false);
   loadXLSX().then(prepShare).catch(function(){});   // 저장·공유가 바로 되도록 미리 준비
   offloadSoon(8000);                                 // 장부 안에 남은 사진이 있으면 천천히 옮긴다

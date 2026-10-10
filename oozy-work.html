@@ -14,6 +14,7 @@ button.pri{background:var(--brand);color:#fff}
 button.ok{background:var(--ok);color:#fff}
 button.bad{background:var(--bad);color:#fff}
 button.sm{padding:6px 10px;font-size:13px}
+.homebtn{display:inline-flex;align-items:center;padding:6px 11px;border-radius:10px;background:#ece6df;color:var(--ink);text-decoration:none;font-size:13px;font-weight:600}
 input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
 label{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
 .wrap{max-width:900px;margin:0 auto;padding:12px 16px 60px}
@@ -787,7 +788,7 @@ function setPractice(on) {
 }
 function showLogin() {
   let v = '';
-  $('#app').innerHTML = `<div class="login"><div class="big">☕ 우지커피 근무관리</div>
+  $('#app').innerHTML = `<div class="login"><div style="text-align:left;margin-bottom:14px"><a class="homebtn" href="./">🏠 홈</a></div><div class="big">☕ 우지커피 근무관리</div>
     ${PRACTICE ? '<div style="margin-top:6px"><span class="stamp wip" style="background:#ff8f00;color:#fff">연습 모드</span></div>' : ''}
     <div class="muted" style="margin-top:6px">PIN 번호를 입력하세요</div>
     <div class="dots" id="dots"></div>
@@ -970,7 +971,7 @@ async function renderStaff() {
   const st = await run(() => api('/status')); if (!st) return;
   const open = st.open, missing = st.recent.filter(p => p.status === 'missing');
   $('#app').innerHTML = `<div class="wrap">
-    <div class="top"><h1>${esc(ME.name)}님</h1><button class="sm" id="out">로그아웃</button></div>
+    <div class="top"><h1>${esc(ME.name)}님</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="card">${statusCard(st)}</div>
     ${missing.length ? `<div class="card" style="border:2px solid var(--bad)"><b style="color:var(--bad)">퇴근을 안 찍은 기록이 있습니다</b>
       <div class="list">${missing.map(p => `<div><span>${mdw(p.start)} ${hhmm(p.start)}~ ?</span><button class="sm pri" data-rq="${p.id}">퇴근시간 요청</button></div>`).join('')}</div></div>` : ''}
@@ -1093,7 +1094,7 @@ async function renderAdmin() {
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
   const tabs = [['tpl', `근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '주간표'], ['punch', '근무기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원']];
-  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자</h1><button class="sm" id="out">로그아웃</button></div>
+  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
   $('#out').onclick = logout;
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderAdmin(); });

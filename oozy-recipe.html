@@ -79,6 +79,9 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 :root[data-theme="dark"] .sec{color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sec{color:var(--butter)}}
 .brand span{color:var(--butter)}
+@media (max-width:440px){.brand span{display:none}.homebtn{padding:0 7px}}
+@media (max-width:380px){.homebtn .ht{display:none}}
+.homebtn{flex:none;display:inline-flex;align-items:center;min-height:38px;padding:0 9px;border-radius:8px;background:rgba(255,255,255,.16);color:#fff;text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap}
 .sz{background:var(--green2);color:#fff;border:0;border-radius:8px;font:inherit;font-size:16px;
   font-weight:600;padding:6px 12px;min-width:44px;min-height:40px}
 .searchwrap{position:relative}
@@ -150,6 +153,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </div>
 <header>
   <div class="top">
+    <a class="homebtn" href="./" aria-label="홈으로">🏠<span class="ht"> 홈</span></a>
     <div class="brand"><b>OOZY </b><span>레시피찾기</span></div>
     <div class="tabs" id="tabs">
       <button class="tab" data-m="search">초성</button>

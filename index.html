@@ -22,7 +22,8 @@ header .pill{background:rgba(255,255,255,.15);border-radius:99px;padding:4px 10p
 header .pill b{font-variant-numeric:tabular-nums}
 h2{font-size:14px;color:var(--sub);margin:22px 4px 10px;font-weight:600;letter-spacing:.5px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.app{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 14px;min-height:118px;position:relative;transition:transform .08s}
+#staffApps{margin-top:18px}
+.app{display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 14px;min-height:104px;position:relative;transition:transform .08s}
 .app:active{transform:scale(.97)}
 .app .cover{position:absolute;inset:0;border-radius:16px;z-index:0}
 .app .cover:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
@@ -61,7 +62,6 @@ h2{font-size:14px;color:var(--sub);margin:22px 4px 10px;font-weight:600;letter-s
     <div class="meta"><span class="pill" id="today"></span><span class="pill" id="dday"></span><span class="pill" id="hours"></span></div>
   </header>
 
-  <h2>매장 · 알바</h2>
   <div class="grid" id="staffApps"></div>
 
   <div id="ownerArea"></div>
@@ -83,7 +83,7 @@ const CFG = {
     { name: '레시피', desc: '초성 검색, 청소 · 소모품 관리', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/oo-recipe/oozy-recipe.html' },
   ],
   OWNER_APPS: [
-    { name: '가계부', desc: '매출 · 지출, 결산, 메모', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/oo-recipe/oozy-ledger.html' },
+    { name: '카페 운영', desc: '매출 · 지출, 결산, 메모', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/oo-recipe/oozy-ledger.html' },
     { name: '커피브랜드 조사', desc: '저가커피 프랜차이즈 비교', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
       subs: [['장비 견적', 'https://kghwang1.github.io/coffee-board/equipment.html'], ['매장 지도', 'https://kghwang1.github.io/coffee-board/map.html']] },
   ],
@@ -109,18 +109,16 @@ function card(a) {
   const subs = a.subs ? `<div class="subs">${a.subs.map(([n, u]) => `<a href="${esc(u)}">${esc(n)}</a>`).join('')}</div>` : '';
   // 카드 전체를 덮는 링크 + 그 위에 작은 바로가기 (링크 안에 링크를 넣지 않음)
   return `<div class="app${off ? ' off' : ''}"><a class="cover" ${off ? 'href="#" data-missing="1"' : `href="${esc(a.url)}"`} aria-label="${esc(a.name)}"></a>
-    <div class="ic" style="background:${a.bg}">${a.ic}</div><b>${esc(a.name)}</b><span>${off ? '주소를 아직 넣지 않았습니다' : esc(a.desc)}</span>${subs}</div>`;
+    <div class="ic" style="background:${a.bg}">${a.ic}</div><b>${esc(a.name)}</b>${subs}</div>`;
 }
 $('#staffApps').innerHTML = CFG.STAFF_APPS.map(card).join('');
 
 function renderOwner() {
   if (store.get()) {
-    $('#ownerArea').innerHTML = `<div class="owner-bar"><h2>사장님 전용</h2><button id="lockAgain">잠그기</button></div>
-      <div class="grid">${CFG.OWNER_APPS.map(card).join('')}</div>`;
-    $('#lockAgain').onclick = () => { store.set(false); renderOwner(); };
-    document.querySelectorAll('[data-missing]').forEach(a => a.onclick = e => { e.preventDefault(); alertBox('가계부 주소가 아직 없습니다', '이 파일 위쪽 설정(CFG)의 가계부 url에 주소를 넣어주세요.'); });
+    $('#ownerArea').innerHTML = `<div class="grid" style="margin-top:10px">${CFG.OWNER_APPS.map(card).join('')}</div>`;
+    document.querySelectorAll('[data-missing]').forEach(a => a.onclick = e => { e.preventDefault(); alertBox('주소가 아직 없습니다', '이 파일 위쪽 설정(CFG)의 가계부 url에 주소를 넣어주세요.'); });
   } else {
-    $('#ownerArea').innerHTML = `<h2>사장님 전용</h2><button class="lock" id="unlock">🔒 사장님 메뉴 열기 (가계부 · 브랜드 조사)</button>`;
+    $('#ownerArea').innerHTML = `<button class="lock" id="unlock" style="margin-top:10px">🔒 사장님 메뉴 열기</button>`;
     $('#unlock').onclick = askPin;
   }
 }
