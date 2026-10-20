@@ -23,7 +23,8 @@ header .pill{background:rgba(255,255,255,.15);border-radius:99px;padding:4px 10p
 header .pill b{font-variant-numeric:tabular-nums}
 h2{font-size:14px;color:var(--sub);margin:22px 4px 10px;font-weight:600;letter-spacing:.5px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#staffApps{margin-top:18px}
+#staffApps{margin-top:18px;grid-template-columns:repeat(3,1fr)}
+#staffApps .app{padding:14px 10px;min-height:96px}#staffApps .app b{font-size:16px}
 .app{display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 14px;min-height:104px;position:relative;transition:transform .08s}
 .app:active{transform:scale(.97)}
 .app .cover{position:absolute;inset:0;border-radius:16px;z-index:0}
@@ -96,11 +97,12 @@ const CFG = {
   HOURS: '07:00~22:00',
   STAFF_APPS: [
     { name: '근무 · 급여', desc: '출퇴근, 근무시간표, 내 급여명세서', ic: '🕐', bg: '#e3f1e8', url: 'https://kghwang1.github.io/cafe/oozy-work.html' },
-    { name: '레시피와 기기관리', desc: '초성 검색, 청소 · 소모품 관리', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/cafe/oozy-recipe.html' },
+    { name: '매장관리', desc: '청소 주기, 소모품 교체, 동영상', ic: '🧽', bg: '#e6f3f5', url: 'https://kghwang1.github.io/cafe/oozy-store.html' },
+    { name: '레시피', desc: '초성 검색, 항목별 레시피', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/cafe/oozy-recipe.html' },
   ],
   OWNER_APPS: [
     { name: '카페 운영', desc: '매출 · 지출, 결산, 메모', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/cafe/oozy-ledger.html' },
-    { name: '커피브랜드 조사', desc: '저가커피 프랜차이즈 비교', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
+    { name: '커피회사', desc: '저가커피 프랜차이즈 비교', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
       subs: [['장비 견적', 'https://kghwang1.github.io/coffee-board/equipment.html'], ['매장 지도', 'https://kghwang1.github.io/coffee-board/map.html']] },
   ],
 };
