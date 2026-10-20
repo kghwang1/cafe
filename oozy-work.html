@@ -27,6 +27,7 @@ label{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
 .big{font-size:26px;font-weight:700}
 .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:99px;background:#eee;margin-left:4px}
 .badge.bad{background:#fde0e0;color:var(--bad)}.badge.warn{background:#fff1d6;color:#9a5c00}.badge.ok{background:#dcf3e5;color:var(--ok)}
+body.tok #out{display:none}
 .punchbtn{width:100%;font-size:24px;font-weight:700;padding:22px;border-radius:16px;margin-top:10px}
 .punchbtn.off{background:#cfcac5;color:#fff;cursor:not-allowed}.punchbtn small{display:block;font-size:13px;font-weight:500;margin-top:4px}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -197,7 +198,7 @@ const EXTRA_WINDOW_H = 12;     // 예정 퇴근으로 자동 처리된 뒤 이 �
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,X-Pin',
+  'Access-Control-Allow-Headers': 'Content-Type,X-Pin,X-Token',
 };
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' } });
 const err = (m, s = 400) => json({ error: m }, s);
@@ -249,11 +250,25 @@ const closeStale = env => env.DB.batch([
 const log = (env, id, action, before, after) => env.DB.prepare('INSERT INTO punch_log(punch_id,action,before,after,at) VALUES(?,?,?,?,?)')
   .bind(id, action, before ? JSON.stringify(before) : null, after ? JSON.stringify(after) : null, Date.now()).run();
 
+// ===== 로그인: 이름 + 비밀번호, 한 번 로그인한 기기는 토큰으로 바로 들어감 =====
+const ADMIN_NAME_DEFAULT = '황승유';                 // 관리자 이름 (Cloudflare 변수 ADMIN_NAME 이 있으면 그 값)
+const APP_KEYS = ['work', 'store', 'recipe', 'ledger', 'coffee'];   // 근무급여, 매장관리, 레시피, 카페운영, 커피회사
+const STAFF_DEFAULT_APPS = ['work', 'store', 'recipe'];
+const appsOf = s => s.apps == null ? STAFF_DEFAULT_APPS.slice() : String(s.apps).split(',').filter(k => APP_KEYS.includes(k));
+const adminName = env => String(env.ADMIN_NAME || ADMIN_NAME_DEFAULT).trim();
 async function auth(req, env) {
+  const tok = (req.headers.get('X-Token') || '').trim();
+  if (tok) {
+    const d = await env.DB.prepare('SELECT * FROM device WHERE token=?').bind(tok).first();
+    if (!d) return null;
+    if (d.role === 'admin') return { role: 'admin', token: tok };
+    const s = await env.DB.prepare('SELECT id,name,wage,color,apps FROM staff WHERE id=? AND active=1 AND deleted=0').bind(d.staff_id).first();
+    return s ? { role: 'staff', staff: s, token: tok } : null;
+  }
   const pin = (req.headers.get('X-Pin') || '').trim();
   if (!pin) return null;
   if (env.ADMIN_PIN && pin === String(env.ADMIN_PIN)) return { role: 'admin' };
-  const s = await env.DB.prepare('SELECT id,name,wage,color FROM staff WHERE pin=? AND active=1').bind(pin).first();
+  const s = await env.DB.prepare('SELECT id,name,wage,color,apps FROM staff WHERE pin=? AND active=1 AND deleted=0').bind(pin).first();
   return s ? { role: 'staff', staff: s } : null;
 }
 
@@ -279,6 +294,8 @@ async function ensureSettings(env) {
   }
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN use_break INTEGER NOT NULL DEFAULT 1').run(); } catch (e) { } // 휴게시간 사용 여부
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0').run(); } catch (e) { } // 삭제한 직원 (지난 기록만 남김)
+  try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN apps TEXT').run(); } catch (e) { }   // 쓸 수 있는 앱 (비어 있으면 기본)
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS device (token TEXT PRIMARY KEY, role TEXT NOT NULL, staff_id INTEGER, ua TEXT, created INTEGER, seen INTEGER)').run();
   READY[key] = true;
   if (env.PRACTICE && !(await env.DB.prepare('SELECT COUNT(*) c FROM staff').first()).c) await seedPractice(env);
 }
@@ -400,13 +417,38 @@ async function route(req, env) {
     await seedPractice(env);
     return json({ ok: true });
   }
+  if (p === '/auth/login' && m === 'POST') {             // 이름 + 비밀번호 → 이 기기 토큰
+    const name = String(b.name || '').trim(), pin = String(b.pin || '').trim();
+    if (!name || !pin) return err('이름과 비밀번호를 넣으세요.');
+    let row = null;
+    if (env.ADMIN_PIN && name === adminName(env) && pin === String(env.ADMIN_PIN)) row = { role: 'admin', staff_id: null, name, apps: APP_KEYS.concat('admin') };
+    else {
+      const s = await env.DB.prepare('SELECT * FROM staff WHERE name=? AND pin=? AND active=1 AND deleted=0').bind(name, pin).first();
+      if (s) row = { role: 'staff', staff_id: s.id, name: s.name, apps: appsOf(s) };
+    }
+    if (!row) return err('이름 또는 비밀번호가 맞지 않습니다.', 401);
+    const token = crypto.randomUUID() + '-' + crypto.randomUUID();
+    const t = Date.now();
+    await env.DB.prepare('INSERT INTO device(token,role,staff_id,ua,created,seen) VALUES(?,?,?,?,?,?)')
+      .bind(token, row.role, row.staff_id, String(req.headers.get('User-Agent') || '').slice(0, 200), t, t).run();
+    return json({ token, role: row.role, name: row.name, apps: row.apps });
+  }
   const me = await auth(req, env);
   if (!me) return err('PIN이 올바르지 않습니다.', 401);
+  if (p === '/auth/me') {
+    if (me.token) await env.DB.prepare('UPDATE device SET seen=? WHERE token=?').bind(Date.now(), me.token).run();
+    return json(me.role === 'admin' ? { role: 'admin', name: adminName(env), apps: APP_KEYS.concat('admin') }
+                                    : { role: 'staff', name: me.staff.name, apps: appsOf(me.staff) });
+  }
+  if (p === '/auth/logout' && m === 'POST') {
+    if (me.token) await env.DB.prepare('DELETE FROM device WHERE token=?').bind(me.token).run();
+    return json({ ok: true });
+  }
   // 퇴근누락 정리는 기록을 다루는 요청에서만 (조회 속도 위해 /week, /login 제외)
   if (p !== '/week' && p !== '/login') await closeStale(env);
   const now = Date.now();
 
-  if (p === '/login') return json(me.role === 'admin' ? { role: 'admin', name: '관리자' } : { role: 'staff', id: me.staff.id, name: me.staff.name });
+  if (p === '/login') return json(me.role === 'admin' ? { role: 'admin', name: adminName(env) } : { role: 'staff', id: me.staff.id, name: me.staff.name });
 
   // ---------- 공통: 주간표 ----------
   if (p === '/week') {
@@ -431,6 +473,7 @@ async function route(req, env) {
 
   // ---------- 직원 ----------
   if (me.role === 'staff') {
+    if (!appsOf(me.staff).includes('work') && p !== '/week') return err('근무·급여를 쓸 권한이 없습니다. 관리자에게 문의하세요.', 403);
     const id = me.staff.id;
 
     if (p === '/status') {
@@ -656,6 +699,12 @@ async function route(req, env) {
     return json({ ok: true, copied, skipped });
   }
 
+  // 직원별 쓸 수 있는 앱
+  if (p === '/admin/staff/apps' && m === 'POST') {
+    const list = (Array.isArray(b.apps) ? b.apps : []).filter(k => APP_KEYS.includes(k));
+    await env.DB.prepare('UPDATE staff SET apps=? WHERE id=?').bind(list.join(','), +b.id).run();
+    return json({ ok: true, apps: list });
+  }
   // 직원 출근하기 버튼 사용 여부
   if (p === '/admin/settings' && m === 'GET') return json({ punchOn: await punchEnabled(env) });
   if (p === '/admin/settings' && m === 'POST') {
@@ -767,6 +816,7 @@ const CFG = {
 };
 const DAY = 864e5, HOUR = 36e5, MIN = 6e4;
 const DOW = ['일','월','화','수','목','금','토'];
+let TOKEN = (() => { try { return localStorage.getItem('oozyToken') || ''; } catch (e) { return ''; } })();   // 홈에서 로그인한 기기 토큰
 let PRACTICE = false, PIN = '', ME = null, WEEK = monday(new Date()), MODE = 'plan', DATA = null, TAB = 'grid', idleT = null;
 
 // ===== 유틸 =====
@@ -791,7 +841,8 @@ function addDays(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); retu
 function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', ms); }
 
 async function api(path, body) {
-  const init = { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'X-Pin': PIN }, body: body ? JSON.stringify(body) : undefined };
+  const hd = { 'Content-Type': 'application/json' }; if (!PRACTICE && TOKEN) hd['X-Token'] = TOKEN; else hd['X-Pin'] = PIN;
+  const init = { method: body ? 'POST' : 'GET', headers: hd, body: body ? JSON.stringify(body) : undefined };
   const r = PRACTICE ? await practiceFetch(path, init) : await fetch(CFG.API + path, init);
   const j = await r.json().catch(() => ({ error: '서버 응답을 읽을 수 없습니다.' }));
   if (r.status === 401 && ME) { logout(); throw new Error('다시 로그인해 주세요.'); }
@@ -831,7 +882,7 @@ function getPos() {
   });
 }
 
-function resetIdle() { clearTimeout(idleT); if (ME) idleT = setTimeout(idleLogout, CFG.IDLE_MIN * MIN); }
+function resetIdle() { clearTimeout(idleT); if (TOKEN && !PRACTICE) return; if (ME) idleT = setTimeout(idleLogout, CFG.IDLE_MIN * MIN); }
 async function idleLogout() {
   if (TPL_DIRTY && TPL) { try { await api('/admin/template', { grid: TPL }); } catch (e) {} } // 작성 중인 근무표는 자동 저장
   TPL_DIRTY = false; logout(); toast('자동 로그아웃되었습니다.');
@@ -882,6 +933,7 @@ async function practiceFetch(path, init) {
 // ===== 로그인 =====
 function logout() {
   if (TPL_DIRTY && ME && ME.role === 'admin' && !confirm('근무표에 저장하지 않은 변경이 있습니다. 그래도 로그아웃할까요?')) return resetIdle();
+  if (TOKEN && !PRACTICE) { location.href = './'; return; }            // 로그인한 기기: 홈으로
   PIN = ''; ME = null; DATA = null; TPL = null; TPL_DIRTY = false; BRUSH = null; TAB = 'grid'; showLogin();
 }
 function setPractice(on) {
@@ -1751,7 +1803,24 @@ async function tabStaff() {
   });
 }
 
-showLogin();
+// ===== 시작: 홈에서 로그인한 기기는 바로 들어감 / 연습은 ?practice =====
+(async () => {
+  const q = new URLSearchParams(location.search);
+  if (q.has('practice')) { setPractice(true); showLogin(); return; }
+  if (!TOKEN) { location.replace('./?need=work'); return; }               // 로그인은 홈에서
+  document.body.classList.add('tok');
+  let a = null; try { a = JSON.parse(localStorage.getItem('oozyAuth') || 'null'); } catch (e) { }
+  if (a && a.apps && a.apps.indexOf('work') < 0) { location.replace('./?need=work'); return; }
+  $('#app').innerHTML = '<div class="muted" style="padding:60px 0;text-align:center">불러오는 중...</div>';
+  try {
+    const r = await fetch(CFG.API + '/login', { headers: { 'X-Token': TOKEN } });
+    if (r.status === 401) { try { localStorage.removeItem('oozyToken'); localStorage.removeItem('oozyAuth'); } catch (e) { } location.replace('./'); return; }
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || '오류');
+    ME = j; WEEK = monday(new Date()); ME.role === 'admin' ? renderAdmin() : renderStaff();
+  } catch (e) {
+    $('#app').innerHTML = `<div class="login"><div class="big">연결하지 못했습니다</div><div class="muted" style="margin:8px 0 16px">${esc(e.message || '')}<br>인터넷 연결을 확인하세요.</div><button class="pri" onclick="location.reload()">다시 시도</button> <a class="homebtn" href="./">🏠 홈</a></div>`;
+  }
+})();
 </script>
 </body>
 </html>

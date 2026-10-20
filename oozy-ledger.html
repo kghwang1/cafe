@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>우지커피 카페 운영</title>
 <style>
