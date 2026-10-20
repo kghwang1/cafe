@@ -121,6 +121,27 @@ body.practice{background:#fff4e0}
 .stamp{display:inline-block;padding:3px 12px;border-radius:99px;font-size:13px;font-weight:700}
 .stamp.ok{background:#dcf3e5;color:var(--ok)}.stamp.wip{background:#fff1d6;color:#9a5c00}
 @media print{body>*:not(#print){display:none!important}#print{display:block}#print .slip{box-shadow:none;border-radius:0;max-width:none;padding:10px}}
+/* 근무기록 달력 */
+.calnav{display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:8px}
+.calnav input{width:auto;padding:6px 10px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cdow{text-align:center;font-size:12px;color:var(--sub);padding:2px 0}
+.cdow.sun,.cday.sun .cn{color:var(--bad)}.cdow.sat,.cday.sat .cn{color:#2f6fd6}
+.cday{position:relative;min-height:52px;padding:4px 2px;border:1px solid var(--line);border-radius:8px;background:#fff;display:flex;flex-direction:column;align-items:center;gap:3px;font:inherit;cursor:pointer}
+.cday .cn{font-size:14px;font-weight:600}
+.cday.today{border:2px solid var(--brand)}
+.cday.on{background:var(--brand);border-color:var(--brand)}.cday.on .cn{color:#fff!important}
+.cdots{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;max-width:100%}
+.cdots i{width:8px;height:8px;border-radius:50%;display:block}
+.cday.on .cdots i{box-shadow:0 0 0 1.5px #fff}
+.cbad{position:absolute;top:2px;right:3px;font-style:normal;font-size:11px;font-weight:800;color:#fff;background:var(--bad);border-radius:99px;width:15px;height:15px;line-height:15px;text-align:center}
+.dayt{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
+.dayt th{font-size:12px;color:var(--sub);font-weight:600;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+.dayt td{padding:9px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.dayt tr.sum td{border-bottom:0;color:var(--sub)}
+.dayt .cact{white-space:nowrap;text-align:right}.dayt .cact button{margin-left:3px}
+.dayt .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.wbox{margin-top:10px;padding:10px;border-radius:10px;background:#f5f2ee;font-size:14px}
 </style>
 </head>
 <body>
@@ -1345,39 +1366,100 @@ async function applyTpl() {
   WEEK = monday(v.from); MODE = 'plan'; TAB = 'grid'; renderAdmin();
 }
 
+// 근무기록/수정 — 달력에서 날짜를 골라 하루씩 고친다
+let PMONTH = ymd(Date.now()).slice(0, 7), PDAY = ymd(Date.now()), PROWS = [];
+const brkOf = (p, min) => {                     // 이 기록의 휴게(분): 적어 둔 값 > 자동 규칙
+  if (p.brk_min != null) return Math.min(+p.brk_min, min);
+  const s = STAFF.find(x => x.id === p.staff_id); const use = !s || s.use_break !== 0;
+  return !use ? 0 : min >= 510 ? 60 : min >= 240 ? 30 : 0;
+};
 async function tabPunch() {
-  $('#body').innerHTML = `<div class="card"><div class="gridhead"><div class="row" style="flex:0 0 auto;align-items:center"><button class="sm" id="pwPrev">◀</button><b style="min-width:120px;text-align:center">${mdw(WEEK)} ~ ${mdw(addDays(WEEK, 6))}</b><button class="sm" id="pwNext">▶</button></div>
-    <button class="sm pri" id="pAdd" style="flex:0 0 auto">기록 직접 추가</button></div><div class="list" id="plist" style="margin-top:8px"><div class="muted">불러오는 중...</div></div></div>`;
-  $('#pwPrev').onclick = () => { WEEK = addDays(WEEK, -7); tabPunch(); };
-  $('#pwNext').onclick = () => { WEEK = addDays(WEEK, 7); tabPunch(); };
-  $('#pAdd').onclick = () => editPunch(null);
-  const rows = await run(() => api(`/admin/punches?from=${WEEK}&to=${addDays(WEEK, 7)}`)); if (!rows) return;
-  $('#plist').innerHTML = rows.map(p => `<div><div><b>${esc(p.name)}</b> ${mdw(p.start)} ${hhmm(p.start)}-${p.end ? hhmm(p.end) : '?'}
-      ${p.status === 'missing' ? '<span class="badge bad">퇴근누락</span>' : p.status === 'open' ? '<span class="badge ok">근무중</span>' : `<span class="muted">${fmtH(Math.round((p.end - p.start) / MIN))}${p.brk_min != null ? ` · 휴게 ${p.brk_min}분` : ''}</span>`}
-      ${endBadge(p)}${p.edited ? '<span class="badge">수정됨</span>' : ''}
-      ${(p.raw_start && p.raw_start !== p.start) || (p.raw_end && p.raw_end !== p.end) ? `<div class="muted">누른 시각: 출근 ${p.raw_start ? hhmm(p.raw_start) : '-'}${p.raw_end ? ' · 퇴근 ' + hhmm(p.raw_end) : ''}</div>` : ''}
-      ${p.note ? `<div class="muted">⚠ ${esc(p.note)}</div>` : ''}</div>
-      <div style="display:flex;gap:4px;flex:0 0 auto"><button class="sm" data-pe="${p.id}">수정</button><button class="sm" data-pd="${p.id}">삭제</button></div></div>`).join('') || '<div class="muted">기록이 없습니다.</div>';
-  document.querySelectorAll('[data-pe]').forEach(b => b.onclick = () => editPunch(rows.find(p => p.id === +b.dataset.pe)));
+  const [y, m] = PMONTH.split('-').map(Number);
+  if (PDAY.slice(0, 7) !== PMONTH) PDAY = PMONTH + '-01';
+  $('#body').innerHTML = `<div class="card"><div class="calnav"><button class="sm" id="cmPrev">◀</button>
+      <input type="month" id="cmSel" value="${PMONTH}"><button class="sm" id="cmNext">▶</button></div>
+    <div class="cal" id="cal"><div class="muted" style="grid-column:1/-1;padding:12px">불러오는 중...</div></div></div>
+    <div class="card" id="dayBox"></div>`;
+  const go = ym => { PMONTH = ym; tabPunch(); };
+  const shift = k => { const d = new Date(y, m - 1 + k, 1); go(ymd(d).slice(0, 7)); };
+  $('#cmPrev').onclick = () => shift(-1); $('#cmNext').onclick = () => shift(1);
+  $('#cmSel').onchange = e => { if (e.target.value) go(e.target.value); };
+  const from = new Date(y, m - 1, 1).getTime(), to = new Date(y, m, 1).getTime();
+  const rows = await run(() => api(`/admin/punches?from=${from}&to=${to}`)); if (!rows) return;
+  PROWS = rows.filter(p => p.start >= from && p.start < to);
+  drawCal(y, m); drawDay();
+}
+function drawCal(y, m) {
+  const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), today = ymd(Date.now());
+  let html = DOW.map((d, i) => `<div class="cdow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${d}</div>`).join('');
+  html += '<div></div>'.repeat(first.getDay());
+  for (let d = 1; d <= days; d++) {
+    const key = `${PMONTH}-${pad(d)}`, dow = new Date(y, m - 1, d).getDay();
+    const mine = PROWS.filter(p => ymd(p.start) === key);
+    const bad = mine.some(p => p.status === 'missing' || p.status === 'open');
+    const names = [...new Map(mine.map(p => [p.staff_id, p])).values()];
+    html += `<button class="cday ${key === PDAY ? 'on' : ''} ${key === today ? 'today' : ''} ${dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}" data-cd="${key}">
+      <span class="cn">${d}</span>${bad ? '<i class="cbad">!</i>' : ''}
+      <span class="cdots">${names.map(p => { const s = STAFF.find(x => x.id === p.staff_id); return `<i style="background:${s ? s.color : '#999'}"></i>`; }).join('')}</span></button>`;
+  }
+  $('#cal').innerHTML = html;
+  document.querySelectorAll('[data-cd]').forEach(b => b.onclick = () => { PDAY = b.dataset.cd; drawCal(y, m); drawDay(); });
+}
+function drawDay() {
+  const list = PROWS.filter(p => ymd(p.start) === PDAY).sort((a, b) => a.start - b.start);
+  const d = new Date(PDAY + 'T00:00');
+  let sum = 0;
+  const body = list.map(p => {
+    let work = '';
+    if (p.status === 'missing') work = '<span class="badge bad">퇴근누락</span>';
+    else if (p.status === 'open') work = '<span class="badge ok">근무중</span>';
+    else { const min = Math.round((p.end - p.start) / MIN), b = brkOf(p, min); sum += min - b;
+      work = `<b>${fmtH(min - b)}</b>${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
+    const s = STAFF.find(x => x.id === p.staff_id);
+    return `<tr><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div><span class="badge" style="margin:0">수정됨</span></div>' : ''}</td>
+      <td>${hhmm(p.start)}~${p.end ? hhmm(p.end) : '?'}${endBadge(p) ? `<div>${endBadge(p)}</div>` : ''}${p.note ? `<div class="muted" style="font-size:11px">⚠ ${esc(p.note)}</div>` : ''}</td>
+      <td>${work}</td>
+      <td class="cact"><button class="sm" data-pe="${p.id}">수정</button><button class="sm" data-pd="${p.id}">삭제</button></td></tr>`;
+  }).join('');
+  $('#dayBox').innerHTML = `<div class="gridhead"><b style="font-size:17px">${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})</b>
+      <button class="sm pri" id="pAdd" style="flex:0 0 auto">+ 기록 추가</button></div>
+    ${list.length ? `<table class="dayt"><tr><th>이름</th><th>근무 구간</th><th>근무시간<br><small>(휴게 제외)</small></th><th></th></tr>${body}
+      ${list.length > 1 ? `<tr class="sum"><td colspan="2">합계</td><td><b>${fmtH(sum)}</b></td><td></td></tr>` : ''}</table>`
+      : '<div class="muted" style="margin-top:10px">이 날은 근무 기록이 없습니다.</div>'}`;
+  $('#pAdd').onclick = () => editPunch(null, false, PDAY);
+  document.querySelectorAll('[data-pe]').forEach(b => b.onclick = () => editPunch(PROWS.find(p => p.id === +b.dataset.pe)));
   document.querySelectorAll('[data-pd]').forEach(b => b.onclick = async () => {
-    const p = rows.find(x => x.id === +b.dataset.pd);
+    const p = PROWS.find(x => x.id === +b.dataset.pd);
     if (!await modal(`<h3>기록 삭제</h3>${esc(p.name)} ${mdw(p.start)} ${hhmm(p.start)}-${p.end ? hhmm(p.end) : '?'}<br>삭제할까요? (삭제 이력은 남습니다)`, '삭제')) return;
     if (await run(() => api('/admin/punch/delete', { id: p.id }))) { toast('삭제했습니다'); tabPunch(); }
   });
 }
-async function editPunch(p, fromWeek) {
-  const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'}</h3><label>직원</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
-    <label>날짜</label><input type="date" id="kD" value="${ymd(p ? p.start : Date.now())}">
+async function editPunch(p, fromWeek, day) {
+  const dd = p ? ymd(p.start) : (day || ymd(Date.now())), dt = new Date(dd + 'T00:00');
+  setTimeout(() => {                                  // 근무시간(휴게 제외)을 바로 보여 준다
+    const upd = () => { const el = $('#kW'); if (!el) return;
+      const a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
+      if (!a || !b) { el.textContent = '-'; return; }
+      const min = Math.round((toMs(dd, b) - toMs(dd, a)) / MIN);
+      if (min <= 0) { el.textContent = '퇴근이 출근보다 빠릅니다'; return; }
+      const br = r === '' ? 30 : Math.max(0, +r || 0);
+      el.textContent = min - br > 0 ? `${fmtH(min - br)} (전체 ${fmtH(min)} - 휴게 ${br}분)` : '휴게시간이 너무 깁니다';
+    };
+    ['kA', 'kB', 'kR'].forEach(id => { const el = $('#' + id); if (el) el.oninput = upd; }); upd();
+  }, 0);
+  const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'} · ${dt.getMonth() + 1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</h3><label>이름</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
+    <input type="hidden" id="kD" value="${dd}">
     <div class="row"><div><label>출근</label><input type="time" id="kA" value="${p ? hhmm(p.start) : ''}"></div><div><label>퇴근</label><input type="time" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"></div></div>
     <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${p && p.brk_min != null ? p.brk_min : 30}">
-    <div class="muted" style="font-size:12px">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>`, '저장', () => {
+    <div class="muted" style="font-size:12px">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
+    <div class="wbox">근무시간 (휴게 제외): <b id="kW">-</b></div>`, '저장', () => {
       const d = $('#kD').value, a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
       if (!d || !a || !b) { toast('날짜와 시간을 모두 입력하세요'); return false; }
       if (r !== '' && !(+r >= 0)) { toast('휴게시간은 0 이상의 분으로 넣으세요'); return false; }
       return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? 30 : +r };
     });
   if (!v) return;
-  if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else tabPunch(); }
+  if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else { PDAY = ymd(v.start); PMONTH = PDAY.slice(0, 7); tabPunch(); } }
 }
 
 function tabReq(reqs) {
