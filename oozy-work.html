@@ -93,6 +93,7 @@ button.warn{background:var(--warn);color:#fff}
 .tc.hl{box-shadow:inset 0 0 0 2px #404040}
 .tgrid .tt{border-radius:6px}
 .tc.off{background:repeating-linear-gradient(45deg,#f1eeea,#f1eeea 4px,#e9e4de 4px,#e9e4de 8px);cursor:default}
+.pal{display:flex;flex-wrap:wrap;gap:5px}.pal .pc{font-size:12px;padding:5px 9px;border-radius:99px;border:2px solid transparent}.pal .pc.on{border-color:#231f1c;box-shadow:0 0 0 1.5px #fff inset}
 .chip{font-size:10px;line-height:1.35;border-radius:4px;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;padding:1px 0}
 .chip.own{background:#cfc8e8;color:#3b315e}
 .chip.gone{opacity:.4;text-decoration:line-through}
@@ -255,6 +256,7 @@ async function ensureSettings(env) {
     try { await env.DB.prepare('ALTER TABLE punch ADD COLUMN ' + col).run(); } catch (e) { }
   }
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN use_break INTEGER NOT NULL DEFAULT 1').run(); } catch (e) { } // 휴게시간 사용 여부
+  try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0').run(); } catch (e) { } // 삭제한 직원 (지난 기록만 남김)
   READY[key] = true;
   if (env.PRACTICE && !(await env.DB.prepare('SELECT COUNT(*) c FROM staff').first()).c) await seedPractice(env);
 }
@@ -510,7 +512,33 @@ async function route(req, env) {
 
   // ---------- 관리자 ----------
   if (p === '/admin/staff' && m === 'GET') {
-    return json((await env.DB.prepare('SELECT * FROM staff ORDER BY active DESC, id').all()).results);
+    return json((await env.DB.prepare('SELECT * FROM staff WHERE deleted=0 ORDER BY active DESC, id').all()).results);
+  }
+  // 직원 삭제: 기록이 없으면 완전히 지우고, 출퇴근·급여 기록이 있으면 기록은 남기고 목록에서만 뺀다
+  if (p === '/admin/staff/delete' && m === 'POST') {
+    const sid = +b.id;
+    const s = await env.DB.prepare('SELECT * FROM staff WHERE id=?').bind(sid).first();
+    if (!s) return err('직원을 찾을 수 없습니다.', 404);
+    const np = (await env.DB.prepare('SELECT COUNT(*) c FROM punch WHERE staff_id=?').bind(sid).first()).c;
+    const ns = (await env.DB.prepare('SELECT COUNT(*) c FROM payslip WHERE staff_id=?').bind(sid).first()).c;
+    const keep = np + ns > 0;
+    // 근무표에서 이 직원 빼기
+    const t = await env.DB.prepare("SELECT v FROM settings WHERE k='template'").first();
+    const stmts = [];
+    if (t && t.v) { try { const o = JSON.parse(t.v), g = o.grid || {};
+      for (const k of Object.keys(g)) { g[k] = (g[k] || []).filter(x => x !== sid); if (!g[k].length) delete g[k]; }
+      stmts.push(env.DB.prepare("UPDATE settings SET v=? WHERE k='template'").bind(JSON.stringify({ grid: g, updated: now }))); } catch (e) { } }
+    stmts.push(env.DB.prepare("DELETE FROM edit_request WHERE staff_id=? AND status='pending'").bind(sid));
+    if (keep) {
+      stmts.push(env.DB.prepare('DELETE FROM schedule WHERE staff_id=? AND start>=?').bind(sid, now));   // 앞으로의 예정만 지움
+      stmts.push(env.DB.prepare('UPDATE staff SET active=0, deleted=1, pin=? WHERE id=?').bind('del-' + sid + '-' + now, sid));
+    } else {
+      stmts.push(env.DB.prepare('DELETE FROM schedule WHERE staff_id=?').bind(sid));
+      stmts.push(env.DB.prepare('DELETE FROM edit_request WHERE staff_id=?').bind(sid));
+      stmts.push(env.DB.prepare('DELETE FROM staff WHERE id=?').bind(sid));
+    }
+    await env.DB.batch(stmts);
+    return json({ ok: true, kept: keep, punches: np });
   }
   if (p === '/admin/staff' && m === 'POST') {
     const name = String(b.name || '').trim(), pin = String(b.pin || '').trim();
@@ -718,6 +746,12 @@ let PRACTICE = false, PIN = '', ME = null, WEEK = monday(new Date()), MODE = 'pl
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
+// 밝은 색(노랑 등)이면 글자를 어둡게
+const lum = c => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!m) return 0; const n = parseInt(m[1], 16);
+  const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
+  return .2126 * f(n >> 16 & 255) + .7152 * f(n >> 8 & 255) + .0722 * f(n & 255); };
+const onC = c => lum(c) > .45 ? '#3b2a00' : '#fff';                       // 색 바탕 위 글자
+const inkC = c => lum(c) > .45 ? '#8a6d00' : c;                           // 흰 바탕 위 글자
 const hhmm = t => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 const ymd = d => { d = new Date(d); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
 const mdw = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})`; };
@@ -944,7 +978,7 @@ function drawGrid(admin) {
         const top = Y(it.start), hgt = Math.max(14, Y(it.end) - top);
         if (it.kind === 'plan') {
           h += `<div class="blk plan" data-id="${it.id}" data-k="plan" style="top:${top}px;height:${hgt - 2}px;${pos}border-color:${st.color}"></div>`;
-          lab += `<br><span style="color:${st.color}">${hhmm(it.start)}-${hhmm(it.end)}</span>`;
+          lab += `<br><span style="color:${inkC(st.color)}">${hhmm(it.start)}-${hhmm(it.end)}</span>`;
         } else {
           h += `<div class="blk real ${it.status || ''}" data-pid="${it.id}" style="top:${top}px;height:${hgt - 2}px;${pos}background-color:${st.color}40;border-left-color:${st.color}"></div>`;
           lab += it.status === 'missing' ? `<br><span class="bad">▶${hhmm(it.start)} 퇴근누락</span>`
@@ -955,7 +989,7 @@ function drawGrid(admin) {
       const gt = Y(g.start), next = groups.find(x => x.lane === g.lane && x.start > g.start);
       const room = (next ? Y(next.start) : H) - gt; // 짧은 근무도 글자가 보이도록 아래 빈 공간까지 사용
       const gh = Math.max(14, Math.min(Math.max(Y(g.end) - gt, 44), room));
-      h += `<div class="blab" style="top:${gt}px;height:${gh - 2}px;${pos}color:${st.color}">${lab}</div>`;
+      h += `<div class="blab" style="top:${gt}px;height:${gh - 2}px;${pos}color:${inkC(st.color)}">${lab}</div>`;
     });
     h += `</div></div>`;
   }
@@ -1225,7 +1259,7 @@ async function tabTpl() {
         <span style="flex:1"></span>
         <button class="sm" id="tSave">저장</button><button class="sm pri" id="tApply">적용</button></div>
       <div class="pal" id="pal">
-        ${active.map(s => `<button data-b="${s.id}" style="background:${s.color};color:#fff">${esc(s.name)}</button>`).join('')}
+        ${active.map(s => `<button data-b="${s.id}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name)}</button>`).join('')}
         <button data-b="O" style="background:#cfc8e8;color:#3b315e">사장</button>
       </div>
       ${active.length ? '' : '<div class="warnlist">직원 탭에서 직원을 먼저 등록하세요.</div>'}
@@ -1257,7 +1291,7 @@ function drawCell(el) {
   el.innerHTML = v.map(x => {
     if (x === 'O') return '<div class="chip own">사장</div>';
     const s = STAFF.find(s => s.id === x);
-    return s ? `<div class="chip ${s.active ? '' : 'gone'}" style="background:${s.color}">${esc(s.name.slice(0, 3))}</div>` : '';
+    return s ? `<div class="chip ${s.active ? '' : 'gone'}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name.slice(0, 3))}</div>` : '';
   }).join('');
 }
 function dirty() {
@@ -1573,17 +1607,21 @@ async function tabStaff() {
     const s = await run(() => api('/admin/settings')); if (s) draw(s.punchOn);
   }, 0);
   const COLORS = ['#e4572e', '#1d8a4b', '#3a6ea5', '#9c27b0', '#d98200', '#00897b', '#c2185b', '#5d4037'];
+  const PALETTE = [['빨강', '#e4572e'], ['초록', '#1d8a4b'], ['진한녹색', '#0b5d2a'], ['청록', '#00897b'], ['파랑', '#3a6ea5'], ['남색', '#283593'], ['보라', '#9c27b0'], ['분홍', '#c2185b'], ['주황', '#d98200'], ['노랑', '#f5c400'], ['갈색', '#5d4037'], ['회색', '#757575']];
   $('#body').innerHTML = `<div class="card switch"><div><b>직원 출근하기 버튼</b><div class="muted" id="pOnTxt" style="font-size:12.5px">확인 중...</div></div><button class="tog" id="pOn" disabled>...</button></div>
     <div class="card"><div class="row" style="align-items:center"><b>직원 목록</b><button class="sm pri" id="nAdd" style="flex:0 0 auto">직원 추가</button></div>
     <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}</span>${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
-      <button class="sm" data-se="${s.id}">수정</button></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>`;
+      <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm" data-se="${s.id}">수정</button><button class="sm" data-sx="${s.id}">삭제</button></span></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>`;
   const edit = async s => {
     const col = s ? s.color : COLORS[STAFF.length % COLORS.length];
+    setTimeout(() => document.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => {
+      $('#fC').value = b.dataset.pc; document.querySelectorAll('[data-pc]').forEach(x => x.classList.toggle('on', x === b)); }), 0);
     const v = await modal(`<h3>${s ? '직원 수정' : '직원 추가'}</h3>
       <label>이름</label><input id="fN" value="${esc(s ? s.name : '')}">
       <label>PIN (숫자 4~6자리, 직원마다 다르게)</label><input id="fP" inputmode="numeric" value="${esc(s ? s.pin : '')}">
       <label>시급</label><input id="fW" type="number" value="${s ? s.wage : 10320}">
-      <label>색상</label><input id="fC" type="color" value="${col}" style="height:44px">
+      <label>색상</label><div class="pal">${PALETTE.map(([n, c]) => `<button type="button" class="pc ${c === col ? 'on' : ''}" data-pc="${c}" style="background:${c};color:${onC(c)}">${n}</button>`).join('')}</div>
+      <input id="fC" type="color" value="${col}" style="height:40px;margin-top:6px">
       <label><input id="fB" type="checkbox" style="width:auto" ${!s || s.use_break !== 0 ? 'checked' : ''}> 휴게시간 사용</label>
       <div class="muted" style="font-size:12px;margin:-2px 0 4px 22px">체크: 출근~퇴근 4시간 이상이면 30분(8시간 30분 이상이면 1시간)을 빼고 급여 계산<br>체크 해제: 휴게 없이 근무한 시간 전부를 급여로 계산</div>
       <label><input id="fA" type="checkbox" style="width:auto" ${!s || s.active ? 'checked' : ''}> 재직 중</label>`, '저장', () =>
@@ -1593,6 +1631,15 @@ async function tabStaff() {
   };
   $('#nAdd').onclick = () => edit(null);
   document.querySelectorAll('[data-se]').forEach(b => b.onclick = () => edit(STAFF.find(s => s.id === +b.dataset.se)));
+  document.querySelectorAll('[data-sx]').forEach(b => b.onclick = async () => {
+    const s = STAFF.find(x => x.id === +b.dataset.sx);
+    if (!await modal(`<h3>직원 삭제</h3><b>${esc(s.name)}</b> 직원을 삭제할까요?
+      <div class="muted" style="margin-top:8px;font-size:13px;line-height:1.6">· 직원 목록, 근무표, 앞으로의 근무 예정에서 빠지고 이 PIN으로는 로그인할 수 없습니다.<br>
+      · 지난 출퇴근 기록과 급여명세서는 그대로 남아 급여 탭과 근무기록에서 볼 수 있습니다 (근로기록은 3년 보관).<br>
+      · 잠시 쉬는 직원이면 삭제 대신 [수정]에서 "재직 중"을 끄세요.</div>`, '삭제')) return;
+    const r = await run(() => api('/admin/staff/delete', { id: s.id }));
+    if (r) { toast(r.kept ? `${s.name} 삭제 (지난 기록 ${r.punches}건은 보관)` : `${s.name} 삭제했습니다`, 3500); renderAdmin(); }
+  });
 }
 
 showLogin();
