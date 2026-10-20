@@ -28,6 +28,9 @@ label{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
 .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:99px;background:#eee;margin-left:4px}
 .badge.bad{background:#fde0e0;color:var(--bad)}.badge.warn{background:#fff1d6;color:#9a5c00}.badge.ok{background:#dcf3e5;color:var(--ok)}
 .punchbtn{width:100%;font-size:24px;font-weight:700;padding:22px;border-radius:16px;margin-top:10px}
+.punchbtn.off{background:#cfcac5;color:#fff;cursor:not-allowed}.punchbtn small{display:block;font-size:13px;font-weight:500;margin-top:4px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tog{flex:0 0 auto;min-width:96px;font-weight:700;border-radius:99px;padding:8px 14px}.tog.on{background:var(--ok);color:#fff}.tog.off{background:#cfcac5;color:#fff}
 .outbtns{display:flex;gap:8px;margin-top:10px}
 .outbtns button{flex:1 1 0;min-width:0;font-size:17px;font-weight:700;padding:14px 4px;border-radius:14px;line-height:1.25;white-space:nowrap}
 .outbtns button small{display:block;font-size:12px;font-weight:400;opacity:.85}
@@ -324,6 +327,11 @@ async function lastExtendable(env, id, now) {
 }
 
 // 월 급여 계산 (onlyId가 있으면 그 직원만)
+// 출근하기 버튼: 관리자가 켜기 전까지 잠김 (연습 모드는 켜짐)
+async function punchEnabled(env) {
+  const r = await env.DB.prepare("SELECT v FROM settings WHERE k='punch_on'").first();
+  return r ? r.v === '1' : !!env.PRACTICE;
+}
 async function computePay(env, month, onlyId) {
   const mm = /^(\d{4})-(\d{2})$/.exec(month || '');
   if (!mm) return { error: 'month=YYYY-MM 형식이 필요합니다.' };
@@ -402,14 +410,16 @@ async function route(req, env) {
     const id = me.staff.id;
 
     if (p === '/status') {
+      const punchOn = await punchEnabled(env);
       const open = await env.DB.prepare("SELECT * FROM punch WHERE staff_id=? AND status='open'").bind(id).first();
       const recent = (await env.DB.prepare('SELECT * FROM punch WHERE staff_id=? ORDER BY start DESC LIMIT 20').bind(id).all()).results;
       const requests = (await env.DB.prepare("SELECT * FROM edit_request WHERE staff_id=? AND status='pending' ORDER BY created DESC").bind(id).all()).results;
       const last = open ? null : await lastExtendable(env, id, now);
-      return json({ open, recent, requests, last });
+      return json({ open, recent, requests, last, punchOn });
     }
 
     if (p === '/punch/in' && m === 'POST') {
+      if (!await punchEnabled(env)) return err('지금은 출근하기 버튼이 잠겨 있습니다. 관리자에게 문의하세요.', 403);
       const open = await env.DB.prepare("SELECT id FROM punch WHERE staff_id=? AND status='open'").bind(id).first();
       if (open) return err('이미 출근 상태입니다.', 409);
       const last = await env.DB.prepare('SELECT MAX(COALESCE(raw_end,created)) t FROM punch WHERE staff_id=?').bind(id).first();
@@ -596,6 +606,12 @@ async function route(req, env) {
     return json({ ok: true, copied, skipped });
   }
 
+  // 직원 출근하기 버튼 사용 여부
+  if (p === '/admin/settings' && m === 'GET') return json({ punchOn: await punchEnabled(env) });
+  if (p === '/admin/settings' && m === 'POST') {
+    await env.DB.prepare("INSERT INTO settings(k,v) VALUES('punch_on',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(b.punchOn ? '1' : '0').run();
+    return json({ ok: true, punchOn: !!b.punchOn });
+  }
   if (p === '/admin/punches' && m === 'GET') {
     const from = +url.searchParams.get('from'), to = +url.searchParams.get('to');
     const rows = (await env.DB.prepare(`SELECT p.*, s.name FROM punch p JOIN staff s ON s.id=p.staff_id
@@ -1062,7 +1078,7 @@ function statusCard(st) {
   return `<div class="muted">현재 상태</div><div class="big" style="margin-top:4px">퇴근 상태</div>
     ${last ? `<div class="warnlist" style="background:#eef4ff">오늘 근무 <b>${hhmm(last.start)}~${hhmm(last.end)}</b> — 예정 퇴근 시각으로 기록됐습니다.<br>예정보다 더 일했다면 <b>연장근무</b>를 눌러주세요.</div>
       <div class="outbtns"><button class="warn" data-act="extra">연장근무</button><button data-act="normal">나가기</button></div>` : ''}
-    <button class="punchbtn ok" data-act="in">출근하기</button>`;
+    ${st.punchOn === false ? `<button class="punchbtn off" disabled>출근하기<small>지금은 잠겨 있습니다 · 관리자에게 문의하세요</small></button>` : `<button class="punchbtn ok" data-act="in">출근하기</button>`}`;
 }
 async function punchIn() {
   const ok = await modal(`<div style="text-align:center;padding:10px 0"><div class="big">${esc(ME.name)}님</div><div style="font-size:18px;margin-top:8px">지금 <b>출근</b> 맞습니까?</div><div class="muted" style="margin-top:6px">${hhmm(Date.now())}</div>
@@ -1549,8 +1565,16 @@ function showSlip(s, month, label) {
 }
 
 async function tabStaff() {
+  setTimeout(async () => {                         // 출근하기 버튼 사용 여부
+    const draw = on => { const b = $('#pOn'); if (!b) return; b.disabled = false; b.className = 'tog ' + (on ? 'on' : 'off'); b.textContent = on ? '사용 중' : '잠김';
+      $('#pOnTxt').textContent = on ? '직원이 출근하기를 누를 수 있습니다.' : '직원 화면의 출근하기 버튼이 회색으로 잠겨 있습니다.';
+      b.onclick = async () => { if (!await modal(`<h3>출근하기 버튼</h3>직원 출근하기 버튼을 <b>${on ? '잠글까요' : '사용하도록 할까요'}</b>?`, on ? '잠그기' : '사용하기')) return;
+        const r = await run(() => api('/admin/settings', { punchOn: !on })); if (r) { toast(r.punchOn ? '출근하기 버튼을 켰습니다' : '출근하기 버튼을 잠갔습니다'); draw(r.punchOn); } }; };
+    const s = await run(() => api('/admin/settings')); if (s) draw(s.punchOn);
+  }, 0);
   const COLORS = ['#e4572e', '#1d8a4b', '#3a6ea5', '#9c27b0', '#d98200', '#00897b', '#c2185b', '#5d4037'];
-  $('#body').innerHTML = `<div class="card"><div class="row" style="align-items:center"><b>직원 목록</b><button class="sm pri" id="nAdd" style="flex:0 0 auto">직원 추가</button></div>
+  $('#body').innerHTML = `<div class="card switch"><div><b>직원 출근하기 버튼</b><div class="muted" id="pOnTxt" style="font-size:12.5px">확인 중...</div></div><button class="tog" id="pOn" disabled>...</button></div>
+    <div class="card"><div class="row" style="align-items:center"><b>직원 목록</b><button class="sm pri" id="nAdd" style="flex:0 0 auto">직원 추가</button></div>
     <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}</span>${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
       <button class="sm" data-se="${s.id}">수정</button></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>`;
   const edit = async s => {
