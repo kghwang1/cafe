@@ -51,6 +51,7 @@ button.warn{background:var(--warn);color:#fff}
 /* 주간표 */
 .gridhead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .stcard,.stcard .big,.stcard .muted{color:#8a837d}
+.snav{flex:1 1 100%!important;justify-content:center;margin-top:2px}.snav button{flex:0 0 auto!important;padding:6px 14px}.snav b{flex:0 0 auto!important;margin:0 14px}
 .stabs{flex:1 1 100%!important;display:flex;justify-content:center;gap:8px}.stabs button.sm{font-size:14.3px;padding:7px 11px}
 #myBox .calnav{margin-top:10px}
 .mybtns{display:flex;justify-content:center;gap:6px;margin-top:14px;flex-wrap:nowrap}.mybtns button{flex:0 0 auto;font-size:12.5px;padding:6px 14px;border-radius:9px}
@@ -974,9 +975,9 @@ async function login(v) {
 
 // ===== 주간표 =====
 function gridSection(admin) {
-  return `<div class="card"><div class="gridhead">
-    <div class="row" id="wkNav" style="flex:0 0 auto;align-items:center;${!admin && MODE === 'real' ? 'display:none' : ''}"><button class="sm" data-w="-1">◀</button><b id="wk" style="min-width:120px;text-align:center"></b><button class="sm" data-w="1">▶</button></div>
-    <div class="tabs ${admin ? '' : 'stabs'}" style="flex:0 0 auto"><button class="sm ${MODE==='plan'?'on':''}" data-m="plan">${admin ? '근무시간표' : '주간시간표'}</button><button class="sm ${MODE==='real'?'on':''}" data-m="real">${admin ? "출퇴근 기록" : "나의 근무"}</button></div></div>
+  const nav = `<div class="row ${admin ? '' : 'snav'}" id="wkNav" style="flex:0 0 auto;align-items:center;${!admin && MODE === 'real' ? 'display:none' : ''}"><button class="sm" data-w="-1">◀</button><b id="wk" style="min-width:120px;text-align:center"></b><button class="sm" data-w="1">▶</button></div>`;
+  const tabs = `<div class="tabs ${admin ? '' : 'stabs'}" style="flex:0 0 auto"><button class="sm ${MODE==='plan'?'on':''}" data-m="plan">${admin ? '근무시간표' : '주간시간표'}</button><button class="sm ${MODE==='real'?'on':''}" data-m="real">${admin ? "출퇴근 기록" : "나의 근무"}</button></div>`;
+  return `<div class="card"><div class="gridhead">${admin ? nav + tabs : tabs + nav}</div>
     <div id="planBox" ${!admin && MODE === 'real' ? 'hidden' : ''}><div id="grid"></div><div class="legend" id="legend"></div></div>
     ${admin ? '' : `<div id="myBox" ${MODE === 'real' ? '' : 'hidden'}></div>`}
     ${admin ? `<div class="muted" style="margin-top:6px">스케줄 칸을 누르면 수정/삭제할 수 있습니다.</div>` : ''}</div>`;
