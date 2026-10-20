@@ -16,6 +16,7 @@ button.bad{background:var(--bad);color:#fff}
 button.sm{padding:6px 10px;font-size:13px}
 .homebtn{display:inline-flex;align-items:center;padding:6px 11px;border-radius:10px;background:#ece6df;color:var(--ink);text-decoration:none;font-size:13px;font-weight:600}
 input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+input[type=time]::-webkit-datetime-edit-ampm-field{color:#f5b800;font-weight:700}   /* 오전·오후 노란색 */
 label{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
 .wrap{max-width:900px;margin:0 auto;padding:12px 16px 60px}
 .top{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
@@ -226,7 +227,7 @@ async function ensureSettings(env) {
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)').run();
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS payslip (staff_id INTEGER NOT NULL, month TEXT NOT NULL, data TEXT, at INTEGER, PRIMARY KEY(staff_id, month))').run();
   // 출퇴근 방식 변경으로 추가된 칸 (이미 있으면 무시)
-  for (const col of ['plan_start INTEGER', 'plan_end INTEGER', 'raw_start INTEGER', 'raw_end INTEGER', 'end_type TEXT']) {
+  for (const col of ['plan_start INTEGER', 'plan_end INTEGER', 'raw_start INTEGER', 'raw_end INTEGER', 'end_type TEXT', 'brk_min INTEGER']) {   // brk_min: 기록한 휴게(분), 비어 있으면 자동 계산
     try { await env.DB.prepare('ALTER TABLE punch ADD COLUMN ' + col).run(); } catch (e) { }
   }
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN use_break INTEGER NOT NULL DEFAULT 1').run(); } catch (e) { } // 휴게시간 사용 여부
@@ -316,7 +317,7 @@ async function computePay(env, month, onlyId) {
     const mine = rows.filter(r => r.staff_id === s.id);
     const weeks = {}, shifts = [];
     for (const r of mine) {
-      const min = Math.round((r.end - r.start) / MIN), brk = breakMin(min, s.use_break), paid = min - brk;
+      const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;
       const w = weekStart(r.start);
       weeks[w] = (weeks[w] || 0) + paid;
       if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, edited: r.edited, end_type: r.end_type });
@@ -582,15 +583,17 @@ async function route(req, env) {
   }
   if (p === '/admin/punch' && m === 'POST') {
     const sid = +b.staff_id, s = num(b.start), e = num(b.end);
+    const bm = b.brk_min === '' || b.brk_min == null ? null : Math.max(0, Math.round(+b.brk_min) || 0);   // 휴게(분)
     const v = validRange(s, e); if (v) return err(v);
+    if (bm != null && bm >= (e - s) / MIN) return err('휴게시간이 근무시간보다 깁니다.');
     if (await overlap(env, 'punch', sid, s, e, +b.id || 0)) return err('이 직원의 다른 근무 기록과 시간이 겹칩니다.', 409);
     if (b.id) {
       const before = await env.DB.prepare('SELECT * FROM punch WHERE id=?').bind(+b.id).first();
-      await env.DB.prepare("UPDATE punch SET staff_id=?,start=?,end=?,status='done',edited=1 WHERE id=?").bind(sid, s, e, +b.id).run();
-      await log(env, +b.id, 'admin_edit', before, { staff_id: sid, start: s, end: e });
+      await env.DB.prepare("UPDATE punch SET staff_id=?,start=?,end=?,brk_min=?,status='done',edited=1 WHERE id=?").bind(sid, s, e, bm, +b.id).run();
+      await log(env, +b.id, 'admin_edit', before, { staff_id: sid, start: s, end: e, brk_min: bm });
     } else {
-      const r = await env.DB.prepare("INSERT INTO punch(staff_id,start,end,status,edited,created,note) VALUES(?,?,?,'done',1,?, '관리자 추가')").bind(sid, s, e, now).run();
-      await log(env, r.meta.last_row_id, 'admin_add', null, { staff_id: sid, start: s, end: e });
+      const r = await env.DB.prepare("INSERT INTO punch(staff_id,start,end,brk_min,status,edited,created,note) VALUES(?,?,?,?,'done',1,?, '관리자 추가')").bind(sid, s, e, bm, now).run();
+      await log(env, r.meta.last_row_id, 'admin_add', null, { staff_id: sid, start: s, end: e, brk_min: bm });
     }
     return json({ ok: true });
   }
@@ -1350,7 +1353,7 @@ async function tabPunch() {
   $('#pAdd').onclick = () => editPunch(null);
   const rows = await run(() => api(`/admin/punches?from=${WEEK}&to=${addDays(WEEK, 7)}`)); if (!rows) return;
   $('#plist').innerHTML = rows.map(p => `<div><div><b>${esc(p.name)}</b> ${mdw(p.start)} ${hhmm(p.start)}-${p.end ? hhmm(p.end) : '?'}
-      ${p.status === 'missing' ? '<span class="badge bad">퇴근누락</span>' : p.status === 'open' ? '<span class="badge ok">근무중</span>' : `<span class="muted">${fmtH(Math.round((p.end - p.start) / MIN))}</span>`}
+      ${p.status === 'missing' ? '<span class="badge bad">퇴근누락</span>' : p.status === 'open' ? '<span class="badge ok">근무중</span>' : `<span class="muted">${fmtH(Math.round((p.end - p.start) / MIN))}${p.brk_min != null ? ` · 휴게 ${p.brk_min}분` : ''}</span>`}
       ${endBadge(p)}${p.edited ? '<span class="badge">수정됨</span>' : ''}
       ${(p.raw_start && p.raw_start !== p.start) || (p.raw_end && p.raw_end !== p.end) ? `<div class="muted">누른 시각: 출근 ${p.raw_start ? hhmm(p.raw_start) : '-'}${p.raw_end ? ' · 퇴근 ' + hhmm(p.raw_end) : ''}</div>` : ''}
       ${p.note ? `<div class="muted">⚠ ${esc(p.note)}</div>` : ''}</div>
@@ -1365,10 +1368,13 @@ async function tabPunch() {
 async function editPunch(p, fromWeek) {
   const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'}</h3><label>직원</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
     <label>날짜</label><input type="date" id="kD" value="${ymd(p ? p.start : Date.now())}">
-    <div class="row"><div><label>출근</label><input type="time" id="kA" value="${p ? hhmm(p.start) : ''}"></div><div><label>퇴근</label><input type="time" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"></div></div>`, '저장', () => {
-      const d = $('#kD').value, a = $('#kA').value, b = $('#kB').value;
+    <div class="row"><div><label>출근</label><input type="time" id="kA" value="${p ? hhmm(p.start) : ''}"></div><div><label>퇴근</label><input type="time" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"></div></div>
+    <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${p && p.brk_min != null ? p.brk_min : 30}">
+    <div class="muted" style="font-size:12px">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>`, '저장', () => {
+      const d = $('#kD').value, a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
       if (!d || !a || !b) { toast('날짜와 시간을 모두 입력하세요'); return false; }
-      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b) };
+      if (r !== '' && !(+r >= 0)) { toast('휴게시간은 0 이상의 분으로 넣으세요'); return false; }
+      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? 30 : +r };
     });
   if (!v) return;
   if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else tabPunch(); }
@@ -1392,7 +1398,7 @@ async function tabPay() {
   const sum = PAY.staff.reduce((a, s) => a + s.pay, 0);
   const confAt = PAY.staff.map(s => s.confirmedAt).filter(Boolean).sort().pop();
   const unres = PAY.staff.reduce((a, s) => a + s.unresolved, 0);
-  $('#paybody').innerHTML = `<div class="card"><b>${PAY.month} 인건비 합계: ${won(sum)}</b><div class="muted">휴게시간 차감(직원 탭에서 "휴게시간 사용"인 사람만): 출근~퇴근 4시간 이상 30분, 8시간 30분 이상 1시간</div>
+  $('#paybody').innerHTML = `<div class="card"><b>${PAY.month} 인건비 합계: ${won(sum)}</b><div class="muted">휴게시간 차감: 근무기록/수정에서 휴게를 적은 날은 적은 시간만큼. 그 밖의 날은 직원 탭에서 "휴게시간 사용"인 사람만 출근~퇴근 4시간 이상 30분, 8시간 30분 이상 1시간</div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${confAt ? `<span class="stamp ok">확정됨 ${mdw(confAt)} ${hhmm(confAt)}</span>` : '<span class="stamp wip">확정 전</span>'}
         <span style="flex:1"></span>
