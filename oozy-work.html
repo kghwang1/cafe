@@ -708,6 +708,14 @@ async function route(req, env) {
     return json({ ok: true, apps: list });
   }
   // 직원 출근하기 버튼 사용 여부
+  // 전체 백업: 모든 표를 한 번에 (로그인 기기 목록은 빼고)
+  if (p === '/admin/backup' && m === 'GET') {
+    const tables = ['staff', 'schedule', 'punch', 'edit_request', 'punch_log', 'payslip', 'settings'];
+    const res = await env.DB.batch(tables.map(t => env.DB.prepare('SELECT * FROM ' + t)));
+    const out = { app: 'oozy-work', version: 1, at: Date.now() };
+    tables.forEach((t, i) => { out[t] = res[i].results; });
+    return json(out);
+  }
   if (p === '/admin/settings' && m === 'GET') return json({ punchOn: await punchEnabled(env) });
   if (p === '/admin/settings' && m === 'POST') {
     await env.DB.prepare("INSERT INTO settings(k,v) VALUES('punch_on',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(b.punchOn ? '1' : '0').run();
@@ -1298,12 +1306,12 @@ async function renderAdmin() {
   const [sf, rq] = await Promise.all([run(() => api('/admin/staff')), run(() => api('/admin/requests'))]);
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
-  const tabs = [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '근무기록'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원']];
+  const tabs = [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '근무기록'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
   $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
   $('#out').onclick = logout;
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderAdmin(); });
-  ({ tpl: tabTpl, grid: tabGrid, punch: tabPunch, req: () => tabReq(reqs), pay: tabPay, staff: tabStaff })[TAB]();
+  ({ tpl: tabTpl, grid: tabGrid, punch: tabPunch, req: () => tabReq(reqs), pay: tabPay, staff: tabStaff, bak: tabBackup })[TAB]();
 }
 const staffOpts = sel => STAFF.filter(s => s.active || s.id === sel).map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
 
@@ -1754,6 +1762,64 @@ function showSlip(s, month, label) {
   bg.querySelector('#slPrint').onclick = () => { $('#print').innerHTML = slipHTML(s, month, label); window.print(); };
 }
 
+// ===== 백업 =====
+const XLSX_SRC = ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'];
+async function needXLSX() {
+  if (window.XLSX) return window.XLSX;
+  for (const u of XLSX_SRC) { try { await loadScript(u); if (window.XLSX) return window.XLSX; } catch (e) { } }
+  throw new Error('엑셀 도구를 불러오지 못했습니다. 인터넷을 확인하세요.');
+}
+function saveBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+const stamp = () => { const d = new Date(); return ymd(d).replace(/-/g, '') + '_' + pad(d.getHours()) + pad(d.getMinutes()); };
+const hm2 = m => `${Math.floor(m / 60)}:${pad(Math.round(m % 60))}`;   // 엑셀용 7:30
+function tabBackup() {
+  const cur = ymd(Date.now()).slice(0, 7);
+  $('#body').innerHTML = `<div class="card"><b style="font-size:16px">월별 근무기록 엑셀</b>
+      <div class="muted" style="font-size:12.5px;margin:2px 0 10px">고른 기간의 출퇴근 기록과 직원별 급여 요약을 엑셀 파일로 내려받습니다. 세무사 제출이나 보관용으로 쓰세요.</div>
+      <div class="row" style="align-items:end"><div><label>시작 월</label><input type="month" id="bkF" value="${cur}"></div><div><label>끝 월</label><input type="month" id="bkT" value="${cur}"></div></div>
+      <button class="pri" id="bkX" style="width:100%;margin-top:10px">📊 엑셀로 내려받기</button></div>
+    <div class="card"><b style="font-size:16px">전체 백업</b>
+      <div class="muted" style="font-size:12.5px;margin:2px 0 10px">직원 · 근무표 · 예정 · 출퇴근 기록 · 수정 이력 · 급여명세서를 모두 한 파일(.json)로 내려받습니다. 서버에 문제가 생겼을 때 되살리는 용도입니다.<br>
+      <b>직원 비밀번호도 들어 있으니</b> 파일은 개인 PC나 구글 드라이브 등 안전한 곳에 보관하세요.</div>
+      <button class="pri" id="bkJ" style="width:100%">💾 전체 백업 파일 내려받기</button>
+      <div class="muted" style="font-size:12px;margin-top:8px">한 달에 한 번, 급여 확정 뒤에 받아 두기를 권합니다.</div></div>
+    ${PRACTICE ? '<div class="card muted" style="font-size:12.5px">연습 모드에서는 연습 기록이 내려받아집니다.</div>' : ''}`;
+  $('#bkJ').onclick = async () => {
+    const d = await run(() => api('/admin/backup')); if (!d) return;
+    saveBlob(new Blob([JSON.stringify(d, null, 1)], { type: 'application/json' }), `oozy_backup_${stamp()}${PRACTICE ? '_practice' : ''}.json`);
+    toast(`백업 파일을 내려받았습니다 (출퇴근 ${d.punch.length}건)`, 3500);
+  };
+  $('#bkX').onclick = async () => {
+    let f = $('#bkF').value, t = $('#bkT').value;
+    if (!f || !t) return toast('기간을 고르세요');
+    if (f > t) [f, t] = [t, f];
+    const months = []; for (let [y, m] = f.split('-').map(Number); `${y}-${pad(m)}` <= t; m === 12 ? (y++, m = 1) : m++) months.push(`${y}-${pad(m)}`);
+    if (months.length > 24) return toast('한 번에 24개월까지 받을 수 있습니다');
+    toast('만드는 중...');
+    let X; try { X = await needXLSX(); } catch (e) { return toast(e.message, 3500); }
+    const rec = [['날짜', '요일', '이름', '출근', '퇴근', '근무(분)', '휴게(분)', '유급(분)', '유급 시간', '퇴근 방식', '수정됨', '기록']];
+    const sum = [['월', '이름', '시급', '근무일수', '총 근무', '휴게', '유급 시간', '유급(분)', '급여(원)', '확정']];
+    for (const mo of months) {
+      const r = await run(() => api('/admin/pay?month=' + mo)); if (!r) return;
+      const rows = [];
+      r.staff.forEach(s => {
+        s.shifts.forEach(x => rows.push([ymd(x.start), DOW[new Date(x.start).getDay()], s.name, hhmm(x.start), hhmm(x.end), x.min, x.brk, x.paid, hm2(x.paid), END_LABEL[x.end_type] || '', x.edited ? 'O' : '', x.memo || '']));
+        if (s.shifts.length) sum.push([mo, s.name, s.wage, s.days, hm2(s.total), hm2(s.brk), hm2(s.paid), s.paid, s.pay, s.confirmedAt ? '확정' : '']);
+      });
+      rows.sort((a, b) => (a[0] + a[3]).localeCompare(b[0] + b[3])); rec.push(...rows);
+    }
+    const wb = X.utils.book_new();
+    const ws1 = X.utils.aoa_to_sheet(rec); ws1['!cols'] = [10, 5, 8, 7, 7, 9, 9, 9, 9, 10, 7, 30].map(w => ({ wch: w }));
+    const ws2 = X.utils.aoa_to_sheet(sum); ws2['!cols'] = [9, 8, 8, 8, 9, 8, 9, 9, 11, 6].map(w => ({ wch: w }));
+    X.utils.book_append_sheet(wb, ws1, '출퇴근 기록'); X.utils.book_append_sheet(wb, ws2, '급여 요약');
+    const name = `oozy_work_${f === t ? f : f + '_' + t}${PRACTICE ? '_practice' : ''}.xlsx`;
+    X.writeFile(wb, name);
+    toast(`엑셀을 내려받았습니다 (${rec.length - 1}건)`, 3500);
+  };
+}
 async function tabStaff() {
   setTimeout(async () => {                         // 출근하기 버튼 사용 여부
     const draw = on => { const b = $('#pOn'); if (!b) return; b.disabled = false; b.className = 'tog ' + (on ? 'on' : 'off'); b.textContent = on ? '사용 중' : '잠김';
@@ -1811,7 +1877,9 @@ async function tabStaff() {
     const r = await fetch(CFG.API + '/login', { headers: { 'X-Token': TOKEN } });
     if (r.status === 401) { try { localStorage.removeItem('oozyToken'); localStorage.removeItem('oozyAuth'); } catch (e) { } location.replace('./'); return; }
     const j = await r.json(); if (!r.ok) throw new Error(j.error || '오류');
-    ME = j; WEEK = monday(new Date()); ME.role === 'admin' ? renderAdmin() : renderStaff();
+    ME = j; WEEK = monday(new Date());
+    const qt = q.get('tab'); if (qt && ME.role === 'admin') TAB = qt;                  // 홈에서 바로 가기 (예: ?tab=bak)
+    ME.role === 'admin' ? renderAdmin() : renderStaff();
   } catch (e) {
     $('#app').innerHTML = `<div class="login"><div class="big">연결하지 못했습니다</div><div class="muted" style="margin:8px 0 16px">${esc(e.message || '')}<br>인터넷 연결을 확인하세요.</div><button class="pri" onclick="location.reload()">다시 시도</button> <a class="homebtn" href="./">🏠 홈</a></div>`;
   }

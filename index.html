@@ -86,6 +86,7 @@ h2{font-size:14px;color:var(--sub);margin:22px 4px 10px;font-weight:600;letter-s
 .qrcard[hidden]{display:none}
 .muted{color:var(--sub)}
 header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-self:flex-end;margin:0 0 4px -4px}
+.admlink{display:block;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;text-decoration:none;color:var(--ink);font-weight:700;font-size:15px}.admlink small{font-weight:400;color:var(--sub);font-size:12.5px;margin-left:6px}
 </style>
 </head>
 <body>
@@ -111,7 +112,7 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '10.21.-v.1',                                   // 홈 화면 버전 (고칠 때마다 날짜·번호를 올림)
+  VERSION: '10.21.-v.2',                                   // 홈 화면 버전 (고칠 때마다 날짜·번호를 올림)
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
@@ -207,7 +208,8 @@ async function renderAdmin() {
     <div style="overflow-x:auto"><table class="perm"><tr><th>직원</th>${CFG.APPS.map(a => `<th>${esc(a.name.replace(' · ', '·'))}</th>`).join('')}</tr>
     ${staff.filter(s => s.active).map(s => `<tr><td>${esc(s.name)}</td>${CFG.APPS.map(a => `<td><input type="checkbox" data-sid="${s.id}" data-k="${a.key}" ${appsOf(s).includes(a.key) ? 'checked' : ''}></td>`).join('')}</tr>`).join('')
       || `<tr><td colspan="${CFG.APPS.length + 1}" class="muted">재직 중인 직원이 없습니다. 근무 · 급여 → 직원 탭에서 추가하세요.</td></tr>`}</table></div>
-    <div class="muted" style="font-size:12px;margin-top:8px">직원 이름 · 비밀번호(PIN)는 근무 · 급여 → 직원 탭에서 정합니다.</div></div>`;
+    <div class="muted" style="font-size:12px;margin-top:8px">직원 이름 · 비밀번호(PIN)는 근무 · 급여 → 직원 탭에서 정합니다.</div></div>
+    <a class="admlink" href="https://kghwang1.github.io/cafe/oozy-work.html?tab=bak">💾 백업 받기 <small>근무기록 엑셀 · 전체 백업</small></a>`;
   box.querySelectorAll('[data-sid]').forEach(c => c.onchange = async () => {
     const sid = +c.dataset.sid, apps = [...box.querySelectorAll(`[data-sid="${sid}"]`)].filter(x => x.checked).map(x => x.dataset.k);
     try { await call('/admin/staff/apps', { id: sid, apps }); toastH('저장했습니다'); } catch (e) { c.checked = !c.checked; toastH(e.message); }
