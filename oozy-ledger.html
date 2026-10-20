@@ -1523,21 +1523,13 @@ function vCover(){
     authRole==='home' ? x.name===authDept                  // 가계부는 고른 구분만
     : isHomeFile(x.name) ? false                           // 가계부 파일은 교회 쪽에 안 보인다
     : authRole==='view' ? true : x.name===authDept);
-  if(authRole==='home' && (!authOK() || autoOpening || pendingLogin)){        // 암호만 묻는 간단한 화면
-    const busy = autoOpening || pendingLogin;
+  if(authRole==='home' && !autoDone){                 // 로그인은 홈에서 — 여기서는 바로 결산 화면을 연다
     return `<div class="lg-wrap">
     <div class="lg-card">
       <a class="homeln dark" href="./">🏠 홈</a>
       <div class="lg-church">우지커피 용강점</div>
       <h1 class="lg-title">카페 운영</h1>
-      <div class="lg-sec">
-        <div class="lg-name">
-          <span>암호</span>
-          <input type="password" id="lgName" value="${busy?esc(authName):''}" placeholder="암호를 넣으세요" autocomplete="current-password" ${busy?'disabled':''}>
-          <button class="btn" id="lgGo" ${busy?'disabled':''}>확인</button>
-        </div>
-        ${busy?`<p class="lg-busy" style="margin:10px 0 0">${autoOpening?'결산 화면을 여는 중입니다…':'확인 중입니다…'}</p>`:''}
-      </div>
+      <p class="lg-busy" style="margin:6px 0 0">결산 화면을 여는 중입니다…</p>
       <div class="lg-ver">버전 ${APPVER}</div>
     </div>
   </div>`;
@@ -1592,7 +1584,7 @@ function vCover(){
 }
 function isHomeFile(n){ return homes.indexOf(String(n))>=0 }
 function authOK(){
-  if(authRole==='home') return !!authDept && !!authName && (!homePw || authName===homePw);   // 카페 운영은 암호를 한 번 묻는다
+  if(authRole==='home') return !!authDept;            // 로그인·권한은 홈에서 확인 (카페 운영 권한이 있는 기기만 들어옴)
   if(!authRole || !authName) return false;
   if(authRole==='home') return !!authDept;            // 가계부는 암호 없이 구분만 고르면 된다
   return authRole==='view' ? okView(authName) : (authDept && okWrite(authDept, authName));
@@ -3364,7 +3356,15 @@ function tryLogin(){
   render();
 }
 // 암호가 맞으면 가장 최근 카페 장부를 바로 연다 (결산 화면으로 시작)
-let autoOpening = false, pendingLogin = false, homeReady = false;
+let autoOpening = false, pendingLogin = false, homeReady = false, autoDone = false, bootTried = false;
+async function bootOpen(){                          // 처음 한 번: 가장 최근 장부를 결산 화면으로
+  if(bootTried || screen!=='cover') return; 
+  const mine = deptList.filter(x=>x.name===authDept);
+  if(!mine.length && !listFresh) return;            // 목록을 받은 뒤 다시 시도
+  bootTried = true;
+  await autoOpen();
+  autoDone = true; if(screen==='cover') render();   // 장부가 없거나 못 열면 원래 표지 ([새로 시작])
+}
 try{ localStorage.removeItem('oozy_ledger_pw') }catch(e){}   // 예전에 기억해 둔 암호는 지운다
 async function autoOpen(){
   if(screen!=='cover') return;
@@ -3921,13 +3921,13 @@ function readOldExcel(wb){
   setStatus(serverOn()?'서버 연결됨':'임시 보관됨');
   render();
   const had = await loadCache();            // 지난번 목록을 먼저 보여 준다
-  if(had){ cvBusy=false; if(homePw) homeReady=true; autoPick(); render() }
+  if(had){ cvBusy=false; if(homePw) homeReady=true; autoPick(); render(); bootOpen() }   // 기기에 있는 장부로 바로 연다
   if(!selFile && serverOn()) prefetch(authDept+'|'+new Date().getFullYear());   // 처음이면 올해 장부를 목록과 함께 받아 둔다
   try{
     await loadBoot();                                  // 목록·명단을 한 번에
     await saveCache();
   }catch(e){}
-  cvBusy=false; homeReady=true; autoPick(); render();
+  cvBusy=false; homeReady=true; autoPick(); render(); bootOpen();
   if(pendingLogin){ pendingLogin=false; tryLogin() }  // 불러오는 동안 넣은 암호를 이제 확인
   checkUpdate(false);
   loadXLSX().then(prepShare).catch(function(){});   // 저장·공유가 바로 되도록 미리 준비
