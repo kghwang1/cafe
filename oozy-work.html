@@ -49,6 +49,10 @@ button.warn{background:var(--warn);color:#fff}
 .pad button.pri{background:var(--brand);color:#fff;font-size:20px}
 /* 주간표 */
 .gridhead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.stcard,.stcard .big,.stcard .muted{color:#8a837d}
+.stabs{flex:1 1 100%!important;display:flex;justify-content:center;gap:8px}.stabs button.sm{font-size:14.3px;padding:7px 11px}
+#myBox .calnav{margin-top:10px}
+.mybtns{display:flex;justify-content:center;gap:6px;margin-top:14px}.mybtns button{flex:0 0 auto;font-size:12.5px;padding:6px 14px;border-radius:9px}
 .grid{display:grid;grid-template-columns:42px repeat(7,minmax(0,1fr));overflow:hidden;margin-top:8px;min-width:0;padding-bottom:8px}
 .gcol{position:relative;border-left:1px solid var(--line)}
 .ghead{text-align:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line);height:34px}
@@ -145,6 +149,7 @@ body.practice{background:#fff4e0}
 .dayt tr.sum td{border-bottom:0;color:var(--sub)}
 .dayt .cact{white-space:nowrap;text-align:right}.dayt .cact button{margin-left:3px}
 .dayt .cum,.dayt .wk,.dayt .sum b{color:#555}
+.dayt .mnote{font-size:12.5px;color:#5b3a29;min-width:70px;white-space:normal!important}
 .dayt td.wkc{background:#fff8d6}
 .dayt .hn{color:#a07800}
 .dayt .wk .hn{color:#8b1a1a}
@@ -368,7 +373,7 @@ async function computePay(env, month, onlyId) {
       const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;
       const w = weekStart(r.start);
       weeks[w] = (weeks[w] || 0) + paid;
-      if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, edited: r.edited, end_type: r.end_type });
+      if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, edited: r.edited, end_type: r.end_type, memo: r.memo || null });
     }
     const total = shifts.reduce((a, x) => a + x.min, 0), brk = shifts.reduce((a, x) => a + x.brk, 0), paid = total - brk;
     const days = new Set(shifts.map(x => dayStart(x.start))).size;
@@ -918,22 +923,31 @@ async function login(v) {
 // ===== 주간표 =====
 function gridSection(admin) {
   return `<div class="card"><div class="gridhead">
-    <div class="row" style="flex:0 0 auto;align-items:center"><button class="sm" data-w="-1">◀</button><b id="wk" style="min-width:120px;text-align:center"></b><button class="sm" data-w="1">▶</button></div>
-    <div class="tabs" style="flex:0 0 auto"><button class="sm ${MODE==='plan'?'on':''}" data-m="plan">근무시간표</button><button class="sm ${MODE==='real'?'on':''}" data-m="real">${admin ? "출퇴근 기록" : "나의 근무"}</button></div></div>
-    <div id="grid"></div><div class="legend" id="legend"></div>
+    <div class="row" id="wkNav" style="flex:0 0 auto;align-items:center;${!admin && MODE === 'real' ? 'display:none' : ''}"><button class="sm" data-w="-1">◀</button><b id="wk" style="min-width:120px;text-align:center"></b><button class="sm" data-w="1">▶</button></div>
+    <div class="tabs ${admin ? '' : 'stabs'}" style="flex:0 0 auto"><button class="sm ${MODE==='plan'?'on':''}" data-m="plan">${admin ? '근무시간표' : '주간시간표'}</button><button class="sm ${MODE==='real'?'on':''}" data-m="real">${admin ? "출퇴근 기록" : "나의 근무"}</button></div></div>
+    <div id="planBox" ${!admin && MODE === 'real' ? 'hidden' : ''}><div id="grid"></div><div class="legend" id="legend"></div></div>
+    ${admin ? '' : `<div id="myBox" ${MODE === 'real' ? '' : 'hidden'}></div>`}
     ${admin ? `<div class="muted" style="margin-top:6px">스케줄 칸을 누르면 수정/삭제할 수 있습니다.</div>` : ''}</div>`;
 }
 function bindGrid(admin, pre) {
   document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { WEEK = addDays(WEEK, 7 * +b.dataset.w); loadWeek(admin); });
-  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b)); drawGrid(admin); });
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b));
+    if (!admin) {                                    // 직원: 나의 근무 = 월 달력
+      $('#planBox').hidden = MODE === 'real'; $('#myBox').hidden = MODE !== 'real'; $('#wkNav').style.display = MODE === 'real' ? 'none' : '';
+      if (MODE === 'real') { myCal(); return; }
+    }
+    drawGrid(admin); });
+  if (!admin && MODE === 'real') myCal();
   if (DATA && DATA.from === WEEK) drawGrid(admin); // 이미 받은 주는 바로 표시
   loadWeek(admin, pre);
 }
+// 주 이름: 그 주 월요일이 속한 달의 몇 번째 월요일인지 (10/19 → 10월 3주)
+const weekLabel = w => { const d = new Date(w); return `${d.getMonth() + 1}월 ${Math.ceil(d.getDate() / 7)}주`; };
 const weekCache = {};
 let weekReq = 0;
 async function loadWeek(admin, pre) {
   const w = WEEK, my = ++weekReq;
-  $('#wk').textContent = `${mdw(w)} ~ ${mdw(addDays(w, 6))}`;
+  $('#wk').innerHTML = `${weekLabel(w)}<div class="muted" style="font-size:11.5px;font-weight:400">${mdw(w).replace(/\(.\)/, '')}~${mdw(addDays(w, 6)).replace(/\(.\)/, '')}</div>`;
   if (weekCache[w]) { DATA = weekCache[w]; drawGrid(admin); }       // 캐시 먼저 보여주고
   else if ($('#grid')) $('#grid').innerHTML = '<div class="muted" style="padding:30px 0;text-align:center">불러오는 중...</div>';
   const d = await run(() => pre || api('/week?from=' + w)); if (!d) return;
@@ -1061,6 +1075,62 @@ async function editPunchFromWeek(p) {
 }
 
 // ===== 직원 화면 =====
+// ===== 직원: 나의 근무 (월 달력 → 날짜 → 그날 기록) =====
+let MYMONTH = ymd(Date.now()).slice(0, 7), MYDAY = ymd(Date.now()), MYSHIFTS = [];
+async function myCal() {
+  const box = $('#myBox'); if (!box) return;
+  const [y, m] = MYMONTH.split('-').map(Number);
+  if (MYDAY.slice(0, 7) !== MYMONTH) MYDAY = MYMONTH + '-01';
+  box.innerHTML = `<div class="calnav" style="margin-top:6px"><button class="sm" id="mcPrev">◀</button>
+      <input type="month" id="mcSel" value="${MYMONTH}"><button class="sm" id="mcNext">▶</button></div>
+    <div class="cal" id="mcal"><div class="muted" style="grid-column:1/-1;padding:12px">불러오는 중...</div></div><div id="myDay" style="margin-top:12px"></div>`;
+  const go = ym => { MYMONTH = ym; myCal(); };
+  $('#mcPrev').onclick = () => go(ymd(new Date(y, m - 2, 1)).slice(0, 7));
+  $('#mcNext').onclick = () => go(ymd(new Date(y, m, 1)).slice(0, 7));
+  $('#mcSel').onchange = e => { if (e.target.value) go(e.target.value); };
+  const r = await run(() => api('/my/pay?month=' + MYMONTH)); if (!r || !$('#mcal')) return;
+  MYSHIFTS = ((r.slip && r.slip.shifts) || []).slice().sort((a, b) => a.start - b.start);
+  drawMyCal(y, m); drawMyDay();
+}
+function drawMyCal(y, m) {
+  const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), today = ymd(Date.now()), col = ((DATA && DATA.staff || []).find(s => s.id === ME.id) || {}).color || 'var(--brand)';
+  let html = DOW.map((d, i) => `<div class="cdow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${d}</div>`).join('') + '<div></div>'.repeat(first.getDay());
+  for (let d = 1; d <= days; d++) {
+    const key = `${MYMONTH}-${pad(d)}`, dow = new Date(y, m - 1, d).getDay(), n = MYSHIFTS.filter(x => ymd(x.start) === key).length;
+    html += `<button class="cday ${key === MYDAY ? 'on' : ''} ${key === today ? 'today' : ''} ${dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}" data-md="${key}">
+      <span class="cn">${d}</span><span class="cdots">${n ? `<i style="background:${col}"></i>` : ''}</span></button>`;
+  }
+  $('#mcal').innerHTML = html;
+  document.querySelectorAll('[data-md]').forEach(b => b.onclick = () => { MYDAY = b.dataset.md; drawMyCal(y, m); drawMyDay(); });
+}
+function drawMyDay() {
+  const list = MYSHIFTS.filter(x => ymd(x.start) === MYDAY), d = new Date(MYDAY + 'T00:00');
+  const cum = MYSHIFTS.filter(x => ymd(x.start) <= MYDAY).reduce((a, x) => a + x.paid, 0);
+  $('#myDay').innerHTML = `<b style="font-size:16px">${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})</b>
+    ${list.length ? `<div class="dayscroll"><table class="dayt"><tr><th>근무구간</th><th>근무시간<br><small>(휴게 제외)</small></th><th>월누계</th><th>기록</th><th></th></tr>
+      ${list.map(x => `<tr><td><span class="rng">${hhmm(x.start)}~${hhmm(x.end)}</span>${endBadge(x) ? `<div>${endBadge(x)}</div>` : ''}${x.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
+        <td class="wkc"><b class="wk">${fmtHM(x.paid)}</b>${x.brk ? `<div class="muted" style="font-size:11.5px">휴게 ${x.brk}분</div>` : ''}</td>
+        <td><b class="cum">${fmtHM(cum)}</b></td>
+        <td class="mnote">${x.memo ? esc(x.memo).replace(/\n/g, '<br>') : '<span class="muted">-</span>'}</td>
+        <td class="cact"><button class="sm" data-mrq="${x.id}">수정 요청</button></td></tr>`).join('')}</table></div>`
+      : '<div class="muted" style="margin-top:8px">이 날은 근무 기록이 없습니다.</div>'}
+    <div class="muted" style="font-size:11.5px;margin-top:6px">월누계: 이달 1일부터 이 날까지 휴게를 뺀 근무시간 합계 (급여 계산과 같은 시간)</div>
+    <div class="mybtns"><button class="pri" id="myMonth">이달의 근무</button><button id="myAddRq">누락 기록 요청</button></div>
+    <div id="myMonthList"></div>`;
+  $('#myAddRq').onclick = () => requestEdit(null);
+  $('#myMonth').onclick = () => { const el = $('#myMonthList'); if (el.innerHTML) { el.innerHTML = ''; return; } drawMyMonth(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  document.querySelectorAll('[data-mrq]').forEach(b => b.onclick = () => { const x = MYSHIFTS.find(s => s.id === +b.dataset.mrq); requestEdit({ id: x.id, start: x.start, end: x.end }); });
+}
+function drawMyMonth() {                           // 이달의 근무 전체 (날짜별)
+  let cum = 0, days = new Set();
+  const rows = MYSHIFTS.map(x => { cum += x.paid; days.add(ymd(x.start)); return `<tr><td>${mdw(x.start)}</td><td><span class="rng">${hhmm(x.start)}~${hhmm(x.end)}</span></td>
+    <td class="wkc"><b class="wk">${fmtHM(x.paid)}</b></td><td><b class="cum">${fmtHM(cum)}</b></td>
+    <td class="mnote">${x.memo ? esc(x.memo).replace(/\n/g, '<br>') : ''}</td></tr>`; }).join('');
+  $('#myMonthList').innerHTML = `<div style="margin-top:14px;border-top:2px solid var(--line);padding-top:10px">
+    <b style="font-size:16px">${+MYMONTH.slice(0, 4)}년 ${+MYMONTH.slice(5)}월 근무</b> <span class="muted">${days.size}일 · 합계 ${fmtHM(cum)}</span>
+    ${rows ? `<div class="dayscroll"><table class="dayt"><tr><th>날짜</th><th>근무구간</th><th>근무시간</th><th>월누계</th><th>기록</th></tr>${rows}</table></div>`
+      : '<div class="muted" style="margin-top:8px">이달 근무 기록이 없습니다.</div>'}</div>`;
+}
 async function renderStaff() {
   clearWeekCache();
   const wk = api('/week?from=' + WEEK); wk.catch(() => {});        // 주간표를 동시에 요청
@@ -1068,26 +1138,16 @@ async function renderStaff() {
   const open = st.open, missing = st.recent.filter(p => p.status === 'missing');
   $('#app').innerHTML = `<div class="wrap">
     <div class="top"><h1>${esc(ME.name)}님</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
-    <div class="card">${statusCard(st)}</div>
+    <div class="card stcard">${statusCard(st)}</div>
     ${missing.length ? `<div class="card" style="border:2px solid var(--bad)"><b style="color:var(--bad)">퇴근을 안 찍은 기록이 있습니다</b>
       <div class="list">${missing.map(p => `<div><span>${mdw(p.start)} ${hhmm(p.start)}~ ?</span><button class="sm pri" data-rq="${p.id}">퇴근시간 요청</button></div>`).join('')}</div></div>` : ''}
     ${st.requests.length ? `<div class="card"><b>승인 대기 중인 요청</b><div class="list">${st.requests.map(r => `<div><span>${mdw(r.start)} ${hhmm(r.start)}-${hhmm(r.end)}</span><span class="badge warn">대기</span></div>`).join('')}</div></div>` : ''}
     ${gridSection(false)}
-    <div class="card"><div class="row" style="align-items:center"><b>내 최근 기록</b><button class="sm" id="addrq" style="flex:0 0 auto">누락 기록 추가 요청</button></div>
-      <div class="list">${st.recent.map(p => `<div><span>${mdw(p.start)} ${hhmm(p.start)}-${p.end ? hhmm(p.end) : '?'}
-        ${p.status === 'open' ? '<span class="badge ok">근무중</span>' : p.status === 'missing' ? '<span class="badge bad">퇴근누락</span>' : p.end ? `<span class="muted">${fmtH(Math.round((p.end - p.start) / MIN))}</span>` : ''}
-        ${endBadge(p)}${p.edited ? '<span class="badge">수정됨</span>' : ''}</span>
-        ${p.status !== 'open' ? `<button class="sm" data-rq="${p.id}">수정 요청</button>` : ''}</div>`).join('') || '<div class="muted">기록이 없습니다.</div>'}</div></div>
-    <div class="card" id="myPay"><div class="row" style="align-items:center"><b>급여 명세서</b><button class="sm pri" id="myConf" style="flex:0 0 auto">확정급여</button></div>
-      <div id="myPayBody" class="muted" style="margin-top:8px">불러오는 중...</div></div>
   </div>`;
   $('#out').onclick = logout;
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => b.dataset.act === 'in' ? punchIn() : leave(b.dataset.act, open || st.last));
-  $('#addrq').onclick = () => requestEdit(null);
   document.querySelectorAll('[data-rq]').forEach(b => b.onclick = () => requestEdit(st.recent.find(p => p.id === +b.dataset.rq)));
   bindGrid(false, wk);
-  $('#myConf').onclick = showMyConfirmed;
-  loadMyPay(ymd(Date.now()).slice(0, 7));
 }
 // 알바: 이번 달 현재까지 급여
 async function loadMyPay(month) {
