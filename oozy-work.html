@@ -144,8 +144,10 @@ body.practice{background:#fff4e0}
 .dayt td{padding:9px 4px;border-bottom:1px solid var(--line);vertical-align:top}
 .dayt tr.sum td{border-bottom:0;color:var(--sub)}
 .dayt .cact{white-space:nowrap;text-align:right}.dayt .cact button{margin-left:3px}
-.dayt .cum{color:#a8742a}
-.dayt .rng{color:var(--ok);font-weight:600}
+.dayt .cum,.dayt .wk,.dayt .sum b{color:#231f1c}
+.dayt .hn{color:#a07800}
+.dayt .rng{color:var(--ink);font-weight:600}
+
 .mst{font-size:11px;color:var(--sub);margin-top:2px;white-space:normal}.mst.ok{color:var(--ok)}.mst.bad{color:var(--bad)}
 .dayt .cmemo textarea.bad{border-color:var(--bad)}
 .dayscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -1472,7 +1474,7 @@ function drawCal(y, m) {
   $('#cal').innerHTML = html;
   document.querySelectorAll('[data-cd]').forEach(b => b.onclick = () => { PDAY = b.dataset.cd; drawCal(y, m); drawDay(); });
 }
-const fmtHM = m => `${Math.floor(m / 60)}h ${pad(Math.round(m % 60))}m`;   // 7h 30m
+const fmtHM = m => `<span class="hn">${Math.floor(m / 60)}</span>h <span class="hn">${pad(Math.round(m % 60))}</span>m`;   // 7h 30m (숫자만 황색)
 function paidMin(p) { if (p.status !== 'done' || !p.end) return 0; const min = Math.round((p.end - p.start) / MIN); return min - brkOf(p, min); }
 function drawDay() {
   const list = PROWS.filter(p => ymd(p.start) === PDAY).sort((a, b) => a.start - b.start);
@@ -1483,7 +1485,7 @@ function drawDay() {
     if (p.status === 'missing') work = '<span class="badge bad">퇴근누락</span>';
     else if (p.status === 'open') work = '<span class="badge ok">근무중</span>';
     else { const min = Math.round((p.end - p.start) / MIN), b = brkOf(p, min); sum += min - b;
-      work = `<b>${fmtHM(min - b)}</b>${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
+      work = `<b class="wk">${fmtHM(min - b)}</b>${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
     const cum = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY).reduce((a, x) => a + paidMin(x), 0);   // 이달 1일~이 날
     const s = STAFF.find(x => x.id === p.staff_id);
     return `<tr><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
