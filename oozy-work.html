@@ -970,7 +970,7 @@ async function login(v) {
 function gridSection(admin) {
   const nav = `<div class="row ${admin ? '' : 'snav'}" id="wkNav" style="flex:0 0 auto;align-items:center;${!admin && MODE === 'real' ? 'display:none' : ''}"><button class="sm" data-w="-1">◀</button><b id="wk" style="min-width:120px;text-align:center"></b><button class="sm" data-w="1">▶</button></div>`;
   const tabs = `<div class="tabs ${admin ? '' : 'stabs'}" style="flex:0 0 auto"><button class="sm ${MODE==='plan'?'on':''}" data-m="plan">${admin ? '근무시간표' : '주간시간표'}</button><button class="sm ${MODE==='real'?'on':''}" data-m="real">${admin ? "출퇴근 기록" : "나의 근무"}</button></div>`;
-  return `<div class="card"><div class="gridhead">${admin ? nav + tabs : tabs + nav}</div>
+  return `<div class="card"><div class="gridhead">${admin ? nav : tabs + nav}</div>
     <div id="planBox" ${!admin && MODE === 'real' ? 'hidden' : ''}><div id="grid"></div><div class="legend" id="legend"></div></div>
     ${admin ? '' : `<div id="myBox" ${MODE === 'real' ? '' : 'hidden'}></div>`}
     ${admin ? `<div class="muted" style="margin-top:6px">스케줄 칸을 누르면 수정/삭제할 수 있습니다.</div>` : ''}</div>`;
@@ -1298,7 +1298,7 @@ async function renderAdmin() {
   const [sf, rq] = await Promise.all([run(() => api('/admin/staff')), run(() => api('/admin/requests'))]);
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
-  const tabs = [['tpl', `근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '주간표'], ['punch', '근무기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원']];
+  const tabs = [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '근무기록'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원']];
   $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
   $('#out').onclick = logout;
@@ -1308,6 +1308,7 @@ async function renderAdmin() {
 const staffOpts = sel => STAFF.filter(s => s.active || s.id === sel).map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
 
 function tabGrid() {
+  MODE = 'plan';                                   // 관리자 근무기록: 예정 + 실제 출퇴근을 함께
   $('#body').innerHTML = gridSection(true) + `<div class="card"><b>스케줄 추가</b>
     <label>직원</label><select id="sS">${staffOpts()}</select>
     <label>날짜</label><input type="date" id="sD" value="${ymd(Math.max(WEEK, Date.now()))}">
@@ -1427,7 +1428,7 @@ function drawCell(el) {
 }
 function dirty() {
   TPL_DIRTY = true;
-  const t = document.querySelector('[data-tab="tpl"]'); if (t) t.textContent = '근무표*';
+  const t = document.querySelector('[data-tab="tpl"]'); if (t) t.textContent = '주간근무표*';
   const lab = $('#tStat'); if (lab) lab.innerHTML = '<b style="color:var(--bad)">저장 안 됨</b>';
 }
 function paintCell(k, mode) {
@@ -1529,7 +1530,7 @@ function drawSummary() {
 }
 async function saveTpl() {
   const r = await run(() => api('/admin/template', { grid: TPL }));
-  if (r) { TPL_DIRTY = false; toast('근무표를 저장했습니다'); tabTpl(); document.querySelector('[data-tab="tpl"]').textContent = '근무표'; }
+  if (r) { TPL_DIRTY = false; toast('근무표를 저장했습니다'); tabTpl(); document.querySelector('[data-tab="tpl"]').textContent = '주간근무표'; }
 }
 async function applyTpl() {
   const v = await modal(`<h3>주간표에 적용</h3>
