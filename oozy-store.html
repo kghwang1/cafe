@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 매장관리</title>
-<meta name="app-version" content="2026-10-20.1">
+<meta name="app-version" content="2026-10-22.1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,12 +39,12 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
   padding:12px 14px 12px;box-shadow:0 2px 0 var(--butter)}
 .top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .brand{font-weight:700;font-size:17px;letter-spacing:.02em;flex:1;white-space:nowrap}
-.tabs{display:flex;gap:4px}
-.tab{background:transparent;color:#fff;border:1.5px solid #6E7E5A;border-radius:8px;font:inherit;font-size:16px;
-  font-weight:600;padding:6px 10px;min-height:40px}
+.tabs{display:flex;gap:4px;order:9;flex:1 1 100%}
+.tab{flex:1;white-space:nowrap;background:transparent;color:#fff;border:1.5px solid #6E7E5A;border-radius:8px;font:inherit;font-size:16px;
+  font-weight:600;padding:6px 6px;min-height:40px}
 .tab.on{background:var(--butter);color:var(--green);border-color:var(--butter)}
 .top{flex-wrap:wrap}
-@media (max-width:440px){.brand{font-size:14px}.tab{padding:5px 7px;font-size:14px;min-height:38px}.sz{min-width:34px;padding:4px 6px;font-size:14px;min-height:38px}.top{gap:4px}.tabs{gap:3px}}
+@media (max-width:440px){.brand{font-size:14px}.tab{padding:5px 3px;font-size:14px;min-height:38px}.sz{min-width:34px;padding:4px 6px;font-size:14px;min-height:38px}.top{gap:4px}.tabs{gap:3px}}
 @media (max-width:430px){.brand b{display:none}}
 .mg-jump{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:4px 0 6px}
 .mbox{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:6px 16px 10px;margin-bottom:10px}
@@ -142,6 +142,31 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 60px}
 .upd button{flex:none;background:#fff;color:var(--hot);border:0;border-radius:10px;font:inherit;font-size:16px;padding:10px 14px;min-height:44px}
 .ver{font-size:13px;color:var(--muted);text-align:center;margin:24px 0 8px}
 .inote{color:var(--hot);font-weight:600;font-size:.8em}
+/* 오픈·마감 매뉴얼 */
+.wtop{display:flex;align-items:center;gap:10px;margin:4px 2px 10px}
+.wtop .sub-t{flex:1;margin:0}
+.wbox{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px}
+.whead{display:flex;align-items:center;gap:8px;margin:18px 2px 8px}
+.wtime{display:inline-block;background:var(--green);color:var(--butter);font-weight:700;border-radius:8px;padding:2px 12px;font-size:.95em}
+.wtimesub{font-size:.7em;color:var(--muted)}
+.wband{background:var(--less-bg);color:var(--etc);font-weight:700;border-radius:8px;padding:6px 10px;margin:10px 0 2px;font-size:.85em;line-height:1.4}
+.wband.red{background:var(--amt-bg);color:var(--hot)}
+.wgrp{font-size:.68em;font-weight:700;color:var(--muted);margin:10px 0 0;letter-spacing:.04em}
+.wrow{display:flex;gap:12px;align-items:flex-start;border-top:1px dashed var(--line);padding:10px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.wgrp + .wrow{border-top:0}
+.wck{flex:none;width:28px;height:28px;border:2px solid var(--etc);border-radius:8px;margin-top:1px;display:flex;align-items:center;justify-content:center;color:transparent;font-size:18px;font-weight:700;line-height:1}
+.wrow.done .wck{background:var(--green);border-color:var(--green);color:var(--butter)}
+.wrow.done .wt,.wrow.done .wd{color:var(--muted)}
+.wrow.done .wt{text-decoration:line-through}
+.wbody{flex:1;min-width:0}
+.wt{font-weight:700;font-size:.9em;line-height:1.35}
+.wno{color:var(--muted);font-weight:600;margin-right:6px}
+.wd{font-size:.78em;line-height:1.45;margin-top:2px}
+.wn{font-size:.72em;line-height:1.4;color:var(--muted);margin-top:3px}
+.wd.r,.wn.r{color:var(--hot);font-weight:700}
+.wd.h{color:var(--act);font-weight:700}
+.wnotes{margin:8px 0 2px;padding:6px 10px;border-left:3px solid var(--butter);font-size:.72em;color:var(--muted);line-height:1.5}
+.wnotes.r{color:var(--hot);font-weight:700;border-left-color:var(--hot)}
 button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline-offset:2px}
 @media (prefers-reduced-motion:no-preference){.item.open .body{animation:fade .15s ease-out}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
@@ -156,13 +181,15 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
   <div class="top">
     <a class="homebtn" href="./" aria-label="홈으로">🏠<span class="ht"> 홈</span></a>
     <div class="brand"><b>OOZY </b><span>매장관리</span></div>
+    <button class="sz" id="dn" aria-label="글씨 작게">가−</button>
+    <button class="sz" id="up" aria-label="글씨 크게">가+</button>
     <div class="tabs" id="tabs">
+      <button class="tab" data-m="open">오픈</button>
+      <button class="tab" data-m="close">마감</button>
       <button class="tab" data-m="clean">청소</button>
       <button class="tab" data-m="parts">소모품</button>
       <button class="tab" data-m="video">동영상</button>
     </div>
-    <button class="sz" id="dn" aria-label="글씨 작게">가−</button>
-    <button class="sz" id="up" aria-label="글씨 크게">가+</button>
   </div>
 </header>
 <main>
@@ -170,7 +197,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-20.1';
+  const APP_VERSION = '2026-10-22.1';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -214,11 +241,95 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       ['정수 필터', [['전처리 필터 교체법','1~2개월 (최대 3개월 권장)','https://m.site.naver.com/1XzeA'],['4FC 필터 교체법','3개월 권장','https://m.site.naver.com/1XrgU'],['IMF 필터 교체법','약품 소진 시 (6개월 권장)','https://m.site.naver.com/1XrMF'],['2FC 필터 교체법','3개월 권장 (제빙기용)','https://m.site.naver.com/1Xzoi']]]
     ]
   };
+
+  // ---------- 오픈 근무자 업무 매뉴얼 ----------
+  // [제목, [상세내용...], [비고...]]  ('★' · '※' 로 시작하는 줄은 빨간 글씨)
+  const OPEN = [
+    ['캡스해제', ['출입문 캡스 및 시건장치 해제'], []],
+    ['전원 ON', ['매장 내,외부 / 쇼케이스 / DID / 그라인더 / 냉,난방 전원 on'], []],
+    ['배너게시', ['출입구 / 테이크아웃 동선 고려하여 위치선정'], []],
+    ['포스전원켜기', ['전일 마감영수증 참고하여 준비금(시재) 입력'], ['★ 포스 비밀번호 변경 시 계정 비밀번호도 변경됨 ★']],
+    ['키오스크전원켜기', ['우지오더 픽업 ON 설정', '★ 메인포스 프로그램을 먼저 켠 후 키오스크 포스 프로그램 작동 시켜야만 주문시 정상 출력 ★', '전날 품절 메뉴 물류입고 확인 후 품절 해제'], ['메인포스 및 키오스크 ID/PW 동일']],
+    ['아이스빈 얼음채우기', [], []],
+    ['커피머신 물 흘리기, 압력조정, 추출 세팅 확인', ['추출버튼 2-3회 씩 가동하여 보일러 내부에 고인물 제거', '원두 추출량 및 추출시간 확인'], ['그라인더 최소 5회이상 사용후 원두 세팅 확인해야 정확']],
+    ['아이스크림전원켜기', ['아이스크림 베이스 제조 투입 후 작동 / 전원켜기 전 조립상태확인', '하절기 세팅값 : 2-3', '동절기 세팅값 : 1-2'], ['★ 베이스 넣고 CLEAN 5분 작동 후 AUTO 작동 ★']],
+    ['제품 해동', ['냉동딸기, 에버험, 냉동라임 필요수량 추가 해동'], []],
+    ['큐브 제조', ['냉동된 큐브 보관 후 베이스 제조하여 추가 냉동'], ['실리콘틀 세척 후 다시 제조']],
+    ['과일슬라이스', ['레몬, 자몽, 라임(해동) 당일 필요 수량 확인'], ['BBD 기입 필수']],
+    ['파우더류 채우기', ['신규 소분시 소분용기 세척, 건조 후 사용'], ['BBD 기입 필수']],
+    ['베이스, 시럽, 소스류, 비품류 채우기', ['펌프 잔량은 기존 시럽병에 이동 후 펌프세척 / 시럽 잔량은 보관 후 제조시 선 사용 / 필요재고 발주담당자 전달'], ['초코베이스 실온 사용']],
+    ['홀 정리', ['테이블닦기, 유리닦기, 테이블 및 의자 정리'], []]
+  ];
+
+  // ---------- 마감 근무자 업무 매뉴얼 (22:00 마감 기준) ----------
+  // top: 구간 제목 / staff: 직원 / pt: P.T. / bands: 추가 마감 항목 / notes: 비고
+  const CLOSE = [
+    { time: '20:00',
+      staff: [['그룹헤드 1 마감', []], ['냉장고 내.외부 마감', ['문 사이 / 손잡이 / 내부 청결상태 확인']], ['바테이블 마감', ['포스앞, 머신위, 그라인더위, 컵디스펜서 먼지제거']], ['해동제품확인', ['명일 사용량 부족 시 해동']]],
+      pt: [['시럽병 및 주변 마감', ['시럽 병 및 펌프 세척 / 작업대 및 냉장고 벽면 닦기']], ['기물 세척', ['BMP 기물 / 디퍼웰 기물 / 커피머신 부품 등']], ['블렌더 일부 마감', ['본체, 볼, 덮개 세척', '※ 마감 후 전원 on']]],
+      bands: [['쓰레기 마감 (원두찌꺼기 / 재활용 / 일반쓰레기 등)', ['지역별로 버리는 날짜 및 분리수거 확인']]],
+      notes: ['주방기물 소량 1차 마감'] },
+    { time: '20:30',
+      staff: [['그룹헤드 2마감', []], ['아이스크림 해동 시작', ['20:00 전 주문 시 재 가동']]],
+      pt: [['행주 1차 마감', ['화이트 / 브라운 구분하여 세제에 담가놓기']], ['기물 세척', ['커피머신 부품']]],
+      bands: [['토핑 냉장고 마감', []]],
+      notes: ['※ 주문 응대 시 매장 이용시간 안내'] },
+    { time: '21:00', top: '아이스빈 및 아이스크림 마감 시작',
+      staff: [['중간 정산', ['현금시재내역 입력']], ['그룹헤드 3마감', ['추가 주문 시 마감한 그룹 사용 후 재세척', '※ 사용전 물흘리기']]],
+      pt: [['전자레인지 마감', ['내부 유리 및 집게 세척']], ['기물세척', ['커피머신 부품, 드리즘 뚜껑 등', '넉박스 및 디퍼웰 마감']]],
+      bands: [],
+      notes: ['주 1회 포터필터 및 바스켓 약품 침지'] },
+    { time: '21:30',
+      staff: [['외부키오스크 마감', ['창문 시건']], ['에스프레소머신 마감', ['에스프레소 머신 외부 청결상태 확인 / 드레인트레이 세척 및 원두가루 제거']]],
+      pt: [['홀마감', ['테이블 닦기 / 바닥 쓸고 닦기']], ['블렌더 마감', ['본체, 볼, 덮개 세척', '※ 주문 시 사용 후 재세척']]],
+      bands: [['★ 호퍼 마감 : 원두 밀폐용기에 보관 / 호퍼 물기 완전히 제거 후 장착', ['세척한 호퍼는 밤새 건조 후 오픈근무자가 장착해도됨']]],
+      notes: [] },
+    { time: '21:45', top: '주문 마감 및 정산',
+      staff: [['키오스크마감', ['마감 및 전원OFF']], ['포스 마감', ['마감정산, 시재금 설정, 현금매출 보관', '✎ 네이버 케넥트 전원끄기'], ['익일 시재는 오픈근무자가 볼 수 있게 공유']], ['바 마감', ['바닥 쓸고 닦기']]],
+      pt: [['전체마감', ['잔여 기물 / 블렌더 마감', '트레이 전량 세척', '나머지 행주 마감']]],
+      bands: [],
+      notes: [] },
+    { time: '22:00',
+      staff: [['매장마감', ['조명 / 냉난방 / DID 전원 off, 냉장고전원, 냉장고 문 상태확인 / 배너넣기']]],
+      pt: [], bands: [],
+      notes: ['동절기 수도 조금 틀어놓기 / 히터 약하게 틀어놓기'] }
+  ];
+
   const cycCls = s => s.startsWith('매일') ? 'd' : s.startsWith('주') ? 'w' : s.startsWith('월') ? 'm' : '';
+  const isRed = s => /^[★※]/.test(s);
+
+  // 체크 기록: 오늘 날짜에만 유지 (다음 날 자동으로 비워짐)
+  const today = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+  function loadChk() { try { const o = JSON.parse(localStorage.getItem('oozy-store-chk') || 'null'); if (o && o.d === today()) return new Set(o.ids || []); } catch (e) {} return new Set(); }
+  function saveChk(set) { try { localStorage.setItem('oozy-store-chk', JSON.stringify({ d: today(), ids: [...set] })); } catch (e) {} }
+  let CHK = loadChk();
+
+  function wrow(id, title, details, notes, no) {
+    return `<div class="wrow${CHK.has(id) ? ' done' : ''}" data-id="${id}" role="checkbox" aria-checked="${CHK.has(id)}" tabindex="0"><span class="wck">✓</span><div class="wbody">` +
+      `<div class="wt">${no ? `<span class="wno">${no}</span>` : ''}${esc(title)}</div>` +
+      details.map(t => `<div class="wd${isRed(t) ? ' r' : t.startsWith('✎') ? ' h' : ''}">${esc(t)}</div>`).join('') +
+      (notes && notes.length ? notes.map(t => `<div class="wn${isRed(t) ? ' r' : ''}">비고 · ${esc(t)}</div>`).join('') : '') +
+      `</div></div>`;
+  }
+  const resetBar = (t) => `<div class="wtop"><div class="sub-t">${t}</div><button class="back" id="wReset">체크 해제</button></div>`;
 
   function html(m) {
     let h = '';
-    if (m === 'clean') {
+    if (m === 'open') {
+      h += `<div class="sec">오픈 근무자 업무 매뉴얼</div>` + resetBar('항목을 누르면 체크돼요 (내일 자동으로 지워집니다)');
+      h += `<div class="wbox">` + OPEN.map(([t, d, n], i) => wrow('o' + (i + 1), t, d, n, i + 1)).join('') + `</div>`;
+    } else if (m === 'close') {
+      h += `<div class="sec">마감 근무자 업무 매뉴얼</div>` + resetBar('22:00 마감 기준 · 항목을 누르면 체크돼요');
+      CLOSE.forEach((b, bi) => {
+        h += `<div class="whead"><span class="wtime">${b.time}</span>${b.top ? `<span class="wtimesub">${esc(b.top)}</span>` : ''}</div><div class="wbox">`;
+        if (b.top) h += `<div class="wband">${esc(b.top)}</div>`;
+        if (b.staff.length) h += `<div class="wgrp">직원</div>` + b.staff.map(([t, d, n], i) => wrow(`c${bi}s${i}`, t, d, n)).join('');
+        if (b.pt.length) h += `<div class="wgrp">P.T.</div>` + b.pt.map(([t, d, n], i) => wrow(`c${bi}p${i}`, t, d, n)).join('');
+        b.bands.forEach(([t, n], i) => { h += `<div class="wband${isRed(t) ? ' red' : ''}">${esc(t)}</div>` + wrow(`c${bi}b${i}`, '완료', [], n); });
+        if (b.notes.length) h += `<div class="wnotes${b.notes.some(isRed) ? ' r' : ''}">` + b.notes.map(t => `비고 · ${esc(t)}`).join('<br>') + `</div>`;
+        h += `</div>`;
+      });
+    } else if (m === 'clean') {
       h += `<div class="sec">기기 청소 주기</div><div class="sub-t">매일 = 하루도 빠짐없이</div>`;
       MG.clean.forEach(([n, rows]) => {
         h += `<div class="mbox"><div class="mname">${esc(n)}</div>` + rows.map(([t, c]) =>
@@ -239,16 +350,29 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     }
     return h + `<div class="ver">앱 버전 ${APP_VERSION}</div>`;
   }
+  const MODES = ['open', 'close', 'clean', 'parts', 'video'];
   const $list = document.getElementById('list'), $hdr = document.querySelector('header');
   const fixPad = () => { document.documentElement.style.scrollPaddingTop = ($hdr.offsetHeight + 8) + 'px'; };
   let mode = 'clean';
-  try { const m = localStorage.getItem('oozy-store-mode'); if (['clean','parts','video'].includes(m)) mode = m; } catch (e) {}
+  try { const m = localStorage.getItem('oozy-store-mode'); if (MODES.includes(m)) mode = m; } catch (e) {}
   function setMode(m) {
     mode = m; try { localStorage.setItem('oozy-store-mode', m); } catch (e) {}
+    CHK = loadChk();
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.m === m));
     $list.innerHTML = html(m); fixPad(); window.scrollTo(0, 0);
   }
   document.getElementById('tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) setMode(t.dataset.m); });
+  // 체크 / 해제
+  function toggleRow(r) {
+    const id = r.dataset.id; if (!id) return;
+    if (CHK.has(id)) CHK.delete(id); else CHK.add(id);
+    r.classList.toggle('done', CHK.has(id)); r.setAttribute('aria-checked', CHK.has(id)); saveChk(CHK);
+  }
+  $list.addEventListener('click', e => {
+    if (e.target.closest('#wReset')) { CHK = new Set(); saveChk(CHK); $list.querySelectorAll('.wrow').forEach(r => { r.classList.remove('done'); r.setAttribute('aria-checked', 'false'); }); return; }
+    const r = e.target.closest('.wrow'); if (r) toggleRow(r);
+  });
+  $list.addEventListener('keydown', e => { if (e.key !== 'Enter' && e.key !== ' ') return; const r = e.target.closest('.wrow'); if (r) { e.preventDefault(); toggleRow(r); } });
   window.addEventListener('resize', fixPad);
   let fs = 22;
   try { const v = parseInt(localStorage.getItem('oozy-fs'), 10); if (v >= 16 && v <= 36) fs = v; } catch (e) {}
