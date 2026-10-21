@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 매장관리</title>
-<meta name="app-version" content="2026-10-22.5">
+<meta name="app-version" content="2026-10-22.7">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -179,6 +179,43 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 60px}
 .wncol{flex:0 0 34%;min-width:96px;border-left:2px solid var(--butter);padding-left:10px;font-size:.72em;line-height:1.45;color:var(--ink);align-self:stretch}
 .wncol .r{color:var(--hot);font-weight:700}
 .wrow.done .wncol{color:var(--muted)}
+/* 오픈·마감: 날짜 · 직원 색 · 기록 */
+.wsec{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:1.1em;font-weight:700;color:var(--green);border-bottom:3px solid var(--butter);margin:22px 2px 8px;padding-bottom:4px}
+:root[data-theme="dark"] .wsec{color:var(--butter)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wsec{color:var(--butter)}}
+.wsec .wdate{font-size:.7em;font-weight:600;color:var(--muted)}
+.whos{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:0 2px 10px}
+.who{font-size:14px;font-weight:700;border-radius:8px;padding:4px 10px;line-height:1.3;white-space:nowrap}
+.who.me{box-shadow:0 0 0 2px var(--ink)}
+.recbtn{margin-left:auto;border:1.5px solid var(--green);background:var(--card);color:var(--green);font:inherit;font-size:15px;font-weight:700;border-radius:20px;padding:5px 14px;min-height:38px}
+:root[data-theme="dark"] .recbtn{color:var(--butter);border-color:var(--butter)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .recbtn{color:var(--butter);border-color:var(--butter)}}
+.wby{font-size:.72em;font-weight:700;margin-top:3px}
+.wmsg{background:var(--amt-bg);color:var(--hot);border-radius:10px;padding:8px 12px;font-size:15px;font-weight:600;margin:0 2px 10px;line-height:1.45}
+.wrow.busy{opacity:.5}
+/* 기록 보기 */
+.rbg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding:14px;z-index:40;overflow:auto}
+.rmod{background:var(--card);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:520px;margin:auto}
+.rtop{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.rtop b{flex:1;font-size:1.05em}
+.rnav{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px}
+.rnav b{font-size:16px;min-width:110px;text-align:center}
+.rnav button,.rtop button{border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px;border-radius:10px;padding:6px 12px;min-height:40px}
+.rcal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.rdow{text-align:center;font-size:12px;color:var(--muted);padding:2px 0}
+.rd{min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 1px;cursor:pointer}
+.rd.on{background:var(--green);border-color:var(--green)}.rd.on .rn{color:var(--butter)}
+.rd.today{border:2px solid var(--hot)}
+.rd .rn{font-size:14px;font-weight:700}
+.rdots{display:flex;flex-wrap:wrap;gap:2px;justify-content:center}
+.rdots i{width:8px;height:8px;border-radius:50%;display:block}
+.rlist{margin-top:12px;border-top:2px solid var(--line);padding-top:10px}
+.rlist h4{margin:12px 0 4px;font-size:15px;color:var(--etc)}
+.rli{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--line);font-size:15px}
+.rli .rt{flex:1;line-height:1.35}
+.rli .rw{font-size:13px;font-weight:700;border-radius:6px;padding:2px 8px;white-space:nowrap}
+.rli .rat{font-size:13px;color:var(--muted);white-space:nowrap}
+.rempty{color:var(--muted);font-size:15px;padding:14px 2px;line-height:1.6}
 .wnotes{margin:8px 0 2px;padding:6px 10px;border-left:3px solid var(--butter);font-size:.72em;color:var(--muted);line-height:1.5}
 .wnotes.r{color:var(--hot);font-weight:700;border-left-color:var(--hot)}
 button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline-offset:2px}
@@ -211,7 +248,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-22.5';
+  const APP_VERSION = '2026-10-22.7';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -312,28 +349,71 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
   const cycCls = s => s.startsWith('매일') ? 'd' : s.startsWith('주') ? 'w' : s.startsWith('월') ? 'm' : '';
   const isRed = s => /^[★※]/.test(s);
 
-  // 체크 기록: 오늘 날짜에만 유지 (다음 날 자동으로 비워짐)
-  const today = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
-  function loadChk() { try { const o = JSON.parse(localStorage.getItem('oozy-store-chk') || 'null'); if (o && o.d === today()) return new Set(o.ids || []); } catch (e) {} return new Set(); }
-  function saveChk(set) { try { localStorage.setItem('oozy-store-chk', JSON.stringify({ d: today(), ids: [...set] })); } catch (e) {} }
-  let CHK = loadChk();
+  // ---------- 체크 기록: 서버에 저장해 모든 직원이 함께 봄 ----------
+  const API = 'https://oozy-work.kghwang1.workers.dev';   // 근무관리 Worker 주소
+  const pad = n => String(n).padStart(2, '0');
+  const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const today = () => ymd(new Date());
+  const dlabel = s => { const d = new Date(s + 'T00:00'); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`; };
+  const hhmm = t => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  // 밝은 색 위에는 어두운 글자
+  const lum = c => { const x = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!x) return 0; const n = parseInt(x[1], 16);
+    const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
+    return .2126 * f(n >> 16 & 255) + .7152 * f(n >> 8 & 255) + .0722 * f(n & 255); };
+  const onC = c => lum(c) > .45 ? '#3b2a00' : '#fff';
+  const token = () => { try { return localStorage.getItem('oozyToken') || ''; } catch (e) { return ''; } };
+  async function api(path, body) {
+    const r = await fetch(API + path, { method: body ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json', 'X-Token': token() }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { location.replace('./?need=store'); throw new Error('다시 로그인해 주세요.'); }
+    if (!r.ok) throw new Error(j.error || '서버에 연결하지 못했습니다.');
+    return j;
+  }
+  // DAY: { date, items:{ "open:o1":{title,name,color,at} }, staff:[{name,color}], me:{name,color} }
+  let DAY = null, DAYERR = '', LOADING = false;
+  async function loadDay(force) {
+    if (LOADING) return;
+    if (!force && DAY && DAY.date === today()) return;
+    LOADING = true;
+    try { DAY = await api('/store/check?date=' + today()); DAYERR = ''; }
+    catch (e) { DAYERR = e.message; }
+    LOADING = false;
+    if (mode === 'open' || mode === 'close') draw();
+  }
+  const chk = (kind, id) => (DAY && DAY.items[kind + ':' + id]) || null;
 
-  function wrow(id, title, details, notes, no, col) {
-    return `<div class="wrow${CHK.has(id) ? ' done' : ''}" data-id="${id}" role="checkbox" aria-checked="${CHK.has(id)}" tabindex="0"><span class="wck">✓</span><div class="wbody">` +
+  function wrow(id, title, details, notes, no, col, kind) {
+    const c = kind ? chk(kind, id) : null, on = !!c;
+    const ck = on ? ` style="background:${esc(c.color)};border-color:${esc(c.color)};color:${onC(c.color)}"` : '';
+    return `<div class="wrow${on ? ' done' : ''}" data-id="${id}" data-kind="${kind || ''}" data-title="${esc(title)}" role="checkbox" aria-checked="${on}" tabindex="0"><span class="wck"${ck}>✓</span><div class="wbody">` +
       `<div class="wt">${no ? `<span class="wno">${no}</span>` : ''}${esc(title)}</div>` +
       details.map(t => `<div class="wd${isRed(t) ? ' r' : t.startsWith('✎') ? ' h' : ''}">${esc(t)}</div>`).join('') +
+      (on ? `<div class="wby" style="color:${esc(c.color)}">${esc(c.name)} · ${hhmm(c.at)}</div>` : '') +
       (!col && notes && notes.length ? notes.map(t => `<div class="wn${isRed(t) ? ' r' : ''}">비고 · ${esc(t)}</div>`).join('') : '') +
       `</div>` + (col ? `<div class="wncol">` + (notes || []).map(t => `<div class="${isRed(t) ? 'r' : ''}">${esc(t)}</div>`).join('') + `</div>` : '') + `</div>`;
   }
-  const resetBar = (t) => `<div class="wtop"><div class="sub-t">${t}</div><button class="back" id="wReset">체크 해제</button></div>`;
+  // 제목 + 날짜 + 직원 색 + 기록 버튼
+  function headBar(title, sub) {
+    const list = (DAY && DAY.staff) || [];
+    const meName = DAY && DAY.me ? DAY.me.name : '';
+    return `<div class="wsec">${esc(title)}<span class="wdate">${dlabel(today())}</span></div>` +
+      `<div class="whos">` +
+      (list.length ? list.map(s => `<span class="who${s.name === meName ? ' me' : ''}" style="background:${esc(s.color)};color:${onC(s.color)}">${esc(s.name)}</span>`).join('')
+        : `<span class="sub-t" style="margin:0">${DAYERR ? '연결 안 됨' : '불러오는 중...'}</span>`) +
+      `<button class="recbtn" id="recBtn">기록</button></div>` +
+      (DAYERR ? `<div class="wmsg">${esc(DAYERR)}<br>체크가 저장되지 않습니다. 인터넷을 확인하고 새로고침하세요.</div>` : '') +
+      `<div class="sub-t">${esc(sub)}</div>`;
+  }
 
   function html(m) {
     let h = '';
     if (m === 'open') {
-      h += `<div class="sec">오픈 근무자 업무 매뉴얼</div>` + resetBar('항목을 누르면 체크돼요 (내일 자동으로 지워집니다)');
-      h += `<div class="wbox"><div class="wohead"><span>업무</span><span>비고</span></div>` + OPEN.map(([t, d, n], i) => wrow('o' + (i + 1), t, d, n, i + 1, true)).join('') + `</div>`;
+      h += headBar('오픈 확인', '항목을 누르면 내 색으로 체크되고 모두에게 보입니다');
+      h += `<div class="wbox"><div class="wohead"><span>업무</span><span>비고</span></div>` + OPEN.map(([t, d, n], i) => wrow('o' + (i + 1), t, d, n, i + 1, true, 'open')).join('') + `</div>`;
     } else if (m === 'close') {
-      h += `<div class="sec">마감 근무자 업무 매뉴얼</div>` + resetBar('22:00 마감 기준 · 항목을 누르면 체크돼요');
+      h += headBar('마감 확인', '22:00 마감 기준 · 항목을 누르면 내 색으로 체크됩니다');
       CLOSE.forEach((b, bi) => {
         // 시간대별 비고: 항목에 붙어 있던 비고도 모두 오른쪽 비고 열로 모음
         const nl = [];
@@ -342,9 +422,9 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
         (b.notes || []).forEach(x => nl.push(['', x]));
         h += `<div class="whead"><span class="wtime">${b.time}</span>${b.top ? `<span class="wtimesub">${esc(b.top)}</span>` : ''}</div><div class="wbox wcols"><div class="wleft">`;
         if (b.top) h += `<div class="wband">${esc(b.top)}</div>`;
-        if (b.staff.length) h += `<div class="wgrp">직원</div>` + b.staff.map(([t, d], i) => wrow(`c${bi}s${i}`, t, d, [])).join('');
-        if (b.bands.length) h += `<div class="wgrp">직원 · P.T. 공동</div>` + b.bands.map(([t, d], i) => wrow(`c${bi}b${i}`, t, d, [])).join('');
-        if (b.pt.length) h += `<div class="wgrp">P.T.</div>` + b.pt.map(([t, d], i) => wrow(`c${bi}p${i}`, t, d, [])).join('');
+        if (b.staff.length) h += `<div class="wgrp">직원</div>` + b.staff.map(([t, d], i) => wrow(`c${bi}s${i}`, t, d, [], 0, false, 'close')).join('');
+        if (b.bands.length) h += `<div class="wgrp">직원 · P.T. 공동</div>` + b.bands.map(([t, d], i) => wrow(`c${bi}b${i}`, t, d, [], 0, false, 'close')).join('');
+        if (b.pt.length) h += `<div class="wgrp">P.T.</div>` + b.pt.map(([t, d], i) => wrow(`c${bi}p${i}`, t, d, [], 0, false, 'close')).join('');
         h += `</div><div class="wright"><div class="wrh">비고</div>` + (nl.length ? nl.map(([l, x]) => `<div class="wrn${isRed(x) ? ' r' : ''}">${l ? `<b>${esc(l)}</b>` : ''}${esc(x)}</div>`).join('') : '<div class="wrn e">-</div>') + `</div></div>`;
       });
     } else if (m === 'clean') {
@@ -373,24 +453,101 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
   const fixPad = () => { document.documentElement.style.scrollPaddingTop = ($hdr.offsetHeight + 8) + 'px'; };
   let mode = 'clean';
   try { const m = localStorage.getItem('oozy-store-mode'); if (MODES.includes(m)) mode = m; } catch (e) {}
+  function draw() { const y = window.scrollY; $list.innerHTML = html(mode); fixPad(); window.scrollTo(0, y); }
   function setMode(m) {
     mode = m; try { localStorage.setItem('oozy-store-mode', m); } catch (e) {}
-    CHK = loadChk();
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.m === m));
     $list.innerHTML = html(m); fixPad(); window.scrollTo(0, 0);
+    if (m === 'open' || m === 'close') loadDay(true);
   }
   document.getElementById('tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) setMode(t.dataset.m); });
-  // 체크 / 해제
-  function toggleRow(r) {
-    const id = r.dataset.id; if (!id) return;
-    if (CHK.has(id)) CHK.delete(id); else CHK.add(id);
-    r.classList.toggle('done', CHK.has(id)); r.setAttribute('aria-checked', CHK.has(id)); saveChk(CHK);
+  function toastMsg(m) {
+    let t = document.getElementById('stToast');
+    if (!t) { t = document.createElement('div'); t.id = 'stToast'; document.body.appendChild(t);
+      t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#231f1c;color:#fff;border-radius:12px;padding:10px 16px;font-size:15px;z-index:60;max-width:90vw;text-align:center;line-height:1.4'; }
+    t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', 3200);
+  }
+  // 체크 / 해제 — 서버에 저장해 모든 직원이 함께 봄
+  async function toggleRow(r) {
+    const id = r.dataset.id, kind = r.dataset.kind;
+    if (!id || !kind || r.classList.contains('busy')) return;
+    if (!DAY) { toastMsg('아직 불러오지 못했습니다. 잠시 후 다시 눌러주세요.'); loadDay(true); return; }
+    const on = !chk(kind, id);
+    r.classList.add('busy');
+    try {
+      const j = await api('/store/check', { date: DAY.date, kind, item: id, title: r.dataset.title || '', on });
+      const key = kind + ':' + id;
+      if (on) DAY.items[key] = { title: r.dataset.title || '', name: j.by.name, color: j.by.color, at: j.at };
+      else delete DAY.items[key];
+      draw();
+    } catch (e) { r.classList.remove('busy'); toastMsg(e.message); }
   }
   $list.addEventListener('click', e => {
-    if (e.target.closest('#wReset')) { CHK = new Set(); saveChk(CHK); $list.querySelectorAll('.wrow').forEach(r => { r.classList.remove('done'); r.setAttribute('aria-checked', 'false'); }); return; }
+    if (e.target.closest('#recBtn')) { openRecords(); return; }
     const r = e.target.closest('.wrow'); if (r) toggleRow(r);
   });
   $list.addEventListener('keydown', e => { if (e.key !== 'Enter' && e.key !== ' ') return; const r = e.target.closest('.wrow'); if (r) { e.preventDefault(); toggleRow(r); } });
+  // ---------- 기록 보기: 달력에서 날짜를 고르면 그날 누가 무엇을 했는지 ----------
+  let RMONTH = today().slice(0, 7), RDAY = today(), RDAYS = {};
+  function openRecords() {
+    const bg = document.createElement('div'); bg.className = 'rbg';
+    bg.innerHTML = `<div class="rmod"><div class="rtop"><b>오픈 · 마감 기록</b><button id="rClose">닫기</button></div>
+      <div class="rnav"><button id="rPrev">◀</button><b id="rLab"></b><button id="rNext">▶</button></div>
+      <div class="rcal" id="rCal"></div><div class="rlist" id="rList"></div></div>`;
+    document.body.appendChild(bg);
+    bg.onclick = e => { if (e.target === bg) bg.remove(); };
+    bg.querySelector('#rClose').onclick = () => bg.remove();
+    bg.querySelector('#rPrev').onclick = () => shiftMonth(-1);
+    bg.querySelector('#rNext').onclick = () => shiftMonth(1);
+    RMONTH = today().slice(0, 7); RDAY = today();
+    loadMonth();
+  }
+  function shiftMonth(k) {
+    const [y, m] = RMONTH.split('-').map(Number), d = new Date(y, m - 1 + k, 1);
+    RMONTH = d.getFullYear() + '-' + pad(d.getMonth() + 1); loadMonth();
+  }
+  async function loadMonth() {
+    const lab = document.getElementById('rLab'), cal = document.getElementById('rCal'); if (!lab || !cal) return;
+    const [y, m] = RMONTH.split('-').map(Number);
+    lab.textContent = `${y}년 ${m}월`;
+    cal.innerHTML = '<div class="rempty" style="grid-column:1/-1">불러오는 중...</div>';
+    try { const j = await api('/store/days?month=' + RMONTH); RDAYS = j.days || {}; }
+    catch (e) { RDAYS = {}; if (document.getElementById('rCal') === cal) cal.innerHTML = `<div class="rempty" style="grid-column:1/-1">${esc(e.message)}</div>`; return; }
+    if (document.getElementById('rCal') !== cal) return;
+    drawCal();
+    if (RDAY.slice(0, 7) !== RMONTH) { RDAY = ''; document.getElementById('rList').innerHTML = '<div class="rempty">날짜를 누르면 그날 기록이 나옵니다.</div>'; }
+    else loadRDay();
+  }
+  function drawCal() {
+    const [y, m] = RMONTH.split('-').map(Number);
+    const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), t = today();
+    let h = DOW.map(d => `<div class="rdow">${d}</div>`).join('') + '<div></div>'.repeat(first.getDay());
+    for (let d = 1; d <= days; d++) {
+      const key = `${RMONTH}-${pad(d)}`, r = RDAYS[key];
+      h += `<button class="rd${key === RDAY ? ' on' : ''}${key === t ? ' today' : ''}" data-rd="${key}">
+        <span class="rn">${d}</span><span class="rdots">${r ? r.who.slice(0, 6).map(w => `<i style="background:${esc(w.color)}"></i>`).join('') : ''}</span></button>`;
+    }
+    const cal = document.getElementById('rCal'); cal.innerHTML = h;
+    cal.querySelectorAll('[data-rd]').forEach(b => b.onclick = () => { RDAY = b.dataset.rd; drawCal(); loadRDay(); });
+  }
+  async function loadRDay() {
+    const box = document.getElementById('rList'); if (!box || !RDAY) return;
+    box.innerHTML = '<div class="rempty">불러오는 중...</div>';
+    let j; try { j = await api('/store/check?date=' + RDAY); } catch (e) { if (document.getElementById('rList') === box) box.innerHTML = `<div class="rempty">${esc(e.message)}</div>`; return; }
+    if (document.getElementById('rList') !== box) return;
+    const rows = Object.entries(j.items).map(([k, v]) => ({ kind: k.split(':')[0], ...v })).sort((a, b) => a.at - b.at);
+    const sec = (kind, name) => {
+      const list = rows.filter(r => r.kind === kind);
+      if (!list.length) return `<h4>${name}</h4><div class="rempty" style="padding:6px 2px">기록 없음</div>`;
+      return `<h4>${name} <span style="font-weight:400;color:var(--muted);font-size:13px">${list.length}건</span></h4>` + list.map(r =>
+        `<div class="rli"><span class="rt">${esc(r.title || '-')}</span><span class="rw" style="background:${esc(r.color)};color:${onC(r.color)}">${esc(r.name)}</span><span class="rat">${hhmm(r.at)}</span></div>`).join('');
+    };
+    box.innerHTML = `<b style="font-size:16px">${dlabel(RDAY)}</b>` + sec('open', '오픈 확인') + sec('close', '마감 확인');
+  }
+  // 다른 사람이 체크한 내용을 가져옴
+  const refresh = () => { if (document.visibilityState === 'visible' && (mode === 'open' || mode === 'close')) loadDay(true); };
+  document.addEventListener('visibilitychange', refresh);
+  setInterval(refresh, 60000);
   window.addEventListener('resize', fixPad);
   let fs = 22;
   try { const v = parseInt(localStorage.getItem('oozy-fs'), 10); if (v >= 16 && v <= 36) fs = v; } catch (e) {}
