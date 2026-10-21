@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 매장관리</title>
-<meta name="app-version" content="2026-10-22.7">
+<meta name="app-version" content="2026-10-22.8">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -248,7 +248,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-22.7';
+  const APP_VERSION = '2026-10-22.8';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -371,6 +371,9 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     if (!r.ok) throw new Error(j.error || '서버에 연결하지 못했습니다.');
     return j;
   }
+  // 서버에 아직 기록 기능이 없을 때(= worker.js 미배포)는 안내를 바꿔 준다
+  const NOSRV = '서버에 매장관리 기록 기능이 아직 없습니다. worker.js를 새 버전으로 올려주세요.';
+  const msgOf = e => /알 수 없는 요청/.test(e.message) ? NOSRV : e.message;
   // DAY: { date, items:{ "open:o1":{title,name,color,at} }, staff:[{name,color}], me:{name,color} }
   let DAY = null, DAYERR = '', LOADING = false;
   async function loadDay(force) {
@@ -378,7 +381,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     if (!force && DAY && DAY.date === today()) return;
     LOADING = true;
     try { DAY = await api('/store/check?date=' + today()); DAYERR = ''; }
-    catch (e) { DAYERR = e.message; }
+    catch (e) { DAYERR = msgOf(e); }
     LOADING = false;
     if (mode === 'open' || mode === 'close') draw();
   }
@@ -403,7 +406,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       (list.length ? list.map(s => `<span class="who${s.name === meName ? ' me' : ''}" style="background:${esc(s.color)};color:${onC(s.color)}">${esc(s.name)}</span>`).join('')
         : `<span class="sub-t" style="margin:0">${DAYERR ? '연결 안 됨' : '불러오는 중...'}</span>`) +
       `<button class="recbtn" id="recBtn">기록</button></div>` +
-      (DAYERR ? `<div class="wmsg">${esc(DAYERR)}<br>체크가 저장되지 않습니다. 인터넷을 확인하고 새로고침하세요.</div>` : '') +
+      (DAYERR ? `<div class="wmsg">${esc(DAYERR)}<br>지금은 체크가 저장되지 않습니다.</div>` : '') +
       `<div class="sub-t">${esc(sub)}</div>`;
   }
 
@@ -480,7 +483,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       if (on) DAY.items[key] = { title: r.dataset.title || '', name: j.by.name, color: j.by.color, at: j.at };
       else delete DAY.items[key];
       draw();
-    } catch (e) { r.classList.remove('busy'); toastMsg(e.message); }
+    } catch (e) { r.classList.remove('busy'); toastMsg(msgOf(e)); }
   }
   $list.addEventListener('click', e => {
     if (e.target.closest('#recBtn')) { openRecords(); return; }
