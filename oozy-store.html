@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 매장관리</title>
-<meta name="app-version" content="2026-10-22.1">
+<meta name="app-version" content="2026-10-22.5">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -165,6 +165,20 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 60px}
 .wn{font-size:.72em;line-height:1.4;color:var(--muted);margin-top:3px}
 .wd.r,.wn.r{color:var(--hot);font-weight:700}
 .wd.h{color:var(--act);font-weight:700}
+.wcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(96px,34%);gap:0 10px;padding-right:0}
+.wleft{min-width:0}
+.wright{border-left:2px solid var(--butter);padding:0 12px 8px 10px;background:var(--less-bg);border-radius:0 12px 12px 0;margin:-4px 0 -8px}
+.wrh{font-size:.68em;font-weight:700;color:var(--muted);margin:14px 0 6px;letter-spacing:.04em}
+.wrn{font-size:.72em;line-height:1.45;color:var(--ink);margin:0 0 8px}
+.wrn b{display:block;font-size:.92em;color:var(--etc)}
+.wrn.r{color:var(--hot);font-weight:700}
+.wrn.e{color:var(--muted)}
+.wohead{display:flex;font-size:.68em;font-weight:700;color:var(--muted);margin:12px 0 4px;letter-spacing:.04em}
+.wohead span:first-child{flex:1}
+.wohead span:last-child{flex:0 0 34%;min-width:96px;padding-left:10px}
+.wncol{flex:0 0 34%;min-width:96px;border-left:2px solid var(--butter);padding-left:10px;font-size:.72em;line-height:1.45;color:var(--ink);align-self:stretch}
+.wncol .r{color:var(--hot);font-weight:700}
+.wrow.done .wncol{color:var(--muted)}
 .wnotes{margin:8px 0 2px;padding:6px 10px;border-left:3px solid var(--butter);font-size:.72em;color:var(--muted);line-height:1.5}
 .wnotes.r{color:var(--hot);font-weight:700;border-left-color:var(--hot)}
 button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline-offset:2px}
@@ -197,7 +211,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-22.1';
+  const APP_VERSION = '2026-10-22.5';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -267,12 +281,12 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     { time: '20:00',
       staff: [['그룹헤드 1 마감', []], ['냉장고 내.외부 마감', ['문 사이 / 손잡이 / 내부 청결상태 확인']], ['바테이블 마감', ['포스앞, 머신위, 그라인더위, 컵디스펜서 먼지제거']], ['해동제품확인', ['명일 사용량 부족 시 해동']]],
       pt: [['시럽병 및 주변 마감', ['시럽 병 및 펌프 세척 / 작업대 및 냉장고 벽면 닦기']], ['기물 세척', ['BMP 기물 / 디퍼웰 기물 / 커피머신 부품 등']], ['블렌더 일부 마감', ['본체, 볼, 덮개 세척', '※ 마감 후 전원 on']]],
-      bands: [['쓰레기 마감 (원두찌꺼기 / 재활용 / 일반쓰레기 등)', ['지역별로 버리는 날짜 및 분리수거 확인']]],
+      bands: [['쓰레기 마감', ['원두찌꺼기 / 재활용 / 일반쓰레기 등'], ['지역별로 버리는 날짜 및 분리수거 확인']]],
       notes: ['주방기물 소량 1차 마감'] },
     { time: '20:30',
       staff: [['그룹헤드 2마감', []], ['아이스크림 해동 시작', ['20:00 전 주문 시 재 가동']]],
       pt: [['행주 1차 마감', ['화이트 / 브라운 구분하여 세제에 담가놓기']], ['기물 세척', ['커피머신 부품']]],
-      bands: [['토핑 냉장고 마감', []]],
+      bands: [['토핑 냉장고 마감', [], []]],
       notes: ['※ 주문 응대 시 매장 이용시간 안내'] },
     { time: '21:00', top: '아이스빈 및 아이스크림 마감 시작',
       staff: [['중간 정산', ['현금시재내역 입력']], ['그룹헤드 3마감', ['추가 주문 시 마감한 그룹 사용 후 재세척', '※ 사용전 물흘리기']]],
@@ -282,10 +296,10 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     { time: '21:30',
       staff: [['외부키오스크 마감', ['창문 시건']], ['에스프레소머신 마감', ['에스프레소 머신 외부 청결상태 확인 / 드레인트레이 세척 및 원두가루 제거']]],
       pt: [['홀마감', ['테이블 닦기 / 바닥 쓸고 닦기']], ['블렌더 마감', ['본체, 볼, 덮개 세척', '※ 주문 시 사용 후 재세척']]],
-      bands: [['★ 호퍼 마감 : 원두 밀폐용기에 보관 / 호퍼 물기 완전히 제거 후 장착', ['세척한 호퍼는 밤새 건조 후 오픈근무자가 장착해도됨']]],
+      bands: [['호퍼 마감', ['★ 원두 밀폐용기에 보관 / 호퍼 물기 완전히 제거 후 장착'], ['세척한 호퍼는 밤새 건조 후 오픈근무자가 장착해도됨']]],
       notes: [] },
     { time: '21:45', top: '주문 마감 및 정산',
-      staff: [['키오스크마감', ['마감 및 전원OFF']], ['포스 마감', ['마감정산, 시재금 설정, 현금매출 보관', '✎ 네이버 케넥트 전원끄기'], ['익일 시재는 오픈근무자가 볼 수 있게 공유']], ['바 마감', ['바닥 쓸고 닦기']]],
+      staff: [['키오스크마감', ['마감 및 전원OFF']], ['포스 마감', ['마감정산, 시재금 설정, 현금매출 보관', '✎ 네이버 커낵트 전원끄기'], ['익일 시재는 오픈근무자가 볼 수 있게 공유']], ['바 마감', ['바닥 쓸고 닦기']]],
       pt: [['전체마감', ['잔여 기물 / 블렌더 마감', '트레이 전량 세척', '나머지 행주 마감']]],
       bands: [],
       notes: [] },
@@ -304,12 +318,12 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
   function saveChk(set) { try { localStorage.setItem('oozy-store-chk', JSON.stringify({ d: today(), ids: [...set] })); } catch (e) {} }
   let CHK = loadChk();
 
-  function wrow(id, title, details, notes, no) {
+  function wrow(id, title, details, notes, no, col) {
     return `<div class="wrow${CHK.has(id) ? ' done' : ''}" data-id="${id}" role="checkbox" aria-checked="${CHK.has(id)}" tabindex="0"><span class="wck">✓</span><div class="wbody">` +
       `<div class="wt">${no ? `<span class="wno">${no}</span>` : ''}${esc(title)}</div>` +
       details.map(t => `<div class="wd${isRed(t) ? ' r' : t.startsWith('✎') ? ' h' : ''}">${esc(t)}</div>`).join('') +
-      (notes && notes.length ? notes.map(t => `<div class="wn${isRed(t) ? ' r' : ''}">비고 · ${esc(t)}</div>`).join('') : '') +
-      `</div></div>`;
+      (!col && notes && notes.length ? notes.map(t => `<div class="wn${isRed(t) ? ' r' : ''}">비고 · ${esc(t)}</div>`).join('') : '') +
+      `</div>` + (col ? `<div class="wncol">` + (notes || []).map(t => `<div class="${isRed(t) ? 'r' : ''}">${esc(t)}</div>`).join('') + `</div>` : '') + `</div>`;
   }
   const resetBar = (t) => `<div class="wtop"><div class="sub-t">${t}</div><button class="back" id="wReset">체크 해제</button></div>`;
 
@@ -317,17 +331,21 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     let h = '';
     if (m === 'open') {
       h += `<div class="sec">오픈 근무자 업무 매뉴얼</div>` + resetBar('항목을 누르면 체크돼요 (내일 자동으로 지워집니다)');
-      h += `<div class="wbox">` + OPEN.map(([t, d, n], i) => wrow('o' + (i + 1), t, d, n, i + 1)).join('') + `</div>`;
+      h += `<div class="wbox"><div class="wohead"><span>업무</span><span>비고</span></div>` + OPEN.map(([t, d, n], i) => wrow('o' + (i + 1), t, d, n, i + 1, true)).join('') + `</div>`;
     } else if (m === 'close') {
       h += `<div class="sec">마감 근무자 업무 매뉴얼</div>` + resetBar('22:00 마감 기준 · 항목을 누르면 체크돼요');
       CLOSE.forEach((b, bi) => {
-        h += `<div class="whead"><span class="wtime">${b.time}</span>${b.top ? `<span class="wtimesub">${esc(b.top)}</span>` : ''}</div><div class="wbox">`;
+        // 시간대별 비고: 항목에 붙어 있던 비고도 모두 오른쪽 비고 열로 모음
+        const nl = [];
+        b.staff.concat(b.pt).forEach(([t, d, n]) => (n || []).forEach(x => nl.push([t, x])));
+        b.bands.forEach(([t, d, n]) => (n || []).forEach(x => nl.push([t, x])));
+        (b.notes || []).forEach(x => nl.push(['', x]));
+        h += `<div class="whead"><span class="wtime">${b.time}</span>${b.top ? `<span class="wtimesub">${esc(b.top)}</span>` : ''}</div><div class="wbox wcols"><div class="wleft">`;
         if (b.top) h += `<div class="wband">${esc(b.top)}</div>`;
-        if (b.staff.length) h += `<div class="wgrp">직원</div>` + b.staff.map(([t, d, n], i) => wrow(`c${bi}s${i}`, t, d, n)).join('');
-        if (b.pt.length) h += `<div class="wgrp">P.T.</div>` + b.pt.map(([t, d, n], i) => wrow(`c${bi}p${i}`, t, d, n)).join('');
-        b.bands.forEach(([t, n], i) => { h += `<div class="wband${isRed(t) ? ' red' : ''}">${esc(t)}</div>` + wrow(`c${bi}b${i}`, '완료', [], n); });
-        if (b.notes.length) h += `<div class="wnotes${b.notes.some(isRed) ? ' r' : ''}">` + b.notes.map(t => `비고 · ${esc(t)}`).join('<br>') + `</div>`;
-        h += `</div>`;
+        if (b.staff.length) h += `<div class="wgrp">직원</div>` + b.staff.map(([t, d], i) => wrow(`c${bi}s${i}`, t, d, [])).join('');
+        if (b.bands.length) h += `<div class="wgrp">직원 · P.T. 공동</div>` + b.bands.map(([t, d], i) => wrow(`c${bi}b${i}`, t, d, [])).join('');
+        if (b.pt.length) h += `<div class="wgrp">P.T.</div>` + b.pt.map(([t, d], i) => wrow(`c${bi}p${i}`, t, d, [])).join('');
+        h += `</div><div class="wright"><div class="wrh">비고</div>` + (nl.length ? nl.map(([l, x]) => `<div class="wrn${isRed(x) ? ' r' : ''}">${l ? `<b>${esc(l)}</b>` : ''}${esc(x)}</div>`).join('') : '<div class="wrn e">-</div>') + `</div></div>`;
       });
     } else if (m === 'clean') {
       h += `<div class="sec">기기 청소 주기</div><div class="sub-t">매일 = 하루도 빠짐없이</div>`;
