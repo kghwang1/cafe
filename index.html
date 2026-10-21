@@ -179,7 +179,7 @@ function render() {
 }
 function renderLogin() {
   $('#main').innerHTML = `<div class="loginbox"><b class="lt">로그인</b>
-    <label>이름</label><input id="lgN" autocomplete="username" placeholder="이름">
+    <label>이름</label><input id="lgN" type="text" lang="ko" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="이름">
     <label>비밀번호</label><input id="lgP" type="password" inputmode="numeric" autocomplete="current-password" placeholder="비밀번호 (숫자)">
     <div class="err" id="lgE"></div><button class="pri big" id="lgB">로그인</button>
     <div class="lnote">처음 한 번만 로그인하면 이 기기에서는 다음부터 바로 열립니다.</div>
