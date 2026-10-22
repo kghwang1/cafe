@@ -882,7 +882,6 @@ const CFG = {
   // 요일별 영업시간 [시작, 끝]  월 화 수 목 금 토 일
   OPEN: [[7, 22], [7, 22], [7, 22], [7, 22], [7, 22], [7, 22], [7, 22]],
   OWNER: { wd: [[14, 16], [19, 21]], we: [] },      // 사장님 근무시간 (빈 시간 계산에서 제외)
-  VERSION: '10.23.-v.13',                            // 앱 버전: 고친 날짜(월.일.) + 번호 — 고칠 때마다 올림
   IDLE_MIN: 3,                                       // 이 시간(분) 동안 조작 없으면 자동 로그아웃
   SQLJS: ['https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/', 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/']
 };
@@ -1013,7 +1012,7 @@ function setPractice(on) {
 }
 function showLogin() {                             // 로그인은 홈에서 한 번만 — 여기는 연습 모드 고르기만
   if (!PRACTICE) { location.replace('./'); return; }
-  $('#app').innerHTML = `<div class="login"><div style="text-align:left;margin-bottom:14px"><a class="homebtn" href="./">🏠 홈</a></div><div class="big">☕ 근무관리 연습<span class="ver">${CFG.VERSION}</span></div>
+  $('#app').innerHTML = `<div class="login"><div style="text-align:left;margin-bottom:14px"><a class="homebtn" href="./">🏠 홈</a></div><div class="big">☕ 근무관리 연습</div>
     <div style="margin-top:6px"><span class="stamp wip" style="background:#ff8f00;color:#fff">연습 모드</span></div>
     <div class="muted" style="margin:8px 0 14px">연습 기록은 이 기기에만 저장되고 실제 기록에는 반영되지 않습니다.<br>누구로 연습할지 고르세요.</div>
     <div class="practpick">
@@ -1259,7 +1258,7 @@ async function renderStaff() {
   const st = await run(() => api('/status')); if (!st) return;
   const open = st.open, missing = st.recent.filter(p => p.status === 'missing');
   $('#app').innerHTML = `<div class="wrap">
-    <div class="top"><h1>${esc(ME.name)}님<span class="ver">${CFG.VERSION}</span></h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
+    <div class="top"><h1>${esc(ME.name)}님</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="card stcard">${statusCard(st)}</div>
     ${missing.length ? `<div class="card" style="border:2px solid var(--bad)"><b style="color:var(--bad)">퇴근을 안 찍은 기록이 있습니다</b>
       <div class="list">${missing.map(p => `<div><span>${mdw(p.start)} ${hhmm(p.start)}~ ?</span><button class="sm pri" data-rq="${p.id}">퇴근시간 요청</button></div>`).join('')}</div></div>` : ''}
@@ -1373,7 +1372,7 @@ async function renderAdmin() {
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
   const tabs = [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '직원근무'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
-  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자<span class="ver">${CFG.VERSION}</span></h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
+  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
   $('#out').onclick = logout;
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderAdmin(); });

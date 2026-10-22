@@ -449,7 +449,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
           `<a class="vbtn" href="${u}" target="_blank" rel="noopener"><span class="vplay">▶</span><span class="vtxt"><b>${esc(t)}</b><span>${esc(d)}</span></span></a>`).join('');
       });
     }
-    return h + `<div class="ver">앱 버전 ${APP_VERSION}</div>`;
+    return h;   // 버전 표시는 홈에서만
   }
   const MODES = ['open', 'close', 'clean', 'parts', 'video'];
   const $list = document.getElementById('list'), $hdr = document.querySelector('header');

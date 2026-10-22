@@ -1267,7 +1267,7 @@ function render(){
   const vb=document.createElement('span');             // 제목 옆 버전 표시
   vb.textContent='v'+APPVER;
   vb.style.cssText='font-size:11px;font-weight:500;opacity:.6;margin-left:8px;vertical-align:middle;letter-spacing:0';
-  hT.appendChild(vb);
+  // 버전 표시는 홈에서만
   document.getElementById('hSub').textContent = (authRole==='home') ? '' : (S.meta.church || '');
   document.body.classList.toggle('viewing', !!(ro || guideMode==='view'));
 
@@ -1283,7 +1283,7 @@ function render(){
     ((authRole==='home' && !ro)
       ? `<button id="navLock" class="nsave ${locked?'alt':''}">${locked?'열람':'작성'}</button>` : '')
     + ((ro||guideMode==='view') ? '' : (srvBusy?'<button id="navSave" class="nsave" disabled>저장 중…</button>':'<button id="navSave" class="nsave">저장</button>'))
-    + '<button id="navExit" class="nsave alt">종료</button>';
+    + (authRole==='home' ? '' : '<button id="navExit" class="nsave alt">종료</button>');   // 카페 운영은 종료 버튼 없음 (홈 버튼 사용)
 
   const upd = newVer ? `<div class="robar no-print" style="background:#e8f0ed;border-color:#cfe6da;color:#26493f">
       <b>새 버전 ${esc(newVer)}이 나왔습니다.</b>
@@ -1530,7 +1530,6 @@ function vCover(){
       <div class="lg-church">우지커피 용강점</div>
       <h1 class="lg-title">카페 운영</h1>
       <p class="lg-busy" style="margin:6px 0 0">결산 화면을 여는 중입니다…</p>
-      <div class="lg-ver">버전 ${APPVER}</div>
     </div>
   </div>`;
   }
@@ -1578,7 +1577,6 @@ function vCover(){
           <button class="btn g sm" id="lgCopy">주소 복사</button>
         </div>
       </div>`:''}
-      <div class="lg-ver">버전 ${APPVER}</div>
     </div>
   </div>`;
 }
