@@ -213,7 +213,7 @@ async function computePay(env, month, onlyId) {
     const mine = rows.filter(r => r.staff_id === s.id);
     const weeks = {}, shifts = [];
     for (const r of mine) {
-      const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;
+      const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;   // 순서: 직원 설정(기본) → 기록에 적은 휴게가 있으면 그 값
       const w = weekStart(r.start);
       weeks[w] = (weeks[w] || 0) + paid;
       if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, edited: r.edited, end_type: r.end_type, memo: r.memo || null });
@@ -233,7 +233,7 @@ async function computePay(env, month, onlyId) {
       const base = c ? c.weekly_min : mins, basis = c ? 'contract' : 'actual';
       let reason = '';
       if (we > nowT) reason = '이번 주 진행 중 (주가 끝나면 계산)';
-      else if (base < WEEK_LIMIT_MIN) reason = c ? '계약 주 15시간 미만' : '주 15시간 미만';
+      else if (base < WEEK_LIMIT_MIN) reason = c ? `주 15시간 미만 계약 (계약 주 ${+(base / 60).toFixed(1)}시간)` : `주 15시간 미만 (실근무 ${+(mins / 60).toFixed(1)}시간)`;
       else if (missed) reason = `예정일 결근 ${missed}일`;
       else if ((!s.active || s.deleted) && lw < we) reason = '퇴사 (다음 주 근로 없음)';
       const ok = !reason, amount = ok ? Math.floor(Math.min(base, 40 * 60) / (40 * 60) * 8 * s.wage) : 0;
@@ -560,6 +560,11 @@ async function route(req, env) {
     return json({ ok: true, copied, skipped });
   }
 
+  // 직원의 기록에 적어 둔 휴게를 지움 → 직원 설정(휴게 사용/없음)을 따름
+  if (p === '/admin/staff/clearbrk' && m === 'POST') {
+    const r = await env.DB.prepare('UPDATE punch SET brk_min=NULL WHERE staff_id=? AND brk_min IS NOT NULL').bind(+b.id).run();
+    return json({ ok: true });
+  }
   // 직원별 쓸 수 있는 앱
   if (p === '/admin/staff/apps' && m === 'POST') {
     const list = (Array.isArray(b.apps) ? b.apps : []).filter(k => APP_KEYS.includes(k));

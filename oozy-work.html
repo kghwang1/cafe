@@ -415,7 +415,7 @@ async function computePay(env, month, onlyId) {
     const mine = rows.filter(r => r.staff_id === s.id);
     const weeks = {}, shifts = [];
     for (const r of mine) {
-      const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;
+      const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;   // 순서: 직원 설정(기본) → 기록에 적은 휴게가 있으면 그 값
       const w = weekStart(r.start);
       weeks[w] = (weeks[w] || 0) + paid;
       if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, edited: r.edited, end_type: r.end_type, memo: r.memo || null });
@@ -435,7 +435,7 @@ async function computePay(env, month, onlyId) {
       const base = c ? c.weekly_min : mins, basis = c ? 'contract' : 'actual';
       let reason = '';
       if (we > nowT) reason = '이번 주 진행 중 (주가 끝나면 계산)';
-      else if (base < WEEK_LIMIT_MIN) reason = c ? '계약 주 15시간 미만' : '주 15시간 미만';
+      else if (base < WEEK_LIMIT_MIN) reason = c ? `주 15시간 미만 계약 (계약 주 ${+(base / 60).toFixed(1)}시간)` : `주 15시간 미만 (실근무 ${+(mins / 60).toFixed(1)}시간)`;
       else if (missed) reason = `예정일 결근 ${missed}일`;
       else if ((!s.active || s.deleted) && lw < we) reason = '퇴사 (다음 주 근로 없음)';
       const ok = !reason, amount = ok ? Math.floor(Math.min(base, 40 * 60) / (40 * 60) * 8 * s.wage) : 0;
@@ -762,6 +762,11 @@ async function route(req, env) {
     return json({ ok: true, copied, skipped });
   }
 
+  // 직원의 기록에 적어 둔 휴게를 지움 → 직원 설정(휴게 사용/없음)을 따름
+  if (p === '/admin/staff/clearbrk' && m === 'POST') {
+    const r = await env.DB.prepare('UPDATE punch SET brk_min=NULL WHERE staff_id=? AND brk_min IS NOT NULL').bind(+b.id).run();
+    return json({ ok: true });
+  }
   // 직원별 쓸 수 있는 앱
   if (p === '/admin/staff/apps' && m === 'POST') {
     const list = (Array.isArray(b.apps) ? b.apps : []).filter(k => APP_KEYS.includes(k));
@@ -1623,7 +1628,7 @@ async function applyTpl() {
 
 // 근무기록/수정 — 달력에서 날짜를 골라 하루씩 고친다
 let PMONTH = ymd(Date.now()).slice(0, 7), PDAY = ymd(Date.now()), PROWS = [], PJUHU = {};
-const brkOf = (p, min) => {                     // 이 기록의 휴게(분): 적어 둔 값 > 자동 규칙
+const brkOf = (p, min) => {                     // 이 기록의 휴게(분): 기록에 적은 값 > 직원 설정(휴게 사용이면 자동 규칙, 없음이면 0)
   if (p.brk_min != null) return Math.min(+p.brk_min, min);
   const s = STAFF.find(x => x.id === p.staff_id); const use = !s || s.use_break !== 0;
   return !use ? 0 : min >= 510 ? 60 : min >= 240 ? 30 : 0;
@@ -1723,27 +1728,34 @@ function drawDay() {
 }
 async function editPunch(p, fromWeek, day) {
   const dd = p ? ymd(p.start) : (day || ymd(Date.now())), dt = new Date(dd + 'T00:00');
+  const noBrk = id => { const s = STAFF.find(x => x.id === +id); return s && s.use_break === 0; };
+  const autoBrk = (id, min) => noBrk(id) ? 0 : min >= 510 ? 60 : min >= 240 ? 30 : 0;      // 직원 설정에 따른 자동 휴게
+  const defBrk = p && p.brk_min != null ? p.brk_min : '';                                  // 비워 두면 직원 설정을 따름
   setTimeout(() => {                                  // 근무시간(휴게 제외)을 바로 보여 준다
     const upd = () => { const el = $('#kW'); if (!el) return;
       const a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
       if (!a || !b) { el.textContent = '-'; return; }
       const min = Math.round((toMs(dd, b) - toMs(dd, a)) / MIN);
       if (min <= 0) { el.textContent = '퇴근이 출근보다 빠릅니다'; return; }
-      const br = r === '' ? 30 : Math.max(0, +r || 0);
+      const br = r === '' ? autoBrk($('#kS').value, min) : Math.max(0, +r || 0);
       el.textContent = min - br > 0 ? `${fmtH(min - br)} (전체 ${fmtH(min)} - 휴게 ${br}분)` : '휴게시간이 너무 깁니다';
     };
-    ['kA', 'kB', 'kR'].forEach(id => { const el = $('#' + id); if (el) el.oninput = upd; }); upd();
+    ['kA', 'kB', 'kR'].forEach(id => { const el = $('#' + id); if (el) el.oninput = upd; });
+    const ks = $('#kS'), sync = () => { const off = noBrk(ks.value);
+      $('#kR').placeholder = off ? '비우면 0 (직원 설정: 휴게 없음)' : '비우면 자동 (4시간 이상 30분 · 8시간 30분 이상 60분)';
+      $('#kRn').innerHTML = `비워 두면 <b>직원 설정</b>(${off ? '휴게 없음' : '휴게 사용 · 자동'})을 따릅니다. 이 날만 다르게 하려면 분을 넣으세요 (넣은 값이 우선).`; upd(); };
+    if (ks) ks.onchange = sync; sync();
   }, 0);
   const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'} · ${dt.getMonth() + 1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</h3><label>이름</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
     <input type="hidden" id="kD" value="${dd}">
     <div class="row"><div><label>출근</label><input type="time" id="kA" value="${p ? hhmm(p.start) : ''}"></div><div><label>퇴근</label><input type="time" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"></div></div>
-    <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${p && p.brk_min != null ? p.brk_min : 30}">
-    <div class="muted" style="font-size:12px">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
+    <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${defBrk}">
+    <div class="muted" style="font-size:12px" id="kRn">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
     <div class="wbox">근무시간 (휴게 제외): <b id="kW">-</b></div>`, '저장', () => {
       const d = $('#kD').value, a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
       if (!d || !a || !b) { toast('날짜와 시간을 모두 입력하세요'); return false; }
       if (r !== '' && !(+r >= 0)) { toast('휴게시간은 0 이상의 분으로 넣으세요'); return false; }
-      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? 30 : +r };
+      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? null : +r };
     });
   if (!v) return;
   if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else { PDAY = ymd(v.start); PMONTH = PDAY.slice(0, 7); tabPunch(); } }
@@ -1778,7 +1790,7 @@ async function tabPay() {
     PAY.staff.map(s => `<div class="card" style="border-left:5px solid ${s.color}">
       <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">시급 ${won(s.wage)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><button class="sm" data-slip="${s.id}" style="flex:0 0 auto">명세서</button></div>
       <table class="pay" style="margin-top:6px"><tr><th>근무일</th><th>총 시간</th><th>휴게</th><th>유급 시간</th><th>기본급</th><th>주휴수당</th><th>월 급여</th></tr>
-      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.pay)}</td><td>${won(s.juhu || 0)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
+      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.pay)}</td><td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
       ${(s.juhuWeeks || []).length ? `<div class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"><b>주휴수당</b><br>${juhuTxt(s).join('<br>')}</div>` : ''}
       ${s.unresolved ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${s.unresolved}건이 계산에서 빠졌습니다. 기록 탭에서 정리하세요.</div>` : ''}
     </div>`).join('');
@@ -1809,6 +1821,9 @@ async function kakaoNotice() {
   try { await navigator.clipboard.writeText(v); toast('복사했습니다. 카톡방에 붙여넣으세요'); }
   catch (e) { toast('복사하지 못했습니다. 글을 길게 눌러 직접 복사해 주세요'); }
 }
+const juhuWhy = s => {                              // 15시간 넘게 일했는데 주휴가 없는 주의 이유
+  const r = [...new Set((s.juhuWeeks || []).filter(w => !w.ok && w.minutes >= 15 * 60).map(w => w.reason))];
+  return r.length ? `<div style="font-size:11px;color:#b25e00;line-height:1.35;margin-top:2px">${r.map(esc).join('<br>')}</div>` : ''; };
 const totOf = s => s.payTotal != null ? s.payTotal : s.pay;          // 월 급여 = 기본급 + 주휴수당 (예전 확정본은 기본급만)
 const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week + 6 * DAY).replace(/\(.\)/, '')} 주 · 실근무 ${fmtH(w.minutes)}${w.basis === 'contract' ? ` · 계약 ${fmtH(w.base)}` : ' · 계약시간 없음(실근무 기준)'} → ${w.ok ? won(w.amount) : '없음 (' + w.reason + ')'}`);
 function slipHTML(s, month, label) {
@@ -1935,7 +1950,12 @@ async function tabStaff() {
            if (k !== '' && prev && prev.min === Math.round(+k * 60)) return null;
            return { month: mth, hours: k }; })() }));
     if (!v) return;
-    if (await run(() => api('/admin/staff', v))) { toast('저장했습니다'); renderAdmin(); }
+    const r = await run(() => api('/admin/staff', v)); if (!r) return;
+    if (s && (s.use_break !== 0) !== v.use_break && await modal(`<h3>휴게 설정을 바꿨습니다</h3>추가기록/수정에서 기록마다 따로 적어 둔 휴게시간은 <b>직원 설정보다 우선</b>합니다.<br>
+        ${esc(s.name)}의 기록에 적어 둔 휴게를 모두 지우고 <b>새 설정(${v.use_break ? '휴게 사용' : '휴게 없음'})</b>을 따르게 할까요?
+        <div class="muted" style="margin-top:6px;font-size:12.5px">이미 확정한 급여명세서는 바뀌지 않습니다. 필요하면 급여 탭에서 다시 확정하세요.</div>`, '지우고 새 설정 따르기', undefined, '그대로 두기'))
+      await run(() => api('/admin/staff/clearbrk', { id: s.id }));
+    toast('저장했습니다'); renderAdmin();
   };
   $('#nAdd').onclick = () => edit(null);
   document.querySelectorAll('[data-se]').forEach(b => b.onclick = () => edit(STAFF.find(s => s.id === +b.dataset.se)));
