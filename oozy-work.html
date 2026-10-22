@@ -57,7 +57,9 @@ button.warn{background:var(--warn);color:#fff}
 #myBox .calnav{margin-top:10px}
 .mybtns{display:flex;justify-content:center;gap:6px;margin-top:14px;flex-wrap:nowrap}.mybtns button{flex:0 0 auto;font-size:12.5px;padding:6px 14px;border-radius:9px}
 .grid{display:grid;grid-template-columns:42px repeat(7,minmax(0,1fr));overflow:hidden;margin-top:8px;min-width:0;padding-bottom:8px}
-.gcol{position:relative;border-left:1px solid var(--line)}
+.gcol{position:relative;border-left:1px solid #d8d0c7}
+.gcol.alt .ghead:not(.today){background:#ebe8e4}
+.gcol.alt .gbody::after{content:'';position:absolute;inset:0;background:rgba(60,45,30,.07);pointer-events:none;z-index:0}   /* 요일 구분: 하루 걸러 회색 */
 .ghead{text-align:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line);height:34px}
 .ghead.today{color:#fff;background:var(--brand);border-radius:8px 8px 0 0}
 .tlabel{position:absolute;right:3px;font-size:11px;color:var(--sub);transform:translateY(-50%);letter-spacing:-.3px;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -1037,7 +1039,7 @@ function drawGrid(admin) {
     const ds = addDays(WEEK, d), de = addDays(WEEK, d + 1), dow = new Date(ds).getDay(), we = dow === 0 || dow === 6;
     const [o, c] = CFG.OPEN[(dow + 6) % 7];
     const Y = t => y((Math.min(Math.max(t, ds), de) - ds) / HOUR);
-    h += `<div class="gcol"><div class="ghead ${ds === todayMs ? 'today' : ''}">${DOW[dow]}<br>${new Date(ds).getDate()}</div><div style="position:relative;height:${H}px">`;
+    h += `<div class="gcol ${d % 2 ? 'alt' : ''}"><div class="ghead ${ds === todayMs ? 'today' : ''}">${DOW[dow]}<br>${new Date(ds).getDate()}</div><div class="gbody" style="position:relative;height:${H}px">`;
     h += `<div class="closed" style="top:0;height:${y(o)}px"></div><div class="closed" style="top:${y(c)}px;height:${H - y(c)}px"></div>`;
     for (let i = CFG.H0 + 1; i < CFG.H1; i++) h += `<div class="hline" style="top:${y(i)}px"></div>`;
     const owner = DATA.owner ? ownerRanges(DATA.owner, (dow + 6) % 7) : (we ? CFG.OWNER.we : CFG.OWNER.wd);
