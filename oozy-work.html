@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>우지커피 근무관리</title>
 <style>
-:root{--bg:#f5f2ee;--card:#fff;--ink:#231f1c;--sub:#7a726b;--line:#e5dfd8;--brand:#5b3a29;--ok:#1d8a4b;--warn:#d98200;--bad:#d32f2f;--gap:#fde3e3}
+:root{--bg:#f5f2ee;--card:#fff;--ink:#231f1c;--sub:#7a726b;--line:#e5dfd8;--brand:#5b3a29;--ok:#1d8a4b;--warn:#d98200;--bad:#d32f2f;--gap:#d9b94a}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent}
 button,input,select{font:inherit}
@@ -75,6 +75,11 @@ button.warn{background:var(--warn);color:#fff}
 .blab{position:absolute;z-index:3;font-size:10px;line-height:1.2;padding:2px 3px;overflow:hidden;pointer-events:none;background:transparent}
 .blab .r{font-weight:700;color:var(--ink)}
 .blab .bad{color:var(--bad);font-weight:700}
+.gframe{background:#1f4d34;border-radius:14px;padding:6px 8px 10px;margin-top:8px}   /* 시간표 테두리: 진녹색 */
+.gframe[hidden]{display:none}
+.gframe .grid{margin-top:0;background:#fff;border-radius:10px}
+.gframe .ghead:not(.today){background:#fff}.gframe .gcol.alt .ghead:not(.today){background:#ebe8e4}
+.gframe .legend{color:#eef5ef}.gframe .legend i{box-shadow:0 0 0 1px rgba(255,255,255,.6)}
 .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-top:8px}
 .legend span{display:inline-flex;align-items:center;gap:4px}
 .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
@@ -982,7 +987,7 @@ function gridSection(admin) {
   const nav = `<div class="row ${admin ? '' : 'snav'}" id="wkNav" style="flex:0 0 auto;align-items:center;${!admin && MODE === 'real' ? 'display:none' : ''}"><button class="sm" data-w="-1">◀</button><b id="wk" style="min-width:120px;text-align:center"></b><button class="sm" data-w="1">▶</button></div>`;
   const tabs = `<div class="tabs ${admin ? '' : 'stabs'}" style="flex:0 0 auto"><button class="sm ${MODE==='plan'?'on':''}" data-m="plan">${admin ? '근무시간표' : '주간시간표'}</button><button class="sm ${MODE==='real'?'on':''}" data-m="real">${admin ? "출퇴근 기록" : "나의 근무"}</button></div>`;
   return `<div class="card"><div class="gridhead">${admin ? nav : tabs + nav}</div>
-    <div id="planBox" ${!admin && MODE === 'real' ? 'hidden' : ''}><div id="grid"></div><div class="legend" id="legend"></div></div>
+    <div id="planBox" class="gframe" ${!admin && MODE === 'real' ? 'hidden' : ''}><div id="grid"></div><div class="legend" id="legend"></div></div>
     ${admin ? '' : `<div id="myBox" ${MODE === 'real' ? '' : 'hidden'}></div>`}
     ${admin ? `<div class="muted" style="margin-top:6px">스케줄 칸을 누르면 수정/삭제할 수 있습니다.</div>` : ''}</div>`;
 }
