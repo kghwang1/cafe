@@ -152,6 +152,7 @@ body.practice{background:#fff4e0}
 .dayt tr.sum td{border-bottom:0;color:var(--sub)}
 .dayt .cact{white-space:nowrap;text-align:right}.dayt .cact button{margin-left:3px}
 .dayt .cum,.dayt .wk,.dayt .sum b{color:#555}
+.dayt td.mpay{white-space:nowrap;font-weight:700;color:#2e5e3a}.dayt td.mpay small{font-weight:400;color:#777;margin-left:1px}.dayt tr.sum td{color:#231f1c;font-weight:700;border-top:2px solid var(--line)}
 .dayt .mnote{font-size:12.5px;color:#5b3a29;min-width:70px;white-space:normal!important}
 .dayt td.wkc{background:#fff8d6}
 .dayt .hn{color:#a07800}
@@ -1600,7 +1601,7 @@ function paidMin(p) { if (p.status !== 'done' || !p.end) return 0; const min = M
 function drawDay() {
   const list = PROWS.filter(p => ymd(p.start) === PDAY).sort((a, b) => a.start - b.start);
   const d = new Date(PDAY + 'T00:00');
-  let sum = 0;
+  let sum = 0, cumSum = 0, paySum = 0; const seen = new Set();
   const body = list.map(p => {
     let work = '';
     if (p.status === 'missing') work = '<span class="badge bad">퇴근누락</span>';
@@ -1609,19 +1610,22 @@ function drawDay() {
       work = `<b class="wk">${fmtHM(min - b)}</b>${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
     const cum = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY).reduce((a, x) => a + paidMin(x), 0);   // 이달 1일~이 날
     const s = STAFF.find(x => x.id === p.staff_id);
+    const mpay = Math.floor(cum * ((s && s.wage) || 0) / 60);                  // 이달 1일~이 날 급여 (급여 탭과 같은 계산)
+    if (!seen.has(p.staff_id)) { seen.add(p.staff_id); cumSum += cum; paySum += mpay; }
     return `<tr><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
       <td><span class="rng">${hhmm(p.start)}~${p.end ? hhmm(p.end) : '?'}</span>${endBadge(p) ? `<div>${endBadge(p)}</div>` : ''}${p.note && p.note !== '관리자 추가' ? `<div class="muted" style="font-size:11px">⚠ ${esc(p.note)}</div>` : ''}</td>
       <td class="wkc">${work}</td>
       <td><b class="cum">${fmtHM(cum)}</b></td>
+      <td class="mpay">${mpay.toLocaleString('ko-KR')}<small>원</small></td>
       <td class="cmemo"><textarea data-pm="${p.id}" rows="2" placeholder="기록">${esc(p.memo || '')}</textarea><div class="mst" id="mst${p.id}"></div></td>
       <td class="cact"><button class="sm" data-pe="${p.id}">수정</button><button class="sm" data-pd="${p.id}">삭제</button></td></tr>`;
   }).join('');
   $('#dayBox').innerHTML = `<div class="gridhead"><b style="font-size:17px">${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})</b>
       <button class="sm pri" id="pAdd" style="flex:0 0 auto">+ 기록 추가</button></div>
-    ${list.length ? `<div class="dayscroll"><table class="dayt"><tr><th>근무자</th><th>근무구간</th><th>근무시간<br><small>(휴게 제외)</small></th><th>월누계</th><th>기록</th><th></th></tr>${body}
-      ${list.length > 1 ? `<tr class="sum"><td colspan="2">이 날 합계</td><td><b>${fmtHM(sum)}</b></td><td></td><td></td><td></td></tr>` : ''}</table></div>
+    ${list.length ? `<div class="dayscroll"><table class="dayt"><tr><th>근무자</th><th>근무구간</th><th>근무시간<br><small>(휴게 제외)</small></th><th>월누계</th><th>월급여<br><small>(이 날까지)</small></th><th>기록</th><th></th></tr>${body}
+      <tr class="sum"><td colspan="2">합계</td><td><b class="wk">${fmtHM(sum)}</b></td><td><b class="cum">${fmtHM(cumSum)}</b></td><td class="mpay"><b>${paySum.toLocaleString('ko-KR')}</b><small>원</small></td><td></td><td></td></tr></table></div>
       <div class="muted swipehint" style="font-size:11.5px;margin-top:6px">← 표를 옆으로 밀면 수정 · 삭제 버튼이 보입니다</div>
-      <div class="muted" style="font-size:11.5px;margin-top:6px">기록 칸은 쓰고 칸 밖을 누르면 저장됩니다. 월누계: 이달 1일부터 이 날까지 휴게를 뺀 근무시간 합계 (급여 계산과 같은 시간)</div>`
+      <div class="muted" style="font-size:11.5px;margin-top:6px">기록 칸은 쓰고 칸 밖을 누르면 저장됩니다. 월누계·월급여: 이달 1일부터 이 날까지 휴게를 뺀 근무시간과 그 급여 (시급 × 시간, 급여 탭과 같은 계산 · 주휴수당 제외)</div>`
       : '<div class="muted" style="margin-top:10px">이 날은 근무 기록이 없습니다.</div>'}`;
   $('#pAdd').onclick = () => editPunch(null, false, PDAY);
   document.querySelectorAll('[data-pm]').forEach(t => {          // 기록 칸: 칸을 벗어나면 저장
