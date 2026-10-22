@@ -29,6 +29,7 @@ label{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
 .badge.bad{background:#fde0e0;color:var(--bad)}.badge.warn{background:#fff1d6;color:#9a5c00}.badge.ok{background:#dcf3e5;color:var(--ok)}
 body.tok #out{display:none}
 .practpick{display:flex;flex-direction:column;gap:8px}.practpick button{text-align:left;padding:14px;font-size:16px;font-weight:600;background:#fff;border:1.5px solid var(--line);border-radius:12px}.practpick small{font-weight:400;color:var(--sub);font-size:12.5px;margin-left:4px}
+.ver{font-size:11px;font-weight:500;color:var(--sub);margin-left:6px;letter-spacing:0;vertical-align:middle}
 .punchbtn{width:100%;font-size:24px;font-weight:700;padding:22px;border-radius:16px;margin-top:10px}
 .punchbtn.off{background:#cfcac5;color:#fff;cursor:not-allowed}.punchbtn small{display:block;font-size:13px;font-weight:500;margin-top:4px}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -77,6 +78,9 @@ button.warn{background:var(--warn);color:#fff}
 .blab .bad{color:var(--bad);font-weight:700}
 .gframe{background:#1f4d34;border-radius:14px;padding:6px 8px 10px;margin-top:8px}   /* 시간표 테두리: 진녹색 */
 .gframe[hidden]{display:none}
+/* 관리자 근무기록: 실제 근무 칸만 색, 나머지는 모두 연한 녹색 (하루 걸러 조금 진하게) */
+.admg .gapz,.admg .owner,.admg .closed{display:none}
+.admg .gbody{background:#e3f3e5}.admg .gcol.alt .gbody{background:#d3ead7}.admg .gcol.alt .gbody::after{display:none}
 .gframe .grid{margin-top:0;background:#fff;border-radius:10px}
 .gframe .ghead:not(.today){background:#fff}.gframe .gcol.alt .ghead:not(.today){background:#ebe8e4}
 .gframe .legend{color:#eef5ef}.gframe .legend i{box-shadow:0 0 0 1px rgba(255,255,255,.6)}
@@ -829,6 +833,7 @@ const CFG = {
   // 요일별 영업시간 [시작, 끝]  월 화 수 목 금 토 일
   OPEN: [[7, 22], [7, 22], [7, 22], [7, 22], [7, 22], [7, 22], [7, 22]],
   OWNER: { wd: [[14, 16], [19, 21]], we: [] },      // 사장님 근무시간 (빈 시간 계산에서 제외)
+  VERSION: '10.22.-v.2',                            // 앱 버전: 고친 날짜(월.일.) + 번호 — 고칠 때마다 올림
   IDLE_MIN: 3,                                       // 이 시간(분) 동안 조작 없으면 자동 로그아웃
   SQLJS: ['https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/', 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/']
 };
@@ -959,7 +964,7 @@ function setPractice(on) {
 }
 function showLogin() {                             // 로그인은 홈에서 한 번만 — 여기는 연습 모드 고르기만
   if (!PRACTICE) { location.replace('./'); return; }
-  $('#app').innerHTML = `<div class="login"><div style="text-align:left;margin-bottom:14px"><a class="homebtn" href="./">🏠 홈</a></div><div class="big">☕ 근무관리 연습</div>
+  $('#app').innerHTML = `<div class="login"><div style="text-align:left;margin-bottom:14px"><a class="homebtn" href="./">🏠 홈</a></div><div class="big">☕ 근무관리 연습<span class="ver">${CFG.VERSION}</span></div>
     <div style="margin-top:6px"><span class="stamp wip" style="background:#ff8f00;color:#fff">연습 모드</span></div>
     <div class="muted" style="margin:8px 0 14px">연습 기록은 이 기기에만 저장되고 실제 기록에는 반영되지 않습니다.<br>누구로 연습할지 고르세요.</div>
     <div class="practpick">
@@ -987,7 +992,7 @@ function gridSection(admin) {
   const nav = `<div class="row ${admin ? '' : 'snav'}" id="wkNav" style="flex:0 0 auto;align-items:center;${!admin && MODE === 'real' ? 'display:none' : ''}"><button class="sm" data-w="-1">◀</button><b id="wk" style="min-width:120px;text-align:center"></b><button class="sm" data-w="1">▶</button></div>`;
   const tabs = `<div class="tabs ${admin ? '' : 'stabs'}" style="flex:0 0 auto"><button class="sm ${MODE==='plan'?'on':''}" data-m="plan">${admin ? '근무시간표' : '주간시간표'}</button><button class="sm ${MODE==='real'?'on':''}" data-m="real">${admin ? "출퇴근 기록" : "나의 근무"}</button></div>`;
   return `<div class="card"><div class="gridhead">${admin ? nav : tabs + nav}</div>
-    <div id="planBox" class="gframe" ${!admin && MODE === 'real' ? 'hidden' : ''}><div id="grid"></div><div class="legend" id="legend"></div></div>
+    <div id="planBox" class="gframe ${admin ? 'admg' : ''}" ${!admin && MODE === 'real' ? 'hidden' : ''}><div id="grid"></div><div class="legend" id="legend"></div></div>
     ${admin ? '' : `<div id="myBox" ${MODE === 'real' ? '' : 'hidden'}></div>`}
     ${admin ? `<div class="muted" style="margin-top:6px">스케줄 칸을 누르면 수정/삭제할 수 있습니다.</div>` : ''}</div>`;
 }
@@ -1095,7 +1100,7 @@ function drawGrid(admin) {
   const shown = mine && MODE === 'real' ? staff.filter(s => s.id === mine) : staff.filter(s => s.active);
   $('#legend').innerHTML = shown.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')
     + `<span><i style="border:1.5px solid #777;background:#fff"></i>예정</span><span><i style="background:#7777;border-left:3px solid #555"></i>▶실제</span>`
-    + (MODE === 'plan' ? `<span><i style="background:var(--gap)"></i>빈 시간</span><span><i style="background:#efe9fb"></i>사장님</span>` : '');
+    + (MODE === 'plan' && !admin ? `<span><i style="background:var(--gap)"></i>빈 시간</span><span><i style="background:#efe9fb"></i>사장님</span>` : '');
   $('#grid').onclick = e => {
     // 누른 자리 아래에 실제 근무 막대가 있으면 상세 팝업 (예정 상자 밑에 깔려 있어도 찾음)
     const under = document.elementsFromPoint(e.clientX, e.clientY);
@@ -1202,7 +1207,7 @@ async function renderStaff() {
   const st = await run(() => api('/status')); if (!st) return;
   const open = st.open, missing = st.recent.filter(p => p.status === 'missing');
   $('#app').innerHTML = `<div class="wrap">
-    <div class="top"><h1>${esc(ME.name)}님</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
+    <div class="top"><h1>${esc(ME.name)}님<span class="ver">${CFG.VERSION}</span></h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="card stcard">${statusCard(st)}</div>
     ${missing.length ? `<div class="card" style="border:2px solid var(--bad)"><b style="color:var(--bad)">퇴근을 안 찍은 기록이 있습니다</b>
       <div class="list">${missing.map(p => `<div><span>${mdw(p.start)} ${hhmm(p.start)}~ ?</span><button class="sm pri" data-rq="${p.id}">퇴근시간 요청</button></div>`).join('')}</div></div>` : ''}
@@ -1315,7 +1320,7 @@ async function renderAdmin() {
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
   const tabs = [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '근무기록'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
-  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
+  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자<span class="ver">${CFG.VERSION}</span></h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
   $('#out').onclick = logout;
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderAdmin(); });
