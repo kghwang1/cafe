@@ -70,7 +70,7 @@ button.warn{background:var(--warn);color:#fff}
 .owner{position:absolute;left:0;right:0;background:#efe9fb}
 .blk{position:absolute;border-radius:6px;font-size:10px;line-height:1.2;padding:2px 3px;overflow:hidden;cursor:default}
 .blk.plan{border:1.5px solid;background:transparent;z-index:2;padding:0}
-.blk.real{z-index:1;padding:0;border-left:3px solid;cursor:pointer}
+.blk.real{z-index:1;padding:0;border:1.5px solid;cursor:pointer}   /* 실제 근무: 예정처럼 실선 테두리 + 색 채움 */
 .blk.open{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.55) 0 5px,transparent 5px 10px)}
 .blk.missing{background:#fff!important;border:1.5px dashed var(--bad)!important}
 .blab{position:absolute;z-index:3;font-size:10px;line-height:1.2;padding:2px 3px;overflow:hidden;pointer-events:none;background:transparent}
@@ -837,7 +837,7 @@ const CFG = {
   // 요일별 영업시간 [시작, 끝]  월 화 수 목 금 토 일
   OPEN: [[7, 22], [7, 22], [7, 22], [7, 22], [7, 22], [7, 22], [7, 22]],
   OWNER: { wd: [[14, 16], [19, 21]], we: [] },      // 사장님 근무시간 (빈 시간 계산에서 제외)
-  VERSION: '10.22.-v.4',                            // 앱 버전: 고친 날짜(월.일.) + 번호 — 고칠 때마다 올림
+  VERSION: '10.22.-v.5',                            // 앱 버전: 고친 날짜(월.일.) + 번호 — 고칠 때마다 올림
   IDLE_MIN: 3,                                       // 이 시간(분) 동안 조작 없으면 자동 로그아웃
   SQLJS: ['https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/', 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/']
 };
@@ -1088,7 +1088,7 @@ function drawGrid(admin) {
           h += `<div class="blk plan" data-id="${it.id}" data-k="plan" style="top:${top}px;height:${hgt - 2}px;${pos}border-color:${st.color}"></div>`;
           lab += `<br><span style="color:${inkC(st.color)}">${hhmm(it.start)}-${hhmm(it.end)}</span>`;
         } else {
-          h += `<div class="blk real ${it.status || ''}" data-pid="${it.id}" style="top:${top}px;height:${hgt - 2}px;${pos}background-color:${st.color}40;border-left-color:${st.color}"></div>`;
+          h += `<div class="blk real ${it.status || ''}" data-pid="${it.id}" style="top:${top}px;height:${hgt - 2}px;${pos}background-color:${st.color}40;border-color:${st.color}"></div>`;
           lab += it.status === 'missing' ? `<br><span class="bad">▶${hhmm(it.start)} 퇴근누락</span>`
             : it.status === 'open' ? `<br><span class="r">▶${hhmm(it.start)}~ 근무중</span>`
             : `<br><span class="r">▶${hhmm(it.start)}-${hhmm(it.end)}</span>`;
@@ -1104,7 +1104,7 @@ function drawGrid(admin) {
   $('#grid').innerHTML = `<div class="grid">${h}</div>`;
   const shown = mine && MODE === 'real' ? staff.filter(s => s.id === mine) : staff.filter(s => s.active);
   $('#legend').innerHTML = shown.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')
-    + `<span><i style="border:1.5px solid #777;background:#fff"></i>예정</span><span><i style="background:#7777;border-left:3px solid #555"></i>▶실제</span>`
+    + `<span><i style="border:1.5px solid #777;background:#fff"></i>예정</span><span><i style="background:#7777;border:1.5px solid #555"></i>▶실제</span>`
     + (MODE === 'plan' && !admin ? `<span><i style="background:var(--gap)"></i>빈 시간</span><span><i style="background:#efe9fb"></i>사장님</span>` : '');
   $('#grid').onclick = e => {
     // 누른 자리 아래에 실제 근무 막대가 있으면 상세 팝업 (예정 상자 밑에 깔려 있어도 찾음)
