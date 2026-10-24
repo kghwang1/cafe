@@ -31,6 +31,7 @@ body.tok #out{display:none}
 .practpick{display:flex;flex-direction:column;gap:8px}.practpick button{text-align:left;padding:14px;font-size:16px;font-weight:600;background:#fff;border:1.5px solid var(--line);border-radius:12px}.practpick small{font-weight:400;color:var(--sub);font-size:12.5px;margin-left:4px}
 .ver{font-size:11px;font-weight:500;color:var(--sub);margin-left:6px;letter-spacing:0;vertical-align:middle}
 .kline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.kline #fK{width:80px;flex:0 0 80px}.kline #fKm{width:auto;flex:1 1 150px;min-width:140px}.kline span{flex:0 0 auto}
+.plist{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
 .punchbtn{width:100%;font-size:24px;font-weight:700;padding:22px;border-radius:16px;margin-top:10px}
 .punchbtn.off{background:#cfcac5;color:#fff;cursor:not-allowed}.punchbtn small{display:block;font-size:13px;font-weight:500;margin-top:4px}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -1402,7 +1403,63 @@ async function requestEdit(p, day) {
 // ===== 관리자 화면 =====
 let STAFF = [], PREWEEK = null;
 // ===== 관리자 연습: 실제 자료를 이 기기의 연습장으로 복사해 주간근무표·급여·직원을 연습 =====
-let ADMPRAC = false;
+let ADMPRAC = false, PLAN = '';                    // PLAN: 지금 연습장에 불러온 계획 이름
+const PLANKEY = 'oozyPracticePlans';
+const plansGet = () => { try { return JSON.parse(localStorage.getItem(PLANKEY) || '{}') || {}; } catch (e) { return {}; } };
+const plansSet = o => { try { localStorage.setItem(PLANKEY, JSON.stringify(o)); return true; } catch (e) { toast('저장 공간이 부족합니다. 안 쓰는 계획을 지워 주세요', 3500); return false; } };
+async function practiceImport(d) {
+  const r = await practiceFetch('/practice/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || '불러오지 못했습니다'); return j;
+}
+// 연습 계획 저장: 이름을 붙여 지금 연습장 전체(직원·근무표·예정·기록·계약시간)를 이 기기에 보관
+async function savePlan() {
+  if (TPL_DIRTY && TPL) { try { await api('/admin/template', { grid: TPL }); TPL_DIRTY = false; } catch (e) { } }   // 작성 중인 근무표도 함께
+  const plans = plansGet(), names = Object.keys(plans).sort((a, b) => plans[b].at - plans[a].at);
+  setTimeout(() => document.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => { $('#plN').value = b.dataset.pn; }), 0);
+  const name = await modal(`<h3>연습 계획 저장</h3><label>계획 이름</label><input id="plN" maxlength="30" placeholder="예: A안 - 핵심 2명 + 보조 4명" value="${esc(PLAN)}">
+    ${names.length ? `<div class="muted" style="font-size:12.5px;margin-top:8px">저장된 계획 (같은 이름이면 덮어씁니다)</div><div class="plist">${names.map(n => `<button type="button" class="sm" data-pn="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}`,
+    '저장', () => { const v = $('#plN').value.trim(); if (!v) { toast('계획 이름을 넣으세요'); return false; } return v; });
+  if (!name) return;
+  if (plans[name] && name !== PLAN && !confirm(`「${name}」 계획을 지금 내용으로 덮어쓸까요?`)) return;
+  const d = await run(() => api('/admin/backup')); if (!d) return;
+  d.punch_log = [];                                   // 수정 이력은 빼서 용량을 줄임
+  plans[name] = { at: Date.now(), data: d };
+  if (plansSet(plans)) { PLAN = name; toast(`「${name}」 계획을 저장했습니다`); renderAdmin(); }
+}
+async function loadPlan() {
+  const plans = plansGet(), names = Object.keys(plans).sort((a, b) => plans[b].at - plans[a].at);
+  const pick = await modal(`<h3>연습 계획 불러오기</h3>
+    ${names.length ? `<div class="list">${names.map(n => `<div><span><b>${esc(n)}</b><br><span class="muted" style="font-size:12px">저장 ${mdw(plans[n].at)} ${hhmm(plans[n].at)} · 직원 ${(plans[n].data.staff || []).filter(s => s.active && !s.deleted).length}명</span></span>
+      <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm pri" data-pl="${esc(n)}">불러오기</button><button class="sm" data-pd="${esc(n)}">삭제</button></span></div>`).join('')}</div>`
+      : '<div class="muted">저장된 계획이 없습니다. 연습한 뒤 [저장]을 눌러 이름을 붙여 보관하세요.</div>'}
+    <button class="sm" id="plReal" style="width:100%;margin-top:12px">↺ 실제 자료로 새로 시작</button>`, '닫기', undefined, null);
+  return pick;
+}
+function bindPlanModal() {
+  const box = [...document.querySelectorAll('.mbg')].pop(); if (!box) return;
+  const close = () => box.remove();
+  box.querySelectorAll('[data-pl]').forEach(b => b.onclick = async () => {
+    if (TPL_DIRTY && !confirm('저장하지 않은 연습 근무표 변경이 있습니다. 그래도 불러올까요?')) return;
+    const n = b.dataset.pl, pl = plansGet()[n]; if (!pl) return; close();
+    try { await practiceImport(pl.data); } catch (e) { return toast(e.message, 3500); }
+    PLAN = n; TPL = null; TPL_DIRTY = false; TAB = 'tpl'; renderAdmin(); toast(`「${n}」 계획을 불러왔습니다`);
+  });
+  box.querySelectorAll('[data-pd]').forEach(b => b.onclick = () => {
+    const n = b.dataset.pd; if (!confirm(`「${n}」 계획을 지울까요?`)) return;
+    const o = plansGet(); delete o[n]; plansSet(o); if (PLAN === n) PLAN = ''; close(); toast('지웠습니다'); renderAdmin();
+  });
+  const rl = box.querySelector('#plReal'); if (rl) rl.onclick = async () => {
+    if (!confirm('지금 연습 내용을 지우고 실제 자료로 새로 시작할까요? (저장한 계획은 그대로 남습니다)')) return;
+    close(); const d = await run(() => realBackup()); if (!d) return;
+    try { await practiceImport(d); } catch (e) { return toast(e.message, 3500); }
+    PLAN = ''; TPL = null; TPL_DIRTY = false; TAB = 'tpl'; renderAdmin(); toast('실제 자료로 새로 시작했습니다');
+  };
+}
+// 연습 중에 실제 서버 자료 받기 (토큰으로 실제 서버에 물음)
+async function realBackup() {
+  const r = await fetch(CFG.API + '/admin/backup', { headers: { 'X-Token': TOKEN } });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || '실제 자료를 받지 못했습니다'); return j;
+}
 async function startAdminPractice() {
   if (!await modal(`<h3>관리자 연습</h3>지금의 <b>직원 · 주간근무표 · 근무 예정 · 출퇴근 기록 · 계약시간</b>을 이 기기의 연습장으로 복사합니다.<br><br>
       연습에서는 <b>주간근무표 · 급여 · 직원</b>을 마음껏 바꿔 볼 수 있고, <b>실제 운영에는 전혀 반영되지 않습니다.</b>
@@ -1411,15 +1468,14 @@ async function startAdminPractice() {
   const d = await run(() => api('/admin/backup')); if (!d) return;
   setPractice(true); ADMPRAC = true; PIN = '0000';
   try {
-    const r = await practiceFetch('/practice/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || '복사하지 못했습니다');
+    await practiceImport(d); PLAN = '';
     ME = await api('/login');
   } catch (e) { ADMPRAC = false; setPractice(false); PIN = ''; return toast(e.message, 3500); }
   TAB = 'tpl'; renderAdmin(); toast('연습을 시작합니다. 실제 운영에는 반영되지 않습니다', 3000);
 }
 async function endAdminPractice() {
   if (TPL_DIRTY && !confirm('연습 근무표에 저장하지 않은 변경이 있습니다. 그래도 끝낼까요?')) return;
-  ADMPRAC = false; setPractice(false); PIN = ''; TPL_DIRTY = false; TAB = 'tpl';
+  ADMPRAC = false; PLAN = ''; setPractice(false); PIN = ''; TPL_DIRTY = false; TAB = 'tpl';
   try { ME = await api('/login'); } catch (e) { location.href = './'; return; }
   renderAdmin(); toast('연습을 끝내고 실제 화면으로 돌아왔습니다');
 }
@@ -1431,14 +1487,16 @@ async function renderAdmin() {
   const tabs = ADMPRAC ? [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['pay', '급여'], ['staff', '직원']]
     : [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '직원근무'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
   if (!tabs.some(([k]) => k === TAB)) TAB = tabs[0][0];
-  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>${ADMPRAC ? '관리자 연습' : '관리자'}</h1><span style="display:flex;gap:6px">${ADMPRAC
-      ? '<button class="sm pri" id="pracEnd">연습 끝내기</button>'
+  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>${ADMPRAC ? '관리자 연습' : '관리자'}</h1><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ADMPRAC
+      ? '<button class="sm" id="plSave" style="background:#1f4d34;color:#fff">저장</button><button class="sm" id="plLoad">불러오기</button><button class="sm pri" id="pracEnd">연습 끝내기</button>'
       : `${PRACTICE ? '' : '<button class="sm" id="pracGo" style="background:#ff8f00;color:#fff">연습</button>'}<a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button>`}</span></div>
-    ${ADMPRAC ? '<div class="card" style="background:#fff3e0;font-size:13px;color:#7a4a00">실제 직원·근무표·기록을 복사한 <b>연습장</b>입니다. 여기서 바꾼 내용은 실제 운영에 반영되지 않고 이 기기에만 남습니다.</div>' : ''}
+    ${ADMPRAC ? `<div class="card" style="background:#fff3e0;font-size:13px;color:#7a4a00">${PLAN ? `지금 계획: <b style="font-size:15px">「${esc(PLAN)}」</b><br>` : '<b>실제 자료를 복사한 연습장</b>입니다.<br>'}여기서 바꾼 내용은 실제 운영에 반영되지 않습니다. [저장]으로 이름을 붙여 여러 계획을 이 기기에 보관할 수 있습니다.</div>` : ''}
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
   if ($('#out')) $('#out').onclick = logout;
   if ($('#pracGo')) $('#pracGo').onclick = startAdminPractice;
   if ($('#pracEnd')) $('#pracEnd').onclick = endAdminPractice;
+  if ($('#plSave')) $('#plSave').onclick = savePlan;
+  if ($('#plLoad')) $('#plLoad').onclick = () => { loadPlan(); bindPlanModal(); };
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderAdmin(); });
   ({ tpl: tabTpl, grid: tabGrid, punch: tabPunch, req: () => tabReq(reqs), pay: tabPay, staff: tabStaff, bak: tabBackup })[TAB]();
 }
