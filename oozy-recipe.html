@@ -2,10 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('recipe')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=recipe');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 레시피 찾기</title>
-<meta name="app-version" content="2026-10-20.1">
+<meta name="app-version" content="2026-10-25.3">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,9 +79,6 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 :root[data-theme="dark"] .sec{color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sec{color:var(--butter)}}
 .brand span{color:var(--butter)}
-@media (max-width:440px){.brand span{display:none}.homebtn{padding:0 7px}}
-@media (max-width:380px){.homebtn .ht{display:none}}
-.homebtn{flex:none;display:inline-flex;align-items:center;min-height:38px;padding:0 9px;border-radius:8px;background:rgba(255,255,255,.16);color:#fff;text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap}
 .sz{background:var(--green2);color:#fff;border:0;border-radius:8px;font:inherit;font-size:16px;
   font-weight:600;padding:6px 12px;min-width:44px;min-height:40px}
 .searchwrap{position:relative}
@@ -111,6 +107,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 60px}
 .body{display:none;padding:0 16px 16px}
 .item.open .body{display:block}
 .info{font-size:15px;color:var(--muted);margin:-4px 0 8px}
+.fnote{font-size:13px;color:var(--muted);line-height:1.45;margin:-4px 2px 6px}
 .notice{font-size:15px;background:var(--amt-bg);color:var(--hot);border-radius:8px;padding:6px 10px;margin:0 0 10px;font-weight:600}
 .row{border-top:1px dashed var(--line);padding:12px 0 6px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
 .tag{font-size:15px;font-weight:700;color:#fff;background:var(--etc);border-radius:6px;padding:3px 8px;
@@ -154,12 +151,12 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </div>
 <header>
   <div class="top">
-    <a class="homebtn" href="./" aria-label="홈으로">🏠<span class="ht"> 홈</span></a>
     <div class="brand"><b>OOZY </b><span>레시피찾기</span></div>
     <div class="tabs" id="tabs">
       <button class="tab" data-m="search">초성</button>
       <button class="tab" data-m="cat">항목</button>
       <button class="tab" data-m="all">전체</button>
+      <button class="tab" data-m="mgmt">관리</button>
     </div>
     <button class="sz" id="dn" aria-label="글씨 작게">가−</button>
     <button class="sz" id="up" aria-label="글씨 크게">가+</button>
@@ -496,7 +493,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 ## 오레오 아이스크림
 - 10oz | 10oz 아이스컵 + 아이스크림 ⟦r:6바퀴⟧ + 초코베이스 25ml + ⟦b:쿠키분태 1래들⟧ + ⟦b:초코크런치볼 ⟧⟦r:2t⟧ + ⟦b:컷팅오레오 4ea⟧
 ## 츄러스 아이스크림
-- 10oz | 10oz 아이스컵 + (에어프라이어 : 츄러스 ⟦r:1ea⟧ 190도 5분 조리 + 시나몬슈가 코팅) + 아이스크림 ⟦r:6바퀴⟧ + ⟦b:조리된 츄러스 토핑⟧
+- 10oz | 10oz 아이스컵 + (에어프라이어 : 츄러스 ⟦r:1ea⟧ 230도 5분 조리 + 시나몬슈가 코팅) + 아이스크림 ⟦r:6바퀴⟧ + ⟦b:조리된 츄러스 토핑⟧
 ## 솔티 카라멜 아이스크림
 - 10oz | 10oz 아이스컵 + (카라멜소스 0.5p + 소금베이스 0.5t + 섞어줌 = ⟦r:벽면 굴리기⟧) + 아이스크림 ⟦r:5바퀴⟧ + ⟦b:메이플팝콘 2래들⟧ + ⟦b:카라멜소스 드리즐⟧
 ## 딸기 초코쉘 아이스크림
@@ -608,7 +605,10 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 - 블렌더O | 아몬드슬라이스 150g | 딸기 버튼 1초씩 10회
 * 건조된 블렌더 사용
 
-# 베이커리 | 냉동상태에서 조리 (예열X)
+# 베이커리 | 듀얼 에어프라이어용 레시피 · 냉동상태에서 조리 (예열X)
+!~에어프라이어~ ★★ 여러 번 연속 조리할 경우, [더블스택] 버튼 2회 눌러 해제 후 레시피 온도보다 40도 낮춰서 조리 ★★
+!.~에어프라이어~ * 예시 _ 상하 바스켓 모두 베이커리 조리 후, 예열된 상태의 바스켓에 계속해서 베이커리를 조리해야하는 상황의 경우에만 레시피 온도보다 40도 낮춘 온도로 조리
+!.~에어프라이어~ * 듀얼 에어프라이어 구조상 조리 후 내부 열기 방출 소요시간이 긴 편으로, 조리 완료 시 바스켓을 살짝 열어 열기를 방출해준다.
 @ 포장
 ## 샐러드믹스 (에그듬뿍모닝빵 토핑용)
 - ① | 에그포테이토샐러드 500g + 마카로니샐러드 500g 심플저장용기(대)에 1:1로 소분
@@ -633,24 +633,24 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 ## 딥 미니버거 (1ea·2ea)
 - ① | 내열용기 바닥 물 50ml + 미니버거 1개
 - ② | ⟦r:1개 전자레인지 1분 30초 / 2개 2분⟧ (최대 2개까지)
-- ③ | 소스용기에 치폴레소스 30g 담아 제공 | 1ea 포장박스(소) · 2ea 포장박스(대)
+- ③ | 소스용기에 치폴레소스 30g 담아 제공 | 소스용기에 치폴레소스 30g 제공 · 1ea 포장박스(소) · 2ea 포장박스(대)
 ## 소금빵
 - ① | ⟦r:1개 전자레인지 30초⟧ (2개 1분)
-- ② | ⟦r:에어프라이어 180도 3분⟧ (예열X) (2개 3분 / 한 칸당 최대 2개) | 파우치봉투 + 각대봉투
+- ② | ⟦r:에어프라이어 1개 220도 3분⟧ (예열X) (2개 3분 / 한 칸당 최대 2개) | 파우치봉투 + 각대봉투
 ## 바삭츄러스 호두과자 (3ea)
 - ① | ⟦r:3개 전자레인지 30초⟧ (6개 30초 / 9개 1분)
-- ② | ⟦r:에어프라이어 180도 5분⟧ (예열X) (3개 5분 / 6개 6분 / 9개 7분)
+- ② | ⟦r:에어프라이어 220도 5분⟧ (예열X) (3개 5분 / 6개 6분 / 9개 7분)
 - ③ | 시나몬슈가 코팅 | 파우치봉투 + 각대봉투
 ## 클래식도넛 (2ea·4ea)
-- ① | ⟦r:에어프라이어 200도 3분⟧ (예열X) (2~4개 3분 / 6~8개 4분 / 최대 8개까지)
+- ① | ⟦r:에어프라이어 240도 3분⟧ (예열X) (2~4개 3분 / 6~8개 4분 / 최대 8개까지)
 - ② | 시나몬슈가 코팅 | 2ea 파우치봉투 · ⟦r:4ea 포장박스(소)⟧
 ## 츄러스
-- ① | ⟦r:에어프라이어 190도 5분⟧ (예열X) (2~3개 5분 / 한 칸당 최대 3개)
+- ① | ⟦r:에어프라이어 230도 5분⟧ (예열X) (2~3개 5분 / 한 칸당 최대 3개)
 - ② | 시나몬슈가 코팅 | 파우치봉투 + 각대봉투 · 휘핑크림 추가 시 10oz 컵에 30g 담아 제공
 ## 클래식 프렌치토스트
 - ① | 냉동 토스트 2장을 꺼내 색이 연한 면 한쪽에 우유 10g 펴 바른 뒤 2장 겹치기
 - ② | 윗면(색이 진한 면)에 케이크시럽 5g + 황설탕 5g 펴 바르기
-- ③ | 2장 겹친 상태로 ⟦r:에어프라이어 195도 5분⟧ (예열X) (한 칸당 최대 1개)
+- ③ | 2장 겹친 상태로 ⟦r:에어프라이어 235도 5분⟧ (예열X) (한 칸당 최대 1개)
 - ④ | 케이크시럽 드리즐 + 포션버터 1개 토핑 | 포장박스(대) · 토핑은 소스용기에 케이크시럽 10g + 포션버터 1개
 
 # 유통기한 | BBD 매뉴얼
@@ -729,7 +729,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 
 <script>
 (function(){
-  const APP_VERSION = '2026-10-20.1';
+  const APP_VERSION = '2026-10-25.3';
   // ---------- 새 버전 확인 ----------
   let latest = null;
   async function checkUpdate() {
@@ -761,6 +761,9 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       cat = { name: n, info: info || '', notices: [], label: '덜달게', items: [] };
       cats.push(cat); item = null;
     } else if (l.startsWith('> ') && item) { item.video = l.slice(2).trim();
+    } else if (l.startsWith('!~') || l.startsWith('!.~')) {
+      const m = l.match(/^!(\.)?~([^~]+)~\s*(.*)$/);
+      if (m) cat.notices.push({ small: !!m[1], kw: m[2], text: m[3] });
     } else if (l.startsWith('! ')) { cat.notices.push(l.slice(2));
     } else if (l.startsWith('@ ')) { cat.label = l.slice(2).trim();
     } else if (l.startsWith('* ')) {
@@ -840,7 +843,11 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     let h = '';
     let top = '';
     if (c.info) top += `<div class="info">${esc(c.info)}</div>`;
-    c.notices.forEach(n => top += `<div class="notice">${esc(n)}</div>`);
+    c.notices.forEach(n => {
+      if (typeof n === 'string') { top += `<div class="notice">${esc(n)}</div>`; return; }
+      if (!it.rows.some(r => r.recipe.includes(n.kw))) return;
+      top += n.small ? `<div class="fnote">${esc(n.text)}</div>` : `<div class="notice">${esc(n.text)}</div>`;
+    });
     if (it.video) h += `<div class="vtop"><div class="vtop-l">${top}</div><a class="qr" href="${it.video}" target="_blank" rel="noopener">${QR[it.video] || ''}<span>▶ 제조 영상</span></a></div>`;
     else h += top;
     it.rows.forEach(r => {
@@ -856,13 +863,62 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     return h;
   }
 
+  // ---------- 관리 (청소·소모품) ----------
+  const MG = {
+    parts: [
+      ['커피 머신', [['샤워스크린','60mm','3~6개월'],['가스켓','내경 72×56×8mm · 외경 73×57×8.5mm','3~6개월'],['포터필터 바스켓','2샷 바스켓(70×24.5) · 57~58mm 탬퍼 전용','파손·마모 시']]],
+      ['그라인더', [['상부/하부 칼날','83mm 플랫 버','6개월 / 마모 시']]],
+      ['블렌더', [['블렌더 볼 칼날','','마모 시 교체'],['커플링','','마모 시 교체']]],
+      ['정수 필터', [['전처리 하우징 필터','','1~2개월 (최대 3개월)'],['4FC 필터','','3개월 권장'],['IMF 필터','','약품 소진 시 (6개월 권장)'],['2FC 필터 (제빙기용)','','3개월 권장']]],
+      ['아이스크림 기계', [['비터가스켓, 스크래퍼, 피스톤 O링','','3~6개월']]]
+    ],
+    clean: [
+      ['커피 머신', [['그룹헤드 약품 청소','매일'],['포터필터(바스켓) 세척','매일'],['스팀봉 세척','매일'],['샤워스크린/가스켓, 스팀노즐 분해 청소','주 1회'],['포터필터(바스켓) 약품 청소','주 1회'],['포터필터 스파웃 약품 청소','월 1회']]],
+      ['그라인더', [['호퍼통 세척','매일'],['그라인더 약품 청소','주 1회'],['그라인더 칼날 분해 청소','월 1회']]],
+      ['제빙기', [['제빙기 약품 청소','주 1회']]],
+      ['냉장/냉동고', [['문짝, 틈새 청소','매일'],['내부 물기 제거','매일'],['내부 성에 제거 / 칸막이 세척','주 1회']]],
+      ['아이스크림 기계', [['분해 청소','매일']]],
+      ['토핑 냉장고', [['밧드(토핑용) 뚜껑 세척','매일'],['토핑 냉장고 내부 물기 제거','매일']]],
+      ['블렌더', [['블렌더 볼 세제 청소','매일'],['블렌더 케이스 분리 세척','매일'],['블렌더 칼날 분해 청소','주 1회']]],
+      ['전자레인지', [['오븐판, 받침대, 유리쟁반 세척','매일'],['내부 세척 및 정리','매일']]],
+      ['핫워터 디스펜서', [['온수탭 스케일 제거','월 1회']]]
+    ],
+    videos: [
+      ['커피 머신', [['커피머신 마감 청소법','매일 마감','http://m.site.naver.com/1bzPy'],['포터필터 마감 청소법','매일 마감','http://m.site.naver.com/1bzOE'],['스팀완드 청소법 및 소모품 교체법','가스켓 · 샤워스크린 3~6개월','http://m.site.naver.com/1bzOT']]],
+      ['블렌더', [['블렌더볼 청소법','매일 세척','http://m.site.naver.com/1bzOZ'],['블렌더볼 칼날 분해 및 조립법','주 1회 분해 청소','https://m.site.naver.com/1Xs4X'],['블렌더 커플링 분해 및 조립법','마모 시 교체','https://m.site.naver.com/20x6j']]],
+      ['아이스크림 기계 · 제빙기', [['아이스크림 기계 사용 가이드','비터·가스켓 분해 및 장착','http://m.site.naver.com/1bzQo'],['제빙기 사용 가이드','세척 및 제빙 작동','http://m.site.naver.com/1bzOw']]],
+      ['정수 필터', [['전처리 필터 교체법','1~2개월 (최대 3개월 권장)','https://m.site.naver.com/1XzeA'],['4FC 필터 교체법','3개월 권장','https://m.site.naver.com/1XrgU'],['IMF 필터 교체법','약품 소진 시 (6개월 권장)','https://m.site.naver.com/1XrMF'],['2FC 필터 교체법','3개월 권장 (제빙기용)','https://m.site.naver.com/1Xzoi']]]
+    ]
+  };
+  const cycCls = s => s.startsWith('매일') ? 'd' : s.startsWith('주') ? 'w' : s.startsWith('월') ? 'm' : '';
+  function mgmtHtml() {
+    let h = `<div class="mg-jump"><button class="gbtn" data-j="mg1">청소 주기</button><button class="gbtn" data-j="mg2">소모품 교체</button><button class="gbtn" data-j="mg3">동영상</button></div>`;
+    h += `<div class="sec" id="mg1">기기 청소 주기</div><div class="sub-t">매일 = 하루도 빠짐없이</div>`;
+    MG.clean.forEach(([m, rows]) => {
+      h += `<div class="mbox"><div class="mname">${esc(m)}</div>` + rows.map(([t, c]) =>
+        `<div class="mrow"><span class="mitem">${esc(t)}</span><span class="cyc ${cycCls(c)}">${esc(c)}</span></div>`).join('') + `</div>`;
+    });
+    h += `<div class="sec" id="mg2">소모품 교체 주기</div><div class="sub-t">규격을 확인하고 주기에 맞춰 미리 재고를 준비하세요</div>`;
+    MG.parts.forEach(([m, rows]) => {
+      h += `<div class="mbox"><div class="mname">${esc(m)}</div>` + rows.map(([t, s, c]) =>
+        `<div class="mrow"><span class="mitem">${esc(t)}${s ? `<span class="mspec">${esc(s)}</span>` : ''}</span><span class="cyc">${esc(c)}</span></div>`).join('') + `</div>`;
+    });
+    h += `<div class="sec" id="mg3">청소·교체 동영상</div><div class="sub-t">누르면 새 창에서 영상이 열려요</div>`;
+    MG.videos.forEach(([g, list]) => {
+      h += `<div class="mname" style="padding:6px 2px">${esc(g)}</div>` + list.map(([t, d, u]) =>
+        `<a class="vbtn" href="${u}" target="_blank" rel="noopener"><span class="vplay">▶</span><span class="vtxt"><b>${esc(t)}</b><span>${esc(d)}</span></span></a>`).join('');
+    });
+    h += `<div class="ver">앱 버전 ${APP_VERSION}</div>`;
+    return h;
+  }
+
   // ---------- UI ----------
   const $q = document.getElementById('q'), $list = document.getElementById('list'),
         $count = document.getElementById('count'), $clear = document.getElementById('clear'),
         $sw = document.getElementById('sw'), $cg = document.getElementById('catgrid'),
         $sg = document.getElementById('subgrid'), $hdr = document.querySelector('header');
   let mode = 'search', selCat = null, selItem = null;
-  try { const m = localStorage.getItem('oozy-mode'); if (['search','cat','all'].includes(m)) mode = m; } catch (e) {}
+  try { const m = localStorage.getItem('oozy-mode'); if (['search','cat','all','mgmt'].includes(m)) mode = m; } catch (e) {}
 
   const fixPad = () => { document.documentElement.style.scrollPaddingTop = ($hdr.offsetHeight + 8) + 'px'; };
   const goTop = el => { fixPad(); el.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
@@ -878,6 +934,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     $count.textContent = ''; $list.innerHTML = '';
     if (m === 'search') renderSearch();
     else if (m === 'cat') renderCat();
+    else if (m === 'mgmt') $list.innerHTML = mgmtHtml();
     else renderAll();
     fixPad(); window.scrollTo(0, 0);
   }
