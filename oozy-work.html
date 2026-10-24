@@ -95,6 +95,23 @@ button.warn{background:var(--warn);color:#fff}
 .legend span{display:inline-flex;align-items:center;gap:4px}
 .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
 /* 모달/토스트 */
+.tbtn{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:16px;font-weight:600;text-align:left;color:var(--ink)}
+.tbtn .am{color:#8a7a70;font-size:1.1em}.tbtn .pm{color:#c99a00;font-size:1.1em}
+.tpbg{z-index:60;background:rgba(0,0,0,.55)}
+.tpick{background:#1f4d34;color:#fff;border-radius:16px;padding:16px;width:100%;max-width:360px}
+.tptitle{font-size:13px;opacity:.8}.tpnow{font-size:34px;font-weight:700;margin:2px 0 10px;font-variant-numeric:tabular-nums}
+.tpnow .am,.tpap .am{color:#fff}.tpnow .pm,.tpap .pm{color:#ffd23f}
+.tpnow span{font-size:1.1em}
+.tpap{display:flex;gap:8px;margin-bottom:8px}.tpap button{flex:1;font-size:17.6px;font-weight:700;padding:9px;border-radius:10px;background:rgba(255,255,255,.12);border:2px solid transparent}
+.tpap button.on{border-color:currentColor;background:rgba(255,255,255,.22)}
+.tplab{font-size:12px;opacity:.75;margin:6px 0 4px}
+.tpgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.tpgrid button{padding:9px 0;border-radius:9px;background:rgba(255,255,255,.12);color:#fff;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.tpgrid button.on{background:#ffd23f;color:#1f2b22}
+.tpmsg{min-height:20px;color:#ffb4a8;font-weight:700;font-size:14px;margin:10px 0 2px}
+.tpbtns{display:flex;gap:8px;margin-top:6px}.tpbtns button{flex:1;padding:12px;border-radius:12px;font-size:16px;font-weight:700;background:rgba(255,255,255,.15);color:#fff}
+.tpbtns button.pri{background:#ffd23f;color:#1f2b22}.tpbtns button:disabled{opacity:.35}
+.mbg button[data-ok]:disabled{opacity:.4}
 .mbg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
 .modal{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto}
 .modal h3{margin:0 0 8px}
@@ -461,6 +478,18 @@ async function route(req, env) {
   const url = new URL(req.url), p = url.pathname, m = req.method;
   const b = m === 'POST' ? await req.json().catch(() => ({})) : {};
   await ensureSettings(env);
+  // 관리자 연습: 실제 자료(백업 형식)를 연습장에 그대로 옮겨 담음 — 연습 모드에서만
+  if (p === '/practice/import' && m === 'POST') {
+    if (!env.PRACTICE) return err('연습 모드에서만 됩니다.', 403);
+    const tables = ['staff', 'schedule', 'punch', 'edit_request', 'punch_log', 'payslip', 'settings', 'contract'];
+    const stmts = tables.map(t => env.DB.prepare('DELETE FROM ' + t));
+    for (const t of tables) for (const row of (b[t] || [])) {
+      const cols = Object.keys(row).filter(c => /^[a-z_]+$/.test(c));
+      if (cols.length) stmts.push(env.DB.prepare(`INSERT INTO ${t}(${cols.join(',')}) VALUES(${cols.map(() => '?').join(',')})`).bind(...cols.map(c => row[c])));
+    }
+    await env.DB.batch(stmts);
+    return json({ ok: true, staff: (b.staff || []).length, punch: (b.punch || []).length });
+  }
   if (p === '/practice/reset' && m === 'POST') {
     if (!env.PRACTICE) return err('연습 모드에서만 됩니다.', 403);
     await seedPractice(env);
@@ -776,7 +805,7 @@ async function route(req, env) {
   // 직원 출근하기 버튼 사용 여부
   // 전체 백업: 모든 표를 한 번에 (로그인 기기 목록은 빼고)
   if (p === '/admin/backup' && m === 'GET') {
-    const tables = ['staff', 'schedule', 'punch', 'edit_request', 'punch_log', 'payslip', 'settings'];
+    const tables = ['staff', 'schedule', 'punch', 'edit_request', 'punch_log', 'payslip', 'settings', 'contract'];
     const res = await env.DB.batch(tables.map(t => env.DB.prepare('SELECT * FROM ' + t)));
     const out = { app: 'oozy-work', version: 1, at: Date.now() };
     tables.forEach((t, i) => { out[t] = res[i].results; });
@@ -1009,6 +1038,7 @@ async function practiceFetch(path, init) {
 // ===== 로그인 =====
 function logout() {
   if (TPL_DIRTY && ME && ME.role === 'admin' && !confirm('근무표에 저장하지 않은 변경이 있습니다. 그래도 로그아웃할까요?')) return resetIdle();
+  if (ADMPRAC) { endAdminPractice(); return; }                          // 관리자 연습 중이면 실제 화면으로
   if (TOKEN && !PRACTICE) { location.href = './'; return; }            // 로그인한 기기: 홈으로
   PIN = ''; ME = null; DATA = null; TPL = null; TPL_DIRTY = false; BRUSH = null; TAB = 'grid'; showLogin();
 }
@@ -1371,15 +1401,44 @@ async function requestEdit(p, day) {
 
 // ===== 관리자 화면 =====
 let STAFF = [], PREWEEK = null;
+// ===== 관리자 연습: 실제 자료를 이 기기의 연습장으로 복사해 주간근무표·급여·직원을 연습 =====
+let ADMPRAC = false;
+async function startAdminPractice() {
+  if (!await modal(`<h3>관리자 연습</h3>지금의 <b>직원 · 주간근무표 · 근무 예정 · 출퇴근 기록 · 계약시간</b>을 이 기기의 연습장으로 복사합니다.<br><br>
+      연습에서는 <b>주간근무표 · 급여 · 직원</b>을 마음껏 바꿔 볼 수 있고, <b>실제 운영에는 전혀 반영되지 않습니다.</b>
+      <div class="muted" style="margin-top:6px;font-size:12.5px">시작할 때마다 실제 자료로 새로 복사됩니다.</div>`, '연습 시작')) return;
+  toast('실제 자료를 복사하는 중...');
+  const d = await run(() => api('/admin/backup')); if (!d) return;
+  setPractice(true); ADMPRAC = true; PIN = '0000';
+  try {
+    const r = await practiceFetch('/practice/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || '복사하지 못했습니다');
+    ME = await api('/login');
+  } catch (e) { ADMPRAC = false; setPractice(false); PIN = ''; return toast(e.message, 3500); }
+  TAB = 'tpl'; renderAdmin(); toast('연습을 시작합니다. 실제 운영에는 반영되지 않습니다', 3000);
+}
+async function endAdminPractice() {
+  if (TPL_DIRTY && !confirm('연습 근무표에 저장하지 않은 변경이 있습니다. 그래도 끝낼까요?')) return;
+  ADMPRAC = false; setPractice(false); PIN = ''; TPL_DIRTY = false; TAB = 'tpl';
+  try { ME = await api('/login'); } catch (e) { location.href = './'; return; }
+  renderAdmin(); toast('연습을 끝내고 실제 화면으로 돌아왔습니다');
+}
 async function renderAdmin() {
   const wk = TAB === 'grid' ? api('/week?from=' + WEEK) : null; if (wk) wk.catch(() => {});
   const [sf, rq] = await Promise.all([run(() => api('/admin/staff')), run(() => api('/admin/requests'))]);
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
-  const tabs = [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '직원근무'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
-  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>관리자</h1><span style="display:flex;gap:6px"><a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button></span></div>
+  const tabs = ADMPRAC ? [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['pay', '급여'], ['staff', '직원']]
+    : [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '직원근무'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
+  if (!tabs.some(([k]) => k === TAB)) TAB = tabs[0][0];
+  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>${ADMPRAC ? '관리자 연습' : '관리자'}</h1><span style="display:flex;gap:6px">${ADMPRAC
+      ? '<button class="sm pri" id="pracEnd">연습 끝내기</button>'
+      : `${PRACTICE ? '' : '<button class="sm" id="pracGo" style="background:#ff8f00;color:#fff">연습</button>'}<a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button>`}</span></div>
+    ${ADMPRAC ? '<div class="card" style="background:#fff3e0;font-size:13px;color:#7a4a00">실제 직원·근무표·기록을 복사한 <b>연습장</b>입니다. 여기서 바꾼 내용은 실제 운영에 반영되지 않고 이 기기에만 남습니다.</div>' : ''}
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
-  $('#out').onclick = logout;
+  if ($('#out')) $('#out').onclick = logout;
+  if ($('#pracGo')) $('#pracGo').onclick = startAdminPractice;
+  if ($('#pracEnd')) $('#pracEnd').onclick = endAdminPractice;
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderAdmin(); });
   ({ tpl: tabTpl, grid: tabGrid, punch: tabPunch, req: () => tabReq(reqs), pay: tabPay, staff: tabStaff, bak: tabBackup })[TAB]();
 }
@@ -1726,6 +1785,32 @@ function drawDay() {
     if (await run(() => api('/admin/punch/delete', { id: p.id }))) { toast('삭제했습니다'); tabPunch(); }
   });
 }
+// ===== 시간 고르기 (오전 흰색 · 오후 노랑, 오후는 24시간제 숫자) =====
+const tLabel = t => { if (!t) return '<span class="muted">시간 선택</span>'; const hh = +t.slice(0, 2);
+  return `<span class="${hh < 12 ? 'am' : 'pm'}">${hh < 12 ? '오전' : '오후'}</span> ${t}`; };
+function pickTime(cur, title, check) {
+  return new Promise(res => {
+    let hh = +cur.slice(0, 2), mm = Math.round(+cur.slice(3) / 5) * 5 % 60;
+    const bg = document.createElement('div'); bg.className = 'mbg tpbg';
+    const draw = () => {
+      const pm = hh >= 12, t = pad(hh) + ':' + pad(mm), msg = check ? check(t) : '';
+      const hours = pm ? [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+      bg.innerHTML = `<div class="tpick"><div class="tptitle">${esc(title)}</div>
+        <div class="tpnow"><span class="${pm ? 'pm' : 'am'}">${pm ? '오후' : '오전'}</span> ${t}</div>
+        <div class="tpap"><button data-ap="am" class="am ${pm ? '' : 'on'}">오전</button><button data-ap="pm" class="pm ${pm ? 'on' : ''}">오후</button></div>
+        <div class="tplab">시</div><div class="tpgrid">${hours.map(x => `<button data-h="${x}" class="${x === hh ? 'on' : ''}">${x}</button>`).join('')}</div>
+        <div class="tplab">분</div><div class="tpgrid">${[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(x => `<button data-mi="${x}" class="${x === mm ? 'on' : ''}">${pad(x)}</button>`).join('')}</div>
+        <div class="tpmsg">${esc(msg)}</div>
+        <div class="tpbtns"><button data-c>취소</button><button data-y class="pri" ${msg ? 'disabled' : ''}>확인</button></div></div>`;
+      bg.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => { const toPm = b.dataset.ap === 'pm'; if (toPm && hh < 12) hh += 12; if (!toPm && hh >= 12) hh -= 12; draw(); });
+      bg.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { hh = +b.dataset.h; draw(); });
+      bg.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { mm = +b.dataset.mi; draw(); });
+      bg.querySelector('[data-c]').onclick = () => { bg.remove(); res(null); };
+      bg.querySelector('[data-y]').onclick = () => { if (msg) return; bg.remove(); res(t); };
+    };
+    draw(); document.body.appendChild(bg);
+  });
+}
 async function editPunch(p, fromWeek, day) {
   const dd = p ? ymd(p.start) : (day || ymd(Date.now())), dt = new Date(dd + 'T00:00');
   const noBrk = id => { const s = STAFF.find(x => x.id === +id); return s && s.use_break === 0; };
@@ -1734,13 +1819,20 @@ async function editPunch(p, fromWeek, day) {
   setTimeout(() => {                                  // 근무시간(휴게 제외)을 바로 보여 준다
     const upd = () => { const el = $('#kW'); if (!el) return;
       const a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
+      const ok = [...document.querySelectorAll('.mbg [data-ok]')].pop();
+      if (ok) ok.disabled = false; el.style.color = '';
       if (!a || !b) { el.textContent = '-'; return; }
       const min = Math.round((toMs(dd, b) - toMs(dd, a)) / MIN);
-      if (min <= 0) { el.textContent = '퇴근이 출근보다 빠릅니다'; return; }
+      if (min <= 0) { el.textContent = '퇴근시간이 출근시간보다 빠릅니다'; el.style.color = 'var(--bad)'; if (ok) ok.disabled = true; return; }
       const br = r === '' ? autoBrk($('#kS').value, min) : Math.max(0, +r || 0);
       el.textContent = min - br > 0 ? `${fmtH(min - br)} (전체 ${fmtH(min)} - 휴게 ${br}분)` : '휴게시간이 너무 깁니다';
     };
     ['kA', 'kB', 'kR'].forEach(id => { const el = $('#' + id); if (el) el.oninput = upd; });
+    const mins = t => t ? +t.slice(0, 2) * 60 + +t.slice(3) : null;
+    $('#kAb').onclick = async () => { const v = await pickTime($('#kA').value || '09:00', '출근 시간', t => $('#kB').value && mins(t) >= mins($('#kB').value) ? '퇴근시간이 출근시간보다 빠릅니다' : '');
+      if (v) { $('#kA').value = v; $('#kAb').innerHTML = tLabel(v); upd(); } };
+    $('#kBb').onclick = async () => { const v = await pickTime($('#kB').value || $('#kA').value || '15:00', '퇴근 시간', t => $('#kA').value && mins(t) <= mins($('#kA').value) ? '퇴근시간이 출근시간보다 빠릅니다' : '');
+      if (v) { $('#kB').value = v; $('#kBb').innerHTML = tLabel(v); upd(); } };
     const ks = $('#kS'), sync = () => { const off = noBrk(ks.value);
       $('#kR').placeholder = off ? '비우면 0 (직원 설정: 휴게 없음)' : '비우면 자동 (4시간 이상 30분 · 8시간 30분 이상 60분)';
       $('#kRn').innerHTML = `비워 두면 <b>직원 설정</b>(${off ? '휴게 없음' : '휴게 사용 · 자동'})을 따릅니다. 이 날만 다르게 하려면 분을 넣으세요 (넣은 값이 우선).`; upd(); };
@@ -1748,7 +1840,8 @@ async function editPunch(p, fromWeek, day) {
   }, 0);
   const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'} · ${dt.getMonth() + 1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</h3><label>이름</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
     <input type="hidden" id="kD" value="${dd}">
-    <div class="row"><div><label>출근</label><input type="time" id="kA" value="${p ? hhmm(p.start) : ''}"></div><div><label>퇴근</label><input type="time" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"></div></div>
+    <div class="row"><div><label>출근</label><input type="hidden" id="kA" value="${p ? hhmm(p.start) : ''}"><button type="button" class="tbtn" id="kAb">${tLabel(p ? hhmm(p.start) : '')}</button></div>
+      <div><label>퇴근</label><input type="hidden" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"><button type="button" class="tbtn" id="kBb">${tLabel(p && p.end ? hhmm(p.end) : '')}</button></div></div>
     <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${defBrk}">
     <div class="muted" style="font-size:12px" id="kRn">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
     <div class="wbox">근무시간 (휴게 제외): <b id="kW">-</b></div>`, '저장', () => {
