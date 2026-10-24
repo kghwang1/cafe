@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 매장관리</title>
-<meta name="app-version" content="2026-10-22.8">
+<meta name="app-version" content="2026-10-25.1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,6 +193,48 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 60px}
 .wby{font-size:.72em;font-weight:700;margin-top:3px}
 .wmsg{background:var(--amt-bg);color:var(--hot);border-radius:10px;padding:8px 12px;font-size:15px;font-weight:600;margin:0 2px 10px;line-height:1.45}
 .wrow.busy{opacity:.5}
+/* 사용법 */
+.eqbtn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);
+  border:1.5px solid var(--line);border-radius:14px;padding:14px;margin-bottom:9px;font:inherit;color:var(--ink)}
+.eqbtn:active{border-color:var(--green)}
+.eqic{flex:none;width:48px;height:48px;border-radius:12px;background:var(--less-bg);
+  display:flex;align-items:center;justify-content:center;font-size:26px}
+.eqt{flex:1;line-height:1.35;min-width:0}
+.eqt b{display:block;font-size:.92em}
+.eqt span{font-size:15px;color:var(--muted)}
+.eqgo{flex:none;font-size:26px;color:var(--muted)}
+.mtop{display:flex;align-items:center;gap:10px;margin:14px 2px 2px}
+.mttl{font-weight:700;font-size:1.05em}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:5px;background:var(--amt-bg);border-radius:12px;
+  padding:10px 12px;margin:2px 0 10px}
+.flow span{font-size:.78em;font-weight:700;color:var(--hot)}
+.flow i{font-style:normal;color:var(--hot);font-size:.7em}
+.flow.sm span{font-size:.7em}
+.mstep{display:flex;gap:11px;align-items:flex-start;border-top:1px dashed var(--line);padding:11px 0}
+.mstep:first-child{border-top:0}
+.mno{flex:none;width:28px;height:28px;border-radius:50%;background:var(--green);color:var(--butter);
+  display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
+.mno.hot{background:var(--hot);color:#fff}
+.mtx{flex:1;min-width:0}
+.mtx b{display:block;font-size:.85em;line-height:1.4}
+.mtx b.r{color:var(--hot)}
+.mtx span{display:block;font-size:.76em;line-height:1.45;color:var(--muted);margin-top:2px}
+.mtx span.r{color:var(--hot);font-weight:700}
+.memo{background:var(--less-bg);border-left:4px solid var(--etc);border-radius:0 10px 10px 0;
+  padding:9px 12px;margin:0 0 10px;font-size:.76em;line-height:1.55;color:var(--etc);font-weight:600}
+.warn2{background:var(--amt-bg);color:var(--hot);font-weight:700;border-radius:12px;padding:11px 13px;
+  margin:0 0 10px;font-size:.8em;line-height:1.5}
+.mrow.bl{display:block}
+.ulist{margin:0 0 10px;padding:0 0 0 1.15em;list-style:none}
+.ulist li{position:relative;font-size:.8em;line-height:1.55;padding:5px 0}
+.ulist li::before{content:"•";position:absolute;left:-1em;color:var(--etc);font-weight:700}
+.ulist li.r{color:var(--hot);font-weight:700}
+.ulist li.r::before{color:var(--hot)}
+.qa{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:9px}
+.qa b{display:block;font-size:.84em;line-height:1.45;color:var(--green)}
+:root[data-theme="dark"] .qa b{color:var(--butter)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .qa b{color:var(--butter)}}
+.qa span{display:block;font-size:.78em;line-height:1.55;margin-top:6px}
 /* 기록 보기 */
 .rbg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding:14px;z-index:40;overflow:auto}
 .rmod{background:var(--card);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:520px;margin:auto}
@@ -238,6 +280,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       <button class="tab" data-m="open">오픈</button>
       <button class="tab" data-m="close">마감</button>
       <button class="tab" data-m="clean">청소</button>
+      <button class="tab" data-m="manual">사용법</button>
       <button class="tab" data-m="parts">소모품</button>
       <button class="tab" data-m="video">동영상</button>
     </div>
@@ -248,7 +291,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-22.8';
+  const APP_VERSION = '2026-10-25.1';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -410,6 +453,84 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       `<div class="sub-t">${esc(sub)}</div>`;
   }
 
+  // ---------- 사용법: 장비별 사용 설명 ----------
+  let MAN = null;                                   // null=목록, 'airfryer'=상세
+  const EQUIP = [['airfryer', '듀얼 에어프라이어', '닌자(NINJA) · 바스켓 2칸', '🍟']];
+  const li = a => a.map(t => `<li>${esc(t)}</li>`).join('');
+  function manualHTML() {
+    if (!MAN) {
+      return `<div class="sec">사용법</div><div class="sub-t">장비를 누르면 사용법이 열립니다</div>` +
+        EQUIP.map(([k, n, s, ic]) =>
+          `<button class="eqbtn" data-eq="${k}"><span class="eqic">${ic}</span>` +
+          `<span class="eqt"><b>${esc(n)}</b><span>${esc(s)}</span></span><span class="eqgo">›</span></button>`).join('');
+    }
+    const FLOW = ['전원', '바스켓 번호 선택', '더블스택', '온도', '시간', '시작'];
+    const STEP = [
+      ['전원을 누른다.', []],
+      ['바스켓 번호를 누른다.', ['1번(상단) 또는 2번(하단) 바스켓에 베이커리를 넣고,', '베이커리가 들어있는 번호를 누른다.']],
+      ['더블스택 버튼을 눌러준다.', ['조리 활성화 버튼입니다. 꼭 눌러야 합니다.'], 1],
+      ['온도 버튼을 누르고, 아래 화살표로 원하는 온도를 설정한다.', ['초기 설정온도 240도']],
+      ['시간 버튼을 누르고, 아래 화살표로 원하는 시간을 설정한다.', ['초기 설정시간 30분']],
+      ['시작 버튼을 누르면 조리가 시작된다.', []],
+    ];
+    const BTN = [
+      ['1번 / 2번 버튼', '1번 바스켓(윗칸) / 2번 바스켓(아랫칸) — 베이커리를 조리할 바스켓 선택'],
+      ['온도 · 시간 버튼', '조리 온도, 시간 선택 버튼'],
+      ['∧ ∨ 화살표', '조리 온도, 시간 조절 버튼'],
+      ['더블 스택 Pro', '골고루 익힘 버튼'],
+      ['동기화 · 일치', '1번, 2번 바스켓 동시 조리 버튼 (동일한 온도 및 시간으로 조리시에만 사용)'],
+      ['전원 / ▶❚', '전원 버튼 / 시작, 멈춤 버튼'],
+      ['온도 · 시간 패널', '설정한 온도와 시간을 확인 (상단 : 온도 / 하단 : 시간)'],
+    ];
+    const PREP = [
+      ['바스켓을 꺼낸다.', ''],
+      ['바스켓 내부에 그릴판을 넣어준다.', '바스켓에 기본 장착되어 있는 하단의 트레이는 제거하고 사용!'],
+      ['그릴판 위에 조리할 베이커리를 올려준 뒤 바스켓을 결착하고, 온도·시간 설정 후 조리한다.', ''],
+    ];
+    const QA = [
+      ['조작판의 ‘더블스택’ 버튼은 어떤 기능인가요?',
+       '더블스택 버튼은 팬 속도를 높여 고온에서 베이커리를 균일하게 조리할 수 있는 기능으로, 더블스택 버튼을 선택시에만 240도까지 설정이 가능합니다. 조작시 반드시 해당 버튼을 누르고 조리해주세요.'],
+      ['바스켓에 그릴판을 꼭 넣고 조리해야 하나요?',
+       '그릴판은 바스켓 내부에 열기 및 공기가 골고루 순환되고, 열전도 효율을 높여 제품이 편차 없이 조리될 수 있도록 합니다. 반드시 바스켓 내부에 그릴판을 넣은 상태에서 베이커리를 조리해주세요.'],
+      ['1번, 2번 바스켓을 동일한 온도와 시간으로 동시 조리할 때의 조작 방법이 궁금해요.',
+       '동일한 베이커리를 여러 개 조리시, 바스켓에 베이커리를 넣고 바스켓 번호 선택 대신 ‘일치’ 버튼을 눌러주면 1번, 2번 바스켓이 동일한 온도와 시간으로 조리됩니다. (전원 – 더블스택 – 일치 – 온도 – 시간 – 시작 순)'],
+      ['청소 및 관리는 어떻게 하나요?',
+       '베이커리를 조리하며 기름, 부스러기 등이 발생하므로, 일 마감 시 세척해주세요. 바스켓과 그릴판을 본체에서 분리하여 따뜻한 물에 주방세제로 세척하고, 에어프라이어 외부도 크린콜로 닦아주세요. 세척한 바스켓과 그릴판은 완전히 건조된 상태로 다시 결착하여 사용합니다.'],
+    ];
+    return `<div class="mtop"><button class="back" id="manBack">‹ 목록</button><div class="mttl">듀얼 에어프라이어</div></div>` +
+      `<div class="sec">사용 순서</div>` +
+      `<div class="flow">` + FLOW.map(t => `<span>${esc(t)}</span>`).join('<i>▶</i>') + `</div>` +
+      `<div class="wbox">` + STEP.map(([t, d, hot], i) =>
+        `<div class="mstep"><span class="mno${hot ? ' hot' : ''}">${i + 1}</span><div class="mtx">` +
+        `<b${hot ? ' class="r"' : ''}>${esc(t)}</b>` + d.map(x => `<span>${esc(x)}</span>`).join('') +
+        `</div></div>`).join('') + `</div>` +
+      `<div class="memo">메모 · 화살표를 꾹 누르면 5분씩 바뀝니다. · 더블스택 Pro를 눌러야 240도까지 올라갑니다. · 에어프라이 기능만 사용합니다.</div>` +
+      `<div class="wband">1번·2번을 같이 조리할 때</div>` +
+      `<div class="flow sm"><span>전원</span><i>▶</i><span>더블스택</span><i>▶</i><span>일치</span><i>▶</i><span>온도</span><i>▶</i><span>시간</span><i>▶</i><span>시작</span></div>` +
+      `<div class="sub-t">같은 베이커리를 여러 개 조리할 때만 사용합니다.</div>` +
+      `<div class="sec">바스켓 준비</div>` +
+      `<div class="wbox">` + PREP.map(([t, w], i) =>
+        `<div class="mstep"><span class="mno">${i + 1}</span><div class="mtx"><b>${esc(t)}</b>` +
+        (w ? `<span class="r">${esc(w)}</span>` : '') + `</div></div>`).join('') + `</div>` +
+      `<div class="warn2">★ 바스켓 내부에 기본 장착된 트레이는 제거하고, 베이커리가 고루 조리되도록 그릴판을 반드시 넣고 그릴판 위에 올려 조리 ★</div>` +
+      `<div class="sec">제품 구성</div>` +
+      `<div class="mbox"><div class="mrow"><span class="mitem">에어프라이어 본체<span class="mspec">닌자 듀얼 에어프라이어</span></span><span class="cyc">1대</span></div>` +
+      `<div class="mrow"><span class="mitem">바스켓</span><span class="cyc">2EA</span></div>` +
+      `<div class="mrow"><span class="mitem">트레이<span class="mspec">빼고 사용</span></span><span class="cyc d">2EA</span></div>` +
+      `<div class="mrow"><span class="mitem">그릴판<span class="mspec">반드시 넣고 사용 · 열전도율</span></span><span class="cyc m">2EA</span></div></div>` +
+      `<div class="sec">조작 버튼</div>` +
+      `<div class="mbox">` + BTN.map(([n, d]) =>
+        `<div class="mrow bl"><span class="mitem">${esc(n)}<span class="mspec">${esc(d)}</span></span></div>`).join('') + `</div>` +
+      `<div class="sec">사용시 유의사항</div>` +
+      `<ul class="ulist">` + li([
+        '에어프라이어 기능 외 다른 기능들이 탑재 되어있어, 조작버튼 외에 다른 버튼 누르지 않도록 주의한다.',
+        '‘에어프라이’ 기능에 불이 들어왔다면 에어프라이어 기능으로 작동중!',
+        '조리 완료 후 ‘COOL’ 이 화면에 뜨면서, 뜨거워진 내부를 식히고 순환시키기 위해 뜨거운 바람이 나오므로 바스켓 결착시 화상에 주의한다.']) +
+      `<li class="r">바스켓 내부로 손을 넣거나 하는 행동 금지! 반드시 집게 사용</li></ul>` +
+      `<div class="sec">Q&amp;A</div>` +
+      QA.map(([q, a]) => `<div class="qa"><b>Q. ${esc(q)}</b><span>A. ${esc(a)}</span></div>`).join('');
+  }
+
   function html(m) {
     let h = '';
     if (m === 'open') {
@@ -436,6 +557,8 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
         h += `<div class="mbox"><div class="mname">${esc(n)}</div>` + rows.map(([t, c]) =>
           `<div class="mrow"><span class="mitem">${esc(t)}</span><span class="cyc ${cycCls(c)}">${esc(c)}</span></div>`).join('') + `</div>`;
       });
+    } else if (m === 'manual') {
+      h += manualHTML();
     } else if (m === 'parts') {
       h += `<div class="sec">소모품 교체 주기</div><div class="sub-t">규격을 확인하고 주기에 맞춰 미리 재고를 준비하세요</div>`;
       MG.parts.forEach(([n, rows]) => {
@@ -449,16 +572,16 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
           `<a class="vbtn" href="${u}" target="_blank" rel="noopener"><span class="vplay">▶</span><span class="vtxt"><b>${esc(t)}</b><span>${esc(d)}</span></span></a>`).join('');
       });
     }
-    return h;   // 버전 표시는 홈에서만
+    return h + `<div class="ver">앱 버전 ${APP_VERSION}</div>`;
   }
-  const MODES = ['open', 'close', 'clean', 'parts', 'video'];
+  const MODES = ['open', 'close', 'clean', 'manual', 'parts', 'video'];
   const $list = document.getElementById('list'), $hdr = document.querySelector('header');
   const fixPad = () => { document.documentElement.style.scrollPaddingTop = ($hdr.offsetHeight + 8) + 'px'; };
   let mode = 'clean';
   try { const m = localStorage.getItem('oozy-store-mode'); if (MODES.includes(m)) mode = m; } catch (e) {}
   function draw() { const y = window.scrollY; $list.innerHTML = html(mode); fixPad(); window.scrollTo(0, y); }
   function setMode(m) {
-    mode = m; try { localStorage.setItem('oozy-store-mode', m); } catch (e) {}
+    mode = m; MAN = null; try { localStorage.setItem('oozy-store-mode', m); } catch (e) {}
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.m === m));
     $list.innerHTML = html(m); fixPad(); window.scrollTo(0, 0);
     if (m === 'open' || m === 'close') loadDay(true);
@@ -485,8 +608,11 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       draw();
     } catch (e) { r.classList.remove('busy'); toastMsg(msgOf(e)); }
   }
+  const redraw = () => { $list.innerHTML = html(mode); fixPad(); window.scrollTo(0, 0); };
   $list.addEventListener('click', e => {
     if (e.target.closest('#recBtn')) { openRecords(); return; }
+    const eq = e.target.closest('[data-eq]'); if (eq) { MAN = eq.dataset.eq; redraw(); return; }
+    if (e.target.closest('#manBack')) { MAN = null; redraw(); return; }
     const r = e.target.closest('.wrow'); if (r) toggleRow(r);
   });
   $list.addEventListener('keydown', e => { if (e.key !== 'Enter' && e.key !== ' ') return; const r = e.target.closest('.wrow'); if (r) { e.preventDefault(); toggleRow(r); } });
