@@ -130,19 +130,21 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '10.27.-v.30',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
+  VERSION: '10.27.-v.31',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
-  APPS: [   // key: 서버(worker.js)의 APP_KEYS 와 같아야 함
+  APPS: [   // key/perm: 서버(worker.js)의 APP_KEYS 와 같아야 함. perm 은 문자열 또는 배열(하나라도 있으면 보임)
     { key: 'work', name: '근무 · 급여', ic: '🕐', bg: '#e3f1e8', url: 'https://kghwang1.github.io/cafe/oozy-work.html' },
-    { key: 'store', name: '매장관리', ic: '🧽', bg: '#e6f3f5', url: 'https://kghwang1.github.io/cafe/oozy-store.html' },
-    { key: 'recipe', name: '레시피', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/cafe/oozy-recipe.html' },
+    { key: 'store', name: '오픈 마감', ic: '🧽', bg: '#e6f3f5', url: 'https://kghwang1.github.io/cafe/oozy-store.html' },
     { key: 'stock', name: '재고관리', ic: '📦', bg: '#f1ecd2', url: 'https://kghwang1.github.io/cafe/oozy-stock.html' },
-    { key: 'ledger', name: '카페 운영', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/cafe/oozy-ledger.html' },
-    { key: 'opening', perm: 'ledger', name: '개업자료', ic: '📒', bg: '#e8efe9', url: 'https://kghwang1.github.io/cafe/oozy-opening.html' },   // perm: 카페 운영과 같은 권한으로 열림
-    { key: 'coffee', name: '커피회사', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
-      subs: [['장비 견적', 'https://kghwang1.github.io/coffee-board/equipment.html'], ['매장 지도', 'https://kghwang1.github.io/coffee-board/map.html']] },
+    { key: 'device', perm: 'store', name: '기기관리', ic: '🔧', bg: '#e9e6f3', url: 'https://kghwang1.github.io/cafe/oozy-device.html',
+      subs: [['청소', 'https://kghwang1.github.io/cafe/oozy-device.html?tab=clean'], ['사용법', 'https://kghwang1.github.io/cafe/oozy-device.html?tab=manual'], ['동영상', 'https://kghwang1.github.io/cafe/oozy-device.html?tab=video']] },
+    { key: 'recipe', name: '레시피', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/cafe/oozy-recipe.html' },
+    { key: 'sales', perm: 'ledger', name: '매출분석', ic: '📈', bg: '#fff1d6', url: 'https://kghwang1.github.io/cafe/oozy-sales.html' },
+    { key: 'data', perm: ['ledger', 'coffee'], name: '자료', ic: '🗂', bg: '#e6ecfa', url: 'https://kghwang1.github.io/cafe/oozy-ledger.html',
+      subs: [['보관 자료', 'https://kghwang1.github.io/cafe/oozy-ledger.html?tab=memo', 'ledger'], ['커피 회사', 'https://kghwang1.github.io/cafe/oozy-ledger.html?tab=coffee', 'coffee']] },
+    { key: 'opening', perm: 'ledger', name: '개업자료', ic: '📒', bg: '#e8efe9', url: 'https://kghwang1.github.io/cafe/oozy-opening.html' },   // perm: 같은 권한으로 열림
   ],
 };
 
@@ -163,7 +165,7 @@ $('#ver').textContent = CFG.VERSION;
 
 function card(a) {
   const off = !a.url;
-  const subs = a.subs ? `<div class="subs">${a.subs.map(([n, u]) => `<a href="${esc(u)}">${esc(n)}</a>`).join('')}</div>` : '';
+  const subs = a.subs ? `<div class="subs">${a.subs.filter(s => !s[2] || (AUTH && AUTH.apps.includes(s[2]))).map(([n, u]) => `<a href="${esc(u)}">${esc(n)}</a>`).join('')}</div>` : '';
   // 카드 전체를 덮는 링크 + 그 위에 작은 바로가기 (링크 안에 링크를 넣지 않음)
   return `<div class="app${off ? ' off' : ''}"><a class="cover" ${off ? 'href="#" data-missing="1"' : `href="${esc(a.url)}"`} aria-label="${esc(a.name)}"></a>
     <div class="ic" style="background:${a.bg}">${a.ic}</div><b>${esc(a.name)}</b>${subs}</div>`;
@@ -258,8 +260,9 @@ function render() {
   $('#qrCard').hidden = !(AUTH && AUTH.role === 'admin');
   ctSetup();
   if (!AUTH) return renderLogin();
-  const list = CFG.APPS.filter(a => AUTH.apps.includes(a.perm || a.key));
-  const deny = need && AUTH && !AUTH.apps.includes(need) ? (CFG.APPS.find(a => a.key === need) || {}).name : '';
+  const hasPerm = a => [].concat(a.perm || a.key).some(k => AUTH.apps.includes(k));
+  const list = CFG.APPS.filter(hasPerm);
+  const deny = need && AUTH && !AUTH.apps.includes(need) ? (CFG.APPS.find(a => [].concat(a.perm || a.key).includes(need)) || {}).name : '';
   $('#main').innerHTML = `<div class="who"><span><b>${esc(AUTH.name)}</b>님${AUTH.role === 'admin' ? ' <span class="tagad">관리자</span>' : ''}</span>
       <span class="whob">${AUTH.role === 'admin' ? '<button id="admBtn">⚙ 관리</button>' : ''}<button id="outBtn">로그아웃</button></span></div>
     ${deny ? `<div class="denied">「${esc(deny)}」 메뉴는 쓸 수 없습니다. 관리자에게 문의하세요.</div>` : ''}
@@ -285,7 +288,7 @@ function renderLogin() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { e.textContent = j.error || '로그인하지 못했습니다'; $('#lgB').disabled = false; return; }
       ls.set(TK, j.token); AUTH = { role: j.role, name: j.name, apps: j.apps }; ls.set(AK, JSON.stringify(AUTH)); render();
-      const back = need && AUTH.apps.includes(need) && CFG.APPS.find(x => x.key === need); if (back) location.replace(back.url);   // 가려던 메뉴로
+      const back = need && AUTH.apps.includes(need) && CFG.APPS.find(x => [].concat(x.perm || x.key).includes(need)); if (back) location.replace(back.url);   // 가려던 메뉴로
     } catch (err) { e.textContent = '서버에 연결하지 못했습니다. 인터넷을 확인하세요'; $('#lgB').disabled = false; }
   };
   $('#lgB').onclick = go; $('#lgP').onkeydown = ev => { if (ev.key === 'Enter') go(); }; $('#lgN').onkeydown = ev => { if (ev.key === 'Enter') $('#lgP').focus(); };
@@ -294,8 +297,9 @@ function renderLogin() {
 async function renderAdmin() {
   const box = $('#admBox'); box.innerHTML = '<div class="admcard muted">불러오는 중...</div>';
   let staff; try { staff = await call('/admin/staff'); } catch (e) { box.innerHTML = `<div class="admcard err">${esc(e.message)}</div>`; return; }
-  const DEF = ['work', 'store', 'recipe'];
-  const PERMAPPS = CFG.APPS.filter(a => !a.perm);   // 개업자료는 카페 운영 권한을 따라가므로 따로 칸을 두지 않음
+  const DEF = ['work', 'store', 'recipe', 'stock'];   // worker.js 의 STAFF_DEFAULT_APPS 와 같게
+  const PERMAPPS = [{ key: 'work', name: '근무 · 급여' }, { key: 'store', name: '오픈마감 · 기기' }, { key: 'stock', name: '재고관리' }, { key: 'recipe', name: '레시피' },
+    { key: 'ledger', name: '매출 · 자료 · 개업' }, { key: 'coffee', name: '커피회사' }];   // 권한 칸 (메뉴 카드와 별개)
   const appsOf = s => s.apps == null ? DEF : String(s.apps).split(',').filter(Boolean);
   box.innerHTML = `<div class="admcard"><b style="font-size:16px">직원별 메뉴 권한</b><div class="muted" style="font-size:12.5px;margin:2px 0 8px">체크하면 그 직원 홈 화면에 메뉴가 보입니다. 바로 저장됩니다.</div>
     <div style="overflow-x:auto"><table class="perm"><tr><th>직원</th>${PERMAPPS.map(a => `<th>${esc(a.name.replace(' · ', '·'))}</th>`).join('')}</tr>
