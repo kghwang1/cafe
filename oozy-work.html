@@ -238,7 +238,7 @@ const LONG_SHIFT_H = 8;        // 이보다 길면 경고
 const SCHEDULE_DIFF_MIN = 30;  // 스케줄과 이만큼 차이나면 경고
 const WEEK_LIMIT_MIN = 15 * 60;// 주 15시간
 const LATE_GRACE_MIN = 5;      // 이 분 이내 지각은 예정 시각으로 기록
-const EXTRA_WINDOW_H = 12;     // 예정 퇴근으로 자동 처리된 뒤 이 시간 안에는 '연장근무' 가능
+const EXTRA_WINDOW_H = 12;     // 예정 퇴근으로 자동 처리된 뒤 이 시간 안에는 '추가근무' 가능
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -417,7 +417,7 @@ function cleanGrid(g) {
 }
 const ownerKeys = grid => Object.keys(grid).filter(k => grid[k].includes('O'));
 
-// 퇴근을 안 눌러 예정 퇴근으로 자동 처리된 마지막 근무 — 연장근무·나가기 대상
+// 퇴근을 안 눌러 예정 퇴근으로 자동 처리된 마지막 근무 — 추가근무·나가기 대상
 async function lastExtendable(env, id, now) {
   const r = await env.DB.prepare("SELECT * FROM punch WHERE staff_id=? AND status='done' ORDER BY start DESC LIMIT 1").bind(id).first();
   if (!r || !r.plan_end || r.end_type !== 'auto' || r.end > now || now - r.end > EXTRA_WINDOW_H * HOUR) return null;
@@ -815,11 +815,11 @@ async function route(req, env) {
       return json({ ok: true, at: start, raw: now, planEnd: sch ? sch.end : null });
     }
 
-    // 퇴근: type = normal(나가기·정시) / early(조기퇴근) / extra(연장근무)
+    // 퇴근: type = normal(나가기·정시) / early(조기퇴근) / extra(추가근무)
     if (p === '/punch/out' && m === 'POST') {
       const type = ['normal', 'early', 'extra'].includes(b.type) ? b.type : 'normal';
       let row = await env.DB.prepare("SELECT * FROM punch WHERE staff_id=? AND status='open'").bind(id).first();
-      if (!row && type !== 'early') row = await lastExtendable(env, id, now);   // 예정 퇴근으로 자동 처리된 뒤 연장근무·나가기
+      if (!row && type !== 'early') row = await lastExtendable(env, id, now);   // 예정 퇴근으로 자동 처리된 뒤 추가근무·나가기
       if (!row) return err(type === 'early' ? '근무 중인 기록이 없습니다. 이미 예정 퇴근 시각으로 기록되었을 수 있습니다.' : '출근 기록이 없습니다. 출근을 안 찍었다면 "누락 기록 추가 요청"을 해주세요.', 409);
       if (now - (row.raw_start || row.start) < MIN) return err('방금 출근했습니다. 잠시 후 다시 시도하세요.', 409);
       const g = checkGps(env, b); if (g) return err(g, 403);
@@ -829,7 +829,7 @@ async function route(req, env) {
         if (pe) {
           end = pe;
           if (now < pe - 10 * MIN) warns.push(`예정 퇴근(${hm(pe)})보다 ${Math.round((pe - now) / MIN)}분 이릅니다. 일찍 가는 거라면 '조기퇴근'을 눌러주세요. 그래도 ${hm(pe)} 정시퇴근으로 기록할까요?`);
-          if (now > pe + 10 * MIN) warns.push(`예정 퇴근(${hm(pe)})보다 ${Math.round((now - pe) / MIN)}분 늦었습니다. 더 일했다면 '연장근무'를 눌러주세요. 그래도 ${hm(pe)}로 기록할까요?`);
+          if (now > pe + 10 * MIN) warns.push(`예정 퇴근(${hm(pe)})보다 ${Math.round((now - pe) / MIN)}분 늦었습니다. 더 일했다면 '추가근무'를 눌러주세요. 그래도 ${hm(pe)}로 기록할까요?`);
         }
       } else if (type === 'early') {
         if (pe && now >= pe) return err(`예정 퇴근(${hm(pe)})이 지났습니다. '나가기'를 누르세요.`, 409);
@@ -1569,7 +1569,7 @@ async function showMyConfirmed() {
   const box = [...document.querySelectorAll('.mbg')].pop();
   box.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { const r = list[+b.dataset.ms]; box.remove(); showSlip(r.slip, r.month, `<span class="stamp ok">확정 ${ymd(r.at)}</span>`); });
 }
-const END_LABEL = { auto: '예정 퇴근', normal: '정시', early: '조기퇴근', extra: '연장' };
+const END_LABEL = { auto: '예정 퇴근', normal: '정시', early: '조기퇴근', extra: '추가근무' };
 const endBadge = p => p.end_type ? `<span class="badge ${p.end_type === 'extra' ? 'warn' : p.end_type === 'early' ? 'bad' : ''}">${END_LABEL[p.end_type]}</span>` : '';
 function statusCard(st) {
   const o = st.open, last = st.last;
@@ -1578,15 +1578,15 @@ function statusCard(st) {
     return `<div class="muted">현재 상태</div>
       <div class="big" style="margin-top:4px"><span style="color:var(--ok)">근무 중</span> <span class="muted">${hhmm(o.start)}~${pe ? hhmm(pe) : ''}</span></div>
       ${pe ? `<div class="muted" style="margin-top:4px">퇴근 버튼을 누르지 않아도 <b>${hhmm(pe)}</b> 퇴근으로 기록됩니다.<br>일찍 가거나 더 일할 때만 아래 버튼을 눌러주세요.</div>`
-           : `<div class="warnlist">예정에 없는 근무입니다. 갈 때 꼭 <b>조퇴/연장근무</b>를 눌러야 퇴근 시각이 기록됩니다.</div>`}
+           : `<div class="warnlist">예정에 없는 근무입니다. 갈 때 꼭 <b>조퇴/추가근무</b>를 눌러야 퇴근 시각이 기록됩니다.</div>`}
       <div class="outbtns">
-        ${pe ? `<button class="bad" data-act="early">조기퇴근<small>일찍 감</small></button>` : ''}<button class="warn" data-act="extra">${pe ? '연장근무<small>더 일함</small>' : '조퇴/연장근무<small>지금 퇴근</small>'}</button>
+        ${pe ? `<button class="bad" data-act="early">조기퇴근<small>일찍 감</small></button>` : ''}<button class="warn" data-act="extra">${pe ? '추가근무<small>더 일함</small>' : '조퇴/추가근무<small>지금 퇴근</small>'}</button>
         <button class="pri" data-act="normal">나가기${pe ? `<small>${hhmm(pe)} 퇴근</small>` : ''}</button>
       </div>`;
   }
   return `<div class="muted">현재 상태</div><div class="big" style="margin-top:4px">퇴근 상태</div>
-    ${last ? `<div class="warnlist" style="background:#eef4ff">오늘 근무 <b>${hhmm(last.start)}~${hhmm(last.end)}</b> — 예정 퇴근 시각으로 기록됐습니다.<br>예정보다 더 일했다면 <b>연장근무</b>를 눌러주세요.</div>
-      <div class="outbtns"><button class="warn" data-act="extra">연장근무</button><button data-act="normal">나가기</button></div>` : ''}
+    ${last ? `<div class="warnlist" style="background:#eef4ff">오늘 근무 <b>${hhmm(last.start)}~${hhmm(last.end)}</b> — 예정 퇴근 시각으로 기록됐습니다.<br>예정보다 더 일했다면 <b>추가근무</b>를 눌러주세요.</div>
+      <div class="outbtns"><button class="warn" data-act="extra">추가근무</button><button data-act="normal">나가기</button></div>` : ''}
     ${st.punchOn === false ? `<button class="punchbtn off" disabled>출근하기<small>지금은 잠겨 있습니다 · 관리자에게 문의하세요</small></button>` : `<button class="punchbtn ok" data-act="in">출근하기</button>`}`;
 }
 async function punchIn() {
@@ -1603,11 +1603,11 @@ async function leave(type, row) {
   // 나가기: 기록은 건드리지 않고 화면만 닫음 (예정 퇴근 시각으로 자동 기록됨)
   if (type === 'normal') {
     logout();
-    toast(pe ? `예정대로 ${pe} 퇴근으로 기록됩니다.` : '퇴근 시각은 기록되지 않았습니다. 갈 때 조퇴/연장근무를 눌러주세요.', 4000);
+    toast(pe ? `예정대로 ${pe} 퇴근으로 기록됩니다.` : '퇴근 시각은 기록되지 않았습니다. 갈 때 조퇴/추가근무를 눌러주세요.', 4000);
     return;
   }
   const msg = type === 'early' ? `지금 <b>${now}</b> <b style="color:var(--bad)">조기퇴근</b>으로 기록할까요?`
-    : type === 'extra' ? (pe ? `지금 <b>${now}</b>까지 <b style="color:var(--warn)">연장근무</b>로 기록할까요?` : `지금 <b>${now}</b> 퇴근으로 기록할까요?<div class="muted" style="font-size:13px;margin-top:4px">예정에 없는 근무라 실제 시각으로 기록됩니다.</div>`)
+    : type === 'extra' ? (pe ? `지금 <b>${now}</b>까지 <b style="color:var(--warn)">추가근무</b>로 기록할까요?` : `지금 <b>${now}</b> 퇴근으로 기록할까요?<div class="muted" style="font-size:13px;margin-top:4px">예정에 없는 근무라 실제 시각으로 기록됩니다.</div>`)
     : pe ? `<b>정시퇴근</b> — <b>${pe}</b> 퇴근으로 기록하고 나갑니다.` : `지금 <b>${now}</b> 퇴근으로 기록하고 나갑니다.`;
   const ok = await modal(`<div style="text-align:center;padding:10px 0"><div class="big">${esc(ME.name)}님</div><div style="font-size:17px;margin-top:10px;line-height:1.5">${msg}</div></div>`,
     'YES', undefined, 'NO');
@@ -2171,7 +2171,7 @@ async function tabPay() {
   const confAt = PAY.staff.map(s => s.confirmedAt).filter(Boolean).sort().pop();
   const unres = PAY.staff.reduce((a, s) => a + s.unresolved, 0);
   $('#paybody').innerHTML = `<div class="card wagecard"><b>시급 설정</b>
-      <div class="wrow"><span>기본근무 시급</span><span class="wi"><input type="number" id="bsW" inputmode="numeric" step="10" min="0" value="${SET.baseWage || SET.minWage || 10320}">원</span></div>
+      <div class="wrow"><span>기본근무 시급</span><span class="wi"><input type="number" id="bsW" inputmode="numeric" step="10" min="0" placeholder="${SET.minWage || 10320}" value="${SET.baseWage || SET.minWage || 10320}">원<button type="button" class="sm" id="bsMin">법정시급</button></span></div>
       <div class="muted" style="font-size:12px">기본은 법정 최저시급 ${won(SET.minWage || 10320)}입니다. 저장하면 <b>모든 직원의 시급</b>이 이 금액으로 바뀌고, 새 직원도 이 금액으로 등록됩니다. (한 사람만 다르게 하려면 저장 뒤 직원 탭에서 고치세요)</div>
       <div class="wrow"><span>추가근무 시급</span><span class="wi"><input type="number" id="otW" inputmode="numeric" step="10" min="0" placeholder="비우면 기본 시급" value="${SET.otWage || ''}">원</span></div>
       <div class="muted" style="font-size:12px">근무기록에서 <b>추가근무</b>로 체크한 기록에만 적용됩니다. 비워 두면 기본 시급으로 계산합니다.${SET.minWage ? ` (참고: 법정시급의 1.5배 = ${won(Math.round(SET.minWage * 1.5))})` : ''}</div>
@@ -2193,8 +2193,9 @@ async function tabPay() {
       ${(s.juhuWeeks || []).length ? `<div class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"><b>주휴수당</b><br>${juhuTxt(s).join('<br>')}</div>` : ''}
       ${s.unresolved ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${s.unresolved}건이 계산에서 빠졌습니다. 기록 탭에서 정리하세요.</div>` : ''}
     </div>`).join('');
+  $('#bsMin').onclick = () => { $('#bsW').value = SET.minWage || 10320; toast(`법정 최저시급 ${won(SET.minWage || 10320)}을 넣었습니다. 시급 저장을 누르세요`); };
   $('#wSave').onclick = async () => {
-    const bw = +$('#bsW').value, v = $('#otW').value.trim(), minW = SET.minWage || 10320;
+    const bw = +($('#bsW').value || SET.minWage || 10320), v = $('#otW').value.trim(), minW = SET.minWage || 10320;
     if (!(bw >= 1000)) return toast('기본근무 시급을 확인하세요');
     if (v !== '' && !(+v >= 1000)) return toast('추가근무 시급을 확인하세요');
     const body = { otWage: v === '' ? null : +v };
