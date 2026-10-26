@@ -130,13 +130,15 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '10.26.-v.24',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
+  VERSION: '10.26.-v.25',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
   APPS: [   // key: 서버(worker.js)의 APP_KEYS 와 같아야 함
     { key: 'work', name: '근무 · 급여', ic: '🕐', bg: '#e3f1e8', url: 'https://kghwang1.github.io/cafe/oozy-work.html' },
     { key: 'store', name: '매장관리', ic: '🧽', bg: '#e6f3f5', url: 'https://kghwang1.github.io/cafe/oozy-store.html' },
+    { key: 'stock', name: '재고관리', ic: '📦', bg: '#eaf0e2', url: 'https://kghwang1.github.io/cafe/oozy-stock.html',
+      subs: [['재고관리', 'https://kghwang1.github.io/cafe/oozy-stock.html?tab=stock'], ['소모품', 'https://kghwang1.github.io/cafe/oozy-stock.html?tab=parts']] },
     { key: 'recipe', name: '레시피', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/cafe/oozy-recipe.html' },
     { key: 'ledger', name: '카페 운영', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/cafe/oozy-ledger.html' },
     { key: 'coffee', name: '커피회사', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
@@ -292,7 +294,7 @@ function renderLogin() {
 async function renderAdmin() {
   const box = $('#admBox'); box.innerHTML = '<div class="admcard muted">불러오는 중...</div>';
   let staff; try { staff = await call('/admin/staff'); } catch (e) { box.innerHTML = `<div class="admcard err">${esc(e.message)}</div>`; return; }
-  const DEF = ['work', 'store', 'recipe'];
+  const DEF = ['work', 'store', 'recipe', 'stock'];
   const appsOf = s => s.apps == null ? DEF : String(s.apps).split(',').filter(Boolean);
   box.innerHTML = `<div class="admcard"><b style="font-size:16px">직원별 메뉴 권한</b><div class="muted" style="font-size:12.5px;margin:2px 0 8px">체크하면 그 직원 홈 화면에 메뉴가 보입니다. 바로 저장됩니다.</div>
     <div style="overflow-x:auto"><table class="perm"><tr><th>직원</th>${CFG.APPS.map(a => `<th>${esc(a.name.replace(' · ', '·'))}</th>`).join('')}</tr>

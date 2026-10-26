@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 매장관리</title>
-<meta name="app-version" content="2026-10-26.3">
+<meta name="app-version" content="2026-10-26.4">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -295,7 +295,6 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       <button class="tab" data-m="close">마감</button>
       <button class="tab" data-m="clean">청소</button>
       <button class="tab" data-m="manual">사용법</button>
-      <button class="tab" data-m="parts">소모품</button>
       <button class="tab" data-m="video">동영상</button>
     </div>
   </div>
@@ -305,7 +304,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-26.3';
+  const APP_VERSION = '2026-10-26.4';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -324,13 +323,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 
   // ---------- 관리 (청소·소모품) ----------
   const MG = {
-    parts: [
-      ['커피 머신 (에버시스 E’4s)', [['세척볼 (Eversys Cleaning Balls)','자동세척용 · 원두 호퍼 사이 디스펜서','잔량 확인 · 약 2개월'],['브루잉 유닛 부품','서비스 기사가 교체','업체 정기점검 시']]],
-      ['그라인더', [['상부/하부 칼날','83mm 플랫 버','6개월 / 마모 시']]],
-      ['블렌더', [['블렌더 볼 칼날','','마모 시 교체'],['커플링','','마모 시 교체']]],
-      ['정수 필터', [['전처리 하우징 필터','','1~2개월 (최대 3개월)'],['4FC 필터','','3개월 권장'],['IMF 필터','','약품 소진 시 (6개월 권장)'],['2FC 필터 (제빙기용)','','3개월 권장']]],
-      ['아이스크림 기계', [['비터가스켓, 스크래퍼, 피스톤 O링','','3~6개월']]]
-    ],
+    // 소모품 교체 주기는 재고관리 앱(oozy-stock.html)의 소모품 탭으로 옮겼습니다.
     clean: [
       ['커피 머신 (에버시스 E’4s)', [['자동 세척 실행 (세척볼 확인)','매일'],['찌꺼기 서랍 비우고 세척','매일'],['드립트레이 비우고 세척','매일'],['스팀봉 세척','매일'],['터치스크린·외관 닦기','매일'],['세척볼 디스펜서 잔량 확인·보충','주 1회'],['원두 호퍼 청소','주 1회'],['스팀노즐 분해 청소','주 1회']]],
       ['그라인더', [['호퍼통 세척','매일'],['그라인더 약품 청소','주 1회'],['그라인더 칼날 분해 청소','월 1회']]],
@@ -683,19 +676,13 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
         h += `</div><div class="wright"><div class="wrh">비고</div>` + (nl.length ? nl.map(([l, x]) => `<div class="wrn${isRed(x) ? ' r' : ''}">${l ? `<b>${esc(l)}</b>` : ''}${esc(x)}</div>`).join('') : '<div class="wrn e">-</div>') + `</div></div>`;
       });
     } else if (m === 'clean') {
-      h += `<div class="sec">기기 청소 주기</div><div class="sub-t">매일 = 하루도 빠짐없이</div>`;
+      h += `<div class="sec">기기 청소 주기</div><div class="sub-t">매일 = 하루도 빠짐없이<br>소모품 교체 주기는 <b>홈 → 재고관리 → 소모품</b>에서 봅니다</div>`;
       MG.clean.forEach(([n, rows]) => {
         h += `<div class="mbox"><div class="mname">${esc(n)}</div>` + rows.map(([t, c]) =>
           `<div class="mrow"><span class="mitem">${esc(t)}</span><span class="cyc ${cycCls(c)}">${esc(c)}</span></div>`).join('') + `</div>`;
       });
     } else if (m === 'manual') {
       h += manualHTML();
-    } else if (m === 'parts') {
-      h += `<div class="sec">소모품 교체 주기</div><div class="sub-t">규격을 확인하고 주기에 맞춰 미리 재고를 준비하세요</div>`;
-      MG.parts.forEach(([n, rows]) => {
-        h += `<div class="mbox"><div class="mname">${esc(n)}</div>` + rows.map(([t, s, c]) =>
-          `<div class="mrow"><span class="mitem">${esc(t)}${s ? `<span class="mspec">${esc(s)}</span>` : ''}</span><span class="cyc">${esc(c)}</span></div>`).join('') + `</div>`;
-      });
     } else {
       h += `<div class="sec">청소·교체 동영상</div><div class="sub-t">누르면 새 창에서 영상이 열려요</div>`;
       MG.videos.forEach(([g, list]) => {
@@ -705,7 +692,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     }
     return h + `<div class="ver">앱 버전 ${APP_VERSION}</div>`;
   }
-  const MODES = ['open', 'close', 'clean', 'manual', 'parts', 'video'];
+  const MODES = ['open', 'close', 'clean', 'manual', 'video'];   // 소모품은 재고관리 앱으로 옮김
   const $list = document.getElementById('list'), $hdr = document.querySelector('header');
   const fixPad = () => { document.documentElement.style.scrollPaddingTop = ($hdr.offsetHeight + 8) + 'px'; };
   let mode = 'clean';
