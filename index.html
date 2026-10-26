@@ -87,6 +87,23 @@ h2{font-size:14px;color:var(--sub);margin:22px 4px 10px;font-weight:600;letter-s
 .muted{color:var(--sub)}
 header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-self:flex-end;margin:0 0 4px -4px}
 .admlink{display:block;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;text-decoration:none;color:var(--ink);font-weight:700;font-size:15px}.admlink small{font-weight:400;color:var(--sub);font-size:12.5px;margin-left:6px}
+
+#ctWrap{margin-top:14px}#ctWrap[hidden]{display:none}
+.ctbtn{width:100%;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:16px;padding:14px;font-size:16px;font-weight:700;cursor:pointer}
+.ctcard{margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.cthead{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:16px}
+.ctedit{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:13px;cursor:pointer}
+.ctg{font-size:12px;color:var(--sub);font-weight:700;margin:10px 0 2px}
+.ctrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.ctn{flex:1;min-width:0;font-size:15px;font-weight:600}.ctn small{display:block;font-size:13px;font-weight:400;color:var(--sub);margin-top:1px}
+.ctcall{flex:none;text-decoration:none;background:#1f4d34;color:#fff;border-radius:99px;padding:7px 12px;font-size:13px;font-weight:700}
+.ctrow-e{display:grid;grid-template-columns:84px 1fr 28px;gap:5px;margin:6px 0;padding-bottom:6px;border-bottom:1px dashed var(--line)}
+.ctrow-e input{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;min-width:0;box-sizing:border-box}
+.ctrow-e .ct{grid-column:2/3}.ctrow-e .cg{grid-row:1/3;font-size:12px;padding:6px 4px;text-align:center}
+.ctdel{grid-column:3;grid-row:1/3;border:0;background:#fde3e3;color:#c62828;border-radius:8px;cursor:pointer}
+.ctadd{width:100%;margin-top:8px;border:1.5px dashed var(--line);background:transparent;border-radius:10px;padding:10px;font-size:14px;cursor:pointer}
+.ctbtns{display:flex;gap:8px;margin-top:10px}.ctbtns button{flex:1;border:0;border-radius:12px;padding:12px;font-size:15px;font-weight:700;cursor:pointer}
+.ctbtns .pri{background:var(--brand);color:#fff}.ctbtns .sec{background:#ece6df}
 </style>
 </head>
 <body>
@@ -103,6 +120,7 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
     <div><b>이 홈 화면 QR 코드</b><span>직원 휴대폰 카메라로 찍으면 바로 열립니다.<br>누르면 크게 보입니다.</span></div>
   </div>
   <div class="qrbig" id="qrBig" hidden><div class="qrin"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbwAAAG8CAMAAACSbuDtAAAAYFBMVEX+/v47JBhbOillRjZzV0jr6OaNdmuol47EubOYhHnb1NHTysW5q6R8YlTi3NmCaFyyo5vMwbyFbWFgPy/l4N2gjYSei4G+sapsT0AAAAAAAAAAAAAAAAAAAAAAAAAAAABQZAkiAAAAIHRSTlP//v//////////////////////////////AAAAAAAAAB2UGiIAAA6hSURBVHja7d1pY6I6FIBhhoSEHdza/v9feiELS6ftFSWA0/d8uJ161SqPWc5JwCgiCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgdo0/AWLp3w392tY6Jkc4buCBBx544IEHHnjggQceeOCBBx544IEH3v0H8ZnnWfqiQx+IZ17PlscNPPDAAw888MADDzzwwAMPPPDAAw888MDb/qCvVfwNfVDWKl5vedzAAw888MADDzzwwAMPPPDAAw888MADD7ztX8QzxeW1CtBrQYIHHnjggQceeOCBBx544IEHHnjggQceeL8T75nXEwJg6d8FDzzwwAMPPPDAAw888MADDzzwwAMPPPCOibflh2CtAxTi4O513MADDzzwwAMPPPDAAw888MADDzzwwAMPvMeKs8/EWoXdV7k9xHEDDzzwwAMPPPDAAw888MADDzzwwAMPPPD2jb2KzqH/1q8I8MADDzzwwAMPPPDAAw888MADDzzwwPuH8LYstoZ+nrUK7ktf524fCPDAAw888MADDzzwwAMPPPDAAw888MD7h/COtkk0xPOHKFiv9eEADzzwwAMPPPDAAw888MADDzzwwAMPPPC2eZNrRegD/cwm2tCbd8EDDzzwwAMPvH8DLw4a4IXDizcI8MLgxfFGeuCtjRdvFuCtjRdvGOCtixfHB9ADD7z98PYpTMfxXnpL87+18sjdVhhe3m6iBx544IH3gnhxvJ8eeOCBBx54Q0idX5PrqQLv5fBU4Z+/BO+18Jpi8gdK8F4I79LO/0IF3svgyb7Z1Xky/IUUvEeB/++Frm53jaK2a2wi83+hWIy31u1L7/Pb8WQSFa6f1A+3PPB2wevsWv/v88NjHnh74Ik60sMvb9/1muAdEq+IshHSTVkkeIfFU20m/L/fJ+0uTu3zn2PwjorXz0py4fvJMSEXzk7F4B0VrzLP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" alt="홈 화면 QR 코드"><b>우지커피 용강점</b><span>휴대폰 카메라로 찍으세요</span><small>화면을 누르면 닫힙니다</small></div></div>
+  <div id="ctWrap" hidden><button class="ctbtn" id="ctBtn">📞 연락처</button><div id="ctBox"></div></div>
   <div class="tip"><b>휴대폰 바탕화면에 추가하기</b><br>
     안드로이드 크롬: 오른쪽 위 ⋮ → <b>홈 화면에 추가</b><br>
     아이폰 사파리: 아래 공유 버튼 → <b>홈 화면에 추가</b><br>
@@ -112,7 +130,7 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '10.25.-v.21',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
+  VERSION: '10.26.-v.22',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
@@ -163,8 +181,80 @@ async function call(path, body) {
 function signOut(silent) { ls.set(TK, null); ls.set(AK, null); AUTH = null; render(); }
 const need = new URLSearchParams(location.search).get('need');
 
+// ===== 연락처: 구글 드라이브(카페 운영과 같은 서버)에 저장 · 로그인한 사람만 보기 · 관리자만 수정 =====
+const CT = { URL: 'https://script.google.com/macros/s/AKfycbz5LnhYK4HMP8aDYKHNaTOae35gdO20yK-cdWlQPyX4N6AMBBrzMU7c8iCU_In3v8Cnjw/exec', KEY: 'church2026', NAME: '_contacts', CACHE: 'oozyContacts' };
+const CT_FIRST = [   // 처음 한 번만 서버에 넣는 기본 목록 (관리자가 처음 열 때 저장됨)
+  { g: '매장', n: '우지커피 광양 (매장 전화)', t: '070-8656-8588' },
+  { g: '본사', n: '정승재 컨설턴트', t: '' },
+  { g: '본사', n: '정성근 팀장', t: '010-7789-1648' },
+  { g: '건물', n: '건물주 김정란', t: '010-5099-0278' },
+  { g: '공사 · 설비', n: '인테리어 실무', t: '010-5559-4821' },
+  { g: '공사 · 설비', n: '아크릴', t: '010-3448-6279' },
+  { g: '공사 · 설비', n: '전기 증설', t: '010-4674-1798' },
+  { g: '통신 · 보안', n: '통신단자', t: '010-2000-5227' },
+  { g: '통신 · 보안', n: 'KT 텔레캅', t: '010-5194-9631' },
+];
+let CTS = null, ctOpen = false, ctEdit = false, ctMsg = '';
+try { CTS = JSON.parse(localStorage.getItem(CT.CACHE) || 'null'); } catch (e) { }
+async function ctApi(action, extra) {
+  const r = await fetch(CT.URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: CT.KEY, action, name: CT.NAME, year: 0 }, extra || {})) });
+  return r.json();
+}
+async function ctLoad() {
+  try {
+    const j = await ctApi('get');
+    if (j.ok && j.rec && j.rec.data && Array.isArray(j.rec.data.list)) CTS = j.rec.data.list;
+    else if (!j.ok && /찾지 못했/.test(j.error || '')) {           // 서버에 아직 없음
+      CTS = CTS || CT_FIRST.slice();
+      if (AUTH && AUTH.role === 'admin') await ctApi('save', { data: { list: CTS } });   // 관리자가 처음 열 때 서버에 저장
+    }
+    try { localStorage.setItem(CT.CACHE, JSON.stringify(CTS)); } catch (e) { }
+    ctMsg = '';
+  } catch (e) { ctMsg = CTS ? '인터넷 연결이 없어 이 기기에 저장된 목록을 보여 줍니다.' : '연락처를 불러오지 못했습니다. 인터넷을 확인하세요.'; }
+  ctDraw();
+}
+const telOf = t => String(t || '').replace(/[^0-9+]/g, '');
+function ctDraw() {
+  const box = $('#ctBox'); if (!box) return;
+  $('#ctBtn').textContent = ctOpen ? '📞 연락처 닫기' : '📞 연락처';
+  if (!ctOpen) { box.innerHTML = ''; return; }
+  const admin = AUTH && AUTH.role === 'admin';
+  if (!CTS) { box.innerHTML = `<div class="ctcard muted">${esc(ctMsg || '불러오는 중...')}</div>`; return; }
+  if (ctEdit) {
+    box.innerHTML = `<div class="ctcard"><div class="cthead"><b>연락처 수정</b></div>
+      <div id="ctRows">${CTS.map((c, i) => `<div class="ctrow-e" data-i="${i}">
+        <input class="cg" value="${esc(c.g)}" placeholder="구분"><input class="cn" value="${esc(c.n)}" placeholder="이름 · 업체">
+        <input class="ct" value="${esc(c.t)}" placeholder="전화번호" inputmode="tel"><button class="ctdel" data-del="${i}" aria-label="삭제">✕</button></div>`).join('')}</div>
+      <button class="ctadd" id="ctAdd">+ 연락처 추가</button>
+      <div class="ctbtns"><button class="sec" id="ctCancel">취소</button><button class="pri" id="ctSave">저장</button></div>
+      <div class="muted" style="font-size:12px;margin-top:6px">구분이 같은 연락처끼리 묶여 보입니다. 저장하면 모든 직원 화면에 바로 반영됩니다.</div></div>`;
+    const read = () => [...box.querySelectorAll('.ctrow-e')].map(r => ({ g: r.querySelector('.cg').value.trim(), n: r.querySelector('.cn').value.trim(), t: r.querySelector('.ct').value.trim() })).filter(c => c.n || c.t);
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { CTS = read().filter((_, i) => i !== +b.dataset.del); ctDraw(); });
+    $('#ctAdd').onclick = () => { CTS = read(); CTS.push({ g: '', n: '', t: '' }); ctDraw(); const rs = box.querySelectorAll('.ctrow-e .cn'); rs[rs.length - 1].focus(); };
+    $('#ctCancel').onclick = () => { ctEdit = false; ctLoad(); };
+    $('#ctSave').onclick = async () => {
+      const list = read(); $('#ctSave').disabled = true; $('#ctSave').textContent = '저장 중...';
+      try { const j = await ctApi('save', { data: { list } }); if (!j.ok) throw new Error(j.error || '저장하지 못했습니다');
+        CTS = list; try { localStorage.setItem(CT.CACHE, JSON.stringify(CTS)); } catch (e) { } ctEdit = false; ctDraw(); toastH('연락처를 저장했습니다'); }
+      catch (e) { $('#ctSave').disabled = false; $('#ctSave').textContent = '저장'; toastH('저장하지 못했습니다: ' + e.message); }
+    };
+    return;
+  }
+  const groups = []; CTS.forEach(c => { let g = groups.find(x => x.g === (c.g || '기타')); if (!g) groups.push(g = { g: c.g || '기타', list: [] }); g.list.push(c); });
+  box.innerHTML = `<div class="ctcard"><div class="cthead"><b>연락처</b>${admin ? '<button class="ctedit" id="ctEditBtn">✎ 수정</button>' : ''}</div>
+    ${ctMsg ? `<div class="muted" style="font-size:12px;margin-bottom:6px">${esc(ctMsg)}</div>` : ''}
+    ${groups.map(g => `<div class="ctg">${esc(g.g)}</div>` + g.list.map(c => `<div class="ctrow"><span class="ctn">${esc(c.n)}${c.t ? `<small>${esc(c.t)}</small>` : '<small class="muted">번호 없음</small>'}</span>
+      ${c.t ? `<a class="ctcall" href="tel:${telOf(c.t)}" aria-label="${esc(c.n)} 전화">📞 전화</a>` : ''}</div>`).join('')).join('') || '<div class="muted">등록된 연락처가 없습니다.</div>'}</div>`;
+  if ($('#ctEditBtn')) $('#ctEditBtn').onclick = () => { ctEdit = true; ctDraw(); };
+}
+function ctSetup() {
+  $('#ctWrap').hidden = !AUTH;
+  $('#ctBtn').onclick = () => { ctOpen = !ctOpen; ctEdit = false; ctDraw(); if (ctOpen) { ctLoad(); setTimeout(() => $('#ctWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); } };
+  ctDraw();
+}
 function render() {
   $('#qrCard').hidden = !(AUTH && AUTH.role === 'admin');
+  ctSetup();
   if (!AUTH) return renderLogin();
   const list = CFG.APPS.filter(a => AUTH.apps.includes(a.key));
   const deny = need && AUTH && !AUTH.apps.includes(need) ? (CFG.APPS.find(a => a.key === need) || {}).name : '';
