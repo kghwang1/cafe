@@ -191,9 +191,11 @@ body.practice{background:#fff4e0}
 .dayt td.jpay{white-space:nowrap;color:#7a4a00;font-weight:600}.dayt td.jpay small{font-weight:400;color:#777}
 .dayt td.mpay{white-space:nowrap;font-weight:700;color:#2e5e3a}.dayt td.mpay small{font-weight:400;color:#777;margin-left:1px}.dayt tr.sum td{color:#231f1c;font-weight:700;border-top:2px solid var(--line)}
 .dayt .mnote{font-size:12.5px;color:#5b3a29;min-width:70px;white-space:normal!important}
-.dayt td.wkc{background:#fff8d6}
+.dayt td.wkc{background:transparent}
 .dayt .hn{color:#a07800}
 .dayt .wk .hn{color:#8b1a1a}
+.dayt td.wkc,.dayt td.wkc .wk,.dayt td.wkc .wk .hn,.dayt tr.sum .wk,.dayt tr.sum .wk .hn{color:#c62828}
+.dayt tr.otrow td,.dayt tr.otrow td.wkc{background:#fde4ec}
 .dayt .cum .hn{color:#1f3a73}
 .dayt .rng{color:var(--ink);font-weight:600}
 
@@ -2030,7 +2032,7 @@ function drawDay() {
     if (p.status === 'missing') work = '<span class="badge bad">퇴근누락</span>';
     else if (p.status === 'open') work = '<span class="badge ok">근무중</span>';
     else { const min = Math.round((p.end - p.start) / MIN), b = brkOf(p, min); sum += min - b;
-      work = `<b class="wk">${fmtHM(min - b)}</b>${p.ot ? '<div><span class="badge otb">추가근무</span></div>' : ''}${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
+      work = `<b class="wk">${fmtHM(min - b)}</b>${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
     const cum = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY).reduce((a, x) => a + paidMin(x), 0);   // 이달 1일~이 날
     const s = STAFF.find(x => x.id === p.staff_id);
     const dayEnd = new Date(PDAY + 'T00:00').getTime() + DAY;
@@ -2039,7 +2041,7 @@ function drawDay() {
     const otCum = mine.filter(x => x.ot).reduce((a, x) => a + paidMin(x), 0);
     const mpay = Math.floor((cum - otCum) * wg / 60) + Math.floor(otCum * otw / 60) + jh;   // 월급여 = 기본급 + 추가근무수당 + 주휴수당 (이달 1일~이 날)
     if (!seen.has(p.staff_id)) { seen.add(p.staff_id); cumSum += cum; paySum += mpay; jhSum += jh; }
-    return `<tr><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
+    return `<tr${p.ot ? ' class="otrow"' : ''}><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
       <td><span class="rng">${hhmm(p.start)}~${p.end ? hhmm(p.end) : '?'}</span>${endBadge(p) ? `<div>${endBadge(p)}</div>` : ''}${p.note && p.note !== '관리자 추가' ? `<div class="muted" style="font-size:11px">⚠ ${esc(p.note)}</div>` : ''}</td>
       <td class="wkc">${work}</td>
       <td><b class="cum">${fmtHM(cum)}</b></td>
