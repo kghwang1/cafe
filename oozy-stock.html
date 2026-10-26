@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-10-26.1">
+<meta name="app-version" content="2026-10-26.2">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -58,15 +58,15 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sec{color:var(--butter)}}
 .sub-t{font-size:15px;color:var(--muted);margin:-6px 2px 10px;line-height:1.5}
 
-/* 제목 · 날짜 · 직원 색 · 기록 버튼 */
-.wsec{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:1.1em;font-weight:700;color:var(--green);border-bottom:3px solid var(--butter);margin:18px 2px 8px;padding-bottom:4px}
+/* 한 줄에: 재고 확인 · 날짜 ······ 조사자 이름 · 기록 */
+.wsec{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:1.1em;font-weight:700;color:var(--green);border-bottom:3px solid var(--butter);margin:18px 2px 8px;padding-bottom:6px}
 :root[data-theme="dark"] .wsec{color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wsec{color:var(--butter)}}
 .wsec .wdate{font-size:.7em;font-weight:600;color:var(--muted)}
-.whos{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:0 2px 10px}
-.who{font-size:14px;font-weight:700;border-radius:8px;padding:4px 10px;line-height:1.3;white-space:nowrap}
+.whos{margin-left:auto;display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.who{font-size:13px;font-weight:700;border-radius:8px;padding:3px 9px;line-height:1.35;white-space:nowrap}
 .who.me{box-shadow:0 0 0 2px var(--ink)}
-.recbtn{margin-left:auto;border:1.5px solid var(--green);background:var(--card);color:var(--green);font-size:15px;font-weight:700;border-radius:20px;padding:5px 14px;min-height:38px}
+.recbtn{border:1.5px solid var(--green);background:var(--card);color:var(--green);font-size:14px;font-weight:700;border-radius:20px;padding:4px 13px;min-height:36px}
 :root[data-theme="dark"] .recbtn{color:var(--butter);border-color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .recbtn{color:var(--butter);border-color:var(--butter)}}
 .wmsg{background:var(--amt-bg);color:var(--hot);border-radius:10px;padding:8px 12px;font-size:15px;font-weight:600;margin:0 2px 10px;line-height:1.45}
@@ -78,17 +78,23 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .dbar .tdy{border-color:var(--green);color:var(--green);font-weight:700}
 :root[data-theme="dark"] .dbar .tdy{color:var(--butter);border-color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .dbar .tdy{color:var(--butter);border-color:var(--butter)}}
-.stat{font-size:14px;color:var(--muted);margin:0 2px 8px;min-height:20px}
+.stat{font-size:14px;color:var(--muted);margin:0 2px 8px}
+.stat:empty{display:none}
 .stat.ok{color:var(--etc);font-weight:600}
 .stat.bad{color:var(--hot);font-weight:700}
 
 /* 분류 */
-.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}
-.chips::-webkit-scrollbar{display:none}
-.chip{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--ink);
+/* 분류 단추는 창이 좁아지면 저절로 여러 줄로 내려간다 */
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 2px 8px}
+.chip{border:1.5px solid var(--line);background:var(--card);color:var(--ink);
   font-size:15px;font-weight:600;padding:7px 12px;border-radius:20px;white-space:nowrap;min-height:40px}
 .chip.on{background:var(--green);color:var(--butter);border-color:var(--green)}
 .chip .cn{font-size:12px;opacity:.7;margin-left:4px}
+.chip.all{border-color:var(--etc);color:var(--etc)}
+.chip.all.on{background:var(--etc);color:#fff;border-color:var(--etc)}
+@media (max-width:360px){.chip{font-size:14px;padding:6px 10px}}
+/* 적은 것 전체에서 분류 이름 띠 */
+.tgrp{background:var(--green);color:var(--butter);font-size:14px;font-weight:700;padding:6px 10px}
 
 /* 재고 표: 품목 · 날짜 · 수량 · 비고 */
 .tb{background:var(--card);border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
@@ -200,7 +206,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 <div class="savebar" id="saveBar" hidden><span id="saveTx">저장하지 않은 내용이 있습니다</span><button id="saveBtn">저장</button></div>
 <script>
 (function () {
-  const APP_VERSION = '2026-10-26.1';
+  const APP_VERSION = '2026-10-26.2';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -272,23 +278,25 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     LOADING = false;
     if (DAY) {
       const cats = catsOf();
-      if (!CAT || !cats.includes(CAT)) CAT = cats[0] || null;
+      if (CAT !== ALL && (!CAT || !cats.includes(CAT))) CAT = cats[0] || null;
     }
     if (mode === 'stock') draw();
   }
+  const ALL = '__all';                      // 「적은 것 전체」 — 그날 수량을 적은 품목을 분류 상관없이 모두 보여 줌
   const catsOf = () => { const o = []; ((DAY && DAY.items) || []).forEach(i => { if (!o.includes(i.cat)) o.push(i.cat); }); return o; };
-  const itemsOfCat = c => ((DAY && DAY.items) || []).filter(i => i.cat === c);
+  const itemsOfCat = c => c === ALL ? doneItems() : ((DAY && DAY.items) || []).filter(i => i.cat === c);
+  const doneItems = () => ((DAY && DAY.items) || []).filter(i => recOf(i.id));
   const recOf = id => (DAY && DAY.rec && DAY.rec[id]) || null;
 
   // ---------- 재고관리 화면 ----------
   function headBar() {
     const list = (DAY && DAY.staff) || [];
     const meName = DAY && DAY.me ? DAY.me.name : '';
-    return `<div class="wsec">재고 확인<span class="wdate">${dlabel(SDATE)}</span></div>` +
-      `<div class="whos">` +
+    return `<div class="wsec">재고 확인<span class="wdate">${dlabel(SDATE)}</span>` +
+      `<span class="whos">` +
       (list.length ? list.map(s => `<span class="who${s.name === meName ? ' me' : ''}" style="background:${esc(s.color)};color:${onC(s.color)}">${esc(s.name)}</span>`).join('')
         : `<span class="sub-t" style="margin:0">${DAYERR ? '연결 안 됨' : '불러오는 중...'}</span>`) +
-      `<button class="recbtn" id="recBtn">기록</button></div>` +
+      `<button class="recbtn" id="recBtn">기록</button></span></div>` +
       (DAYERR ? `<div class="wmsg">${esc(DAYERR)}<br>지금은 수량이 저장되지 않습니다.</div>` : '');
   }
   function stockHTML() {
@@ -296,15 +304,18 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       `<div class="dbar"><input type="date" id="dPick" value="${SDATE}" max="${today()}">` +
       `<button id="dPrev">◀ 전날</button><button id="dNext">다음날 ▶</button>` +
       `<button class="tdy" id="dToday">오늘</button></div>` +
-      `<div class="stat${/실패|못/.test(STAT) ? ' bad' : /저장됨/.test(STAT) ? ' ok' : ''}" id="stat">${esc(STAT || '수량을 적으면 자동으로 저장되고 모든 직원이 함께 봅니다')}</div>`;
+      `<div class="stat${/실패|못/.test(STAT) ? ' bad' : /저장됨/.test(STAT) ? ' ok' : ''}" id="stat">${esc(STAT)}</div>`;
     if (!DAY) return h + `<div class="empty">${DAYERR ? esc(DAYERR) : '불러오는 중...'}</div>`;
-    const cats = catsOf();
-    h += `<div class="chips" id="chips">` + cats.map(c => {
-      const n = itemsOfCat(c).filter(i => recOf(i.id)).length;
-      return `<button class="chip${c === CAT ? ' on' : ''}" data-cat="${esc(c)}">${esc(c)}${n ? `<span class="cn">${n}</span>` : ''}</button>`;
-    }).join('') + `</div>`;
+    const cats = catsOf(), nAll = doneItems().length;
+    h += `<div class="chips" id="chips">` +
+      `<button class="chip all${CAT === ALL ? ' on' : ''}" data-cat="${ALL}">✔ 적은 것 전체${nAll ? `<span class="cn">${nAll}</span>` : ''}</button>` +
+      cats.map(c => {
+        const n = itemsOfCat(c).filter(i => recOf(i.id)).length;
+        return `<button class="chip${c === CAT ? ' on' : ''}" data-cat="${esc(c)}">${esc(c)}${n ? `<span class="cn">${n}</span>` : ''}</button>`;
+      }).join('') + `</div>`;
     const items = itemsOfCat(CAT);
-    if (!items.length) h += `<div class="empty">이 분류에 품목이 없습니다.<br><b>+ 품목 추가</b>를 눌러 넣어주세요.</div>`;
+    if (CAT === ALL && !items.length) h += `<div class="empty">이 날은 아직 적은 품목이 없습니다.<br>위에서 분류를 골라 수량을 적어주세요.</div>`;
+    else if (!items.length) h += `<div class="empty">이 분류에 품목이 없습니다.<br><b>+ 품목 추가</b>를 눌러 넣어주세요.</div>`;
     else if (EDIT) {
       h += `<div class="tb"><div class="tr th edit"><span class="c1">품목</span><span>기록</span><span>삭제</span></div>` +
         items.map(i => {
@@ -315,24 +326,29 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         }).join('') + `</div>` +
         `<div class="sub-t" style="margin-top:8px">품목을 지워도 지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.</div>`;
     } else {
+      let grp = null;
       h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>날짜</span><span>수량</span><span>비고</span></div>` +
         items.map(i => {
           const r = recOf(i.id), d = DIRTY.get(i.id);
           const qty = d ? d.qty : (r ? (r.qty || '') : '');
           const note = d ? d.note : (r ? (r.note || '') : '');
-          return `<div class="tr${r ? ' done' : ''}" data-row="${i.id}">` +
+          let pre = '';
+          if (CAT === ALL && i.cat !== grp) { grp = i.cat; pre = `<div class="tgrp">${esc(i.cat)}</div>`; }
+          return pre + `<div class="tr${r ? ' done' : ''}" data-row="${i.id}">` +
             `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
             `<span class="c2" data-dc="${i.id}">${r ? `<b>${dshort(SDATE)}</b><i style="background:${esc(r.color)}" title="${esc(r.name)}"></i>` : '-'}</span>` +
             `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="0" aria-label="${esc(i.name)} 수량">` +
             `<input class="note" data-n="${i.id}" value="${esc(note)}" placeholder="비고" aria-label="${esc(i.name)} 비고"></div>`;
         }).join('') + `</div>`;
     }
+    if (CAT === ALL && items.length) h += `<div class="sub-t" style="margin:10px 2px 0">${dlabel(SDATE)} · 적은 품목 모두 <b>${items.length}개</b> (분류 ${[...new Set(items.map(i => i.cat))].length}가지)</div>`;
     h += `<div class="mgbar"><button id="addBtn"${ADD ? ' class="on"' : ''}>+ 품목 추가</button>` +
-      `<button id="editBtn"${EDIT ? ' class="on"' : ''}>${EDIT ? '✓ 품목 관리 끝내기' : '✎ 품목 관리'}</button></div>`;
+      (CAT === ALL ? '' : `<button id="editBtn"${EDIT ? ' class="on"' : ''}>${EDIT ? '✓ 품목 관리 끝내기' : '✎ 품목 관리'}</button>`) + `</div>`;
     if (ADD) {
+      const dcat = CAT === ALL ? (cats[0] || '') : CAT;
       h += `<div class="addbox"><b>품목 추가</b>` +
         `<label>분류</label><select id="aCat">` +
-        cats.map(c => `<option value="${esc(c)}"${c === CAT ? ' selected' : ''}>${esc(c)}</option>`).join('') +
+        cats.map(c => `<option value="${esc(c)}"${c === dcat ? ' selected' : ''}>${esc(c)}</option>`).join('') +
         `<option value="__new">+ 새 분류 만들기</option></select>` +
         `<div id="aNewWrap" hidden><label>새 분류 이름</label><input id="aNew" placeholder="예) 청소용품"></div>` +
         `<label>품목 이름</label><input id="aName" placeholder="예) 소금빵">` +
@@ -393,7 +409,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   }
   function paintChips() {
     document.querySelectorAll('#chips .chip').forEach(b => {
-      const n = itemsOfCat(b.dataset.cat).filter(i => recOf(i.id)).length;
+      const n = b.dataset.cat === ALL ? doneItems().length : itemsOfCat(b.dataset.cat).filter(i => recOf(i.id)).length;
       const s = b.querySelector('.cn');
       if (n && s) s.textContent = n;
       else if (n) b.insertAdjacentHTML('beforeend', `<span class="cn">${n}</span>`);
@@ -436,7 +452,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   // ---------- 누르기 · 입력 ----------
   $list.addEventListener('click', async e => {
     if (e.target.closest('#recBtn')) { openRecords(); return; }
-    const c = e.target.closest('[data-cat]'); if (c) { CAT = c.dataset.cat; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (x) { } draw(); return; }
+    const c = e.target.closest('[data-cat]'); if (c) { CAT = c.dataset.cat; if (CAT === ALL) EDIT = false; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (x) { } draw(); return; }
     if (e.target.closest('#dPrev')) { shiftDay(-1); return; }
     if (e.target.closest('#dNext')) { shiftDay(1); return; }
     if (e.target.closest('#dToday')) { gotoDate(today()); return; }
