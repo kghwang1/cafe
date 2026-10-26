@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-10-26.2">
+<meta name="app-version" content="2026-10-26.4">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,25 +96,28 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 /* 적은 것 전체에서 분류 이름 띠 */
 .tgrp{background:var(--green);color:var(--butter);font-size:14px;font-weight:700;padding:6px 10px}
 
-/* 재고 표: 품목 · 날짜 · 수량 · 비고 */
+/* 재고 표: 품목 · 기준 · 재고 · 구매량 · 비고 */
 .tb{background:var(--card);border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
-.tr{display:grid;grid-template-columns:minmax(96px,1.35fr) 50px 64px minmax(84px,1.25fr);gap:5px;align-items:center;
-  padding:8px 8px;border-top:1px dashed var(--line)}
-.tr.th{border-top:0;background:var(--less-bg);font-size:14px;font-weight:700;color:var(--etc);padding:8px 8px}
+.tr{display:grid;grid-template-columns:minmax(74px,1.05fr) 42px 46px 46px minmax(58px,.95fr);gap:3px;align-items:center;
+  padding:7px 6px 7px 8px;border-top:1px dashed var(--line);border-left:5px solid transparent}
+.tr.th{border-top:0;background:var(--less-bg);font-size:12.5px;font-weight:700;color:var(--etc);padding:7px 6px 7px 8px}
 .tr.th span{text-align:center}
 .tr.th .c1{text-align:left}
 .tr.done{background:var(--less-bg)}
-.c1{min-width:0;font-weight:600;font-size:.76em;line-height:1.3;word-break:break-word}
-.c1 small{display:block;font-weight:400;font-size:.8em;color:var(--muted);line-height:1.3}
-.c2{text-align:center;font-size:14px;color:var(--muted);white-space:nowrap}
-.c2 b{display:block;font-size:14px;font-weight:700;color:var(--ink)}
-.c2 i{display:block;width:100%;height:4px;border-radius:2px;margin-top:3px}
-.tr input{width:100%;min-width:0;background:var(--paper);color:var(--ink);border:1.5px solid var(--line);border-radius:8px;
-  padding:7px 6px;font-size:16px;min-height:42px}
-.tr input.qty{text-align:center;font-weight:700}
-.tr input:focus{outline:none;border-color:var(--green);background:var(--card)}
+.c1{min-width:0;font-weight:600;font-size:.7em;line-height:1.25;word-break:break-word}
+.c1 small{display:block;font-weight:400;font-size:.8em;color:var(--muted);line-height:1.25}
+.tr input{width:100%;min-width:0;background:var(--paper);color:var(--ink);border:1.5px solid var(--line);border-radius:7px;
+  padding:6px 2px;font-size:15px;min-height:40px;text-align:center}
+.tr input.base{background:transparent;border-style:dashed;color:var(--muted);font-weight:600}
+.tr input.qty{font-weight:700}
+.tr input.buy{font-weight:700;color:var(--act)}
+.tr input.buy.need{background:var(--amt-bg);border-color:var(--act)}
+.tr input.note{text-align:left;padding:6px 6px;font-size:14px}
+.tr input:focus{outline:none;border-color:var(--green);background:var(--card);color:var(--ink)}
 .delx{border:0;background:var(--hot);color:#fff;border-radius:8px;min-height:42px;font-size:16px;font-weight:700;width:100%}
-.tr.edit{grid-template-columns:minmax(92px,1fr) 58px 48px}
+.tr.edit{grid-template-columns:minmax(92px,1fr) 58px 48px;border-left:0}
+@media (max-width:340px){.tr{grid-template-columns:minmax(64px,1fr) 38px 42px 42px minmax(50px,.9fr);gap:2px}
+  .tr input{font-size:14px;padding:6px 1px}.tr.th{font-size:11.5px}}
 .empty{color:var(--muted);font-size:17px;padding:22px 6px;line-height:1.7}
 
 /* 품목 관리 */
@@ -170,7 +173,9 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .rli{display:grid;grid-template-columns:1fr auto auto;gap:4px 8px;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--line);font-size:15px}
 .rli .rt{line-height:1.35}
 .rli .rt small{display:block;font-size:13px;color:var(--muted)}
-.rli .rq{font-weight:700;white-space:nowrap}
+.rli .rq{font-weight:700;white-space:nowrap;text-align:right}
+.rli .rq small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+.rli .rq small.rbuy{color:var(--act);font-weight:700}
 .rli .rw{font-size:13px;font-weight:700;border-radius:6px;padding:2px 8px;white-space:nowrap}
 .rempty{color:var(--muted);font-size:15px;padding:14px 2px;line-height:1.6}
 
@@ -181,6 +186,41 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .upd span{flex:1}
 .upd button{flex:none;background:#fff;color:var(--hot);border:0;border-radius:10px;font-size:16px;padding:10px 14px;min-height:44px}
 .ver{color:var(--muted);font-size:13px;text-align:center;margin:26px 0 0}
+.prnbtn{border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:14px;font-weight:700;border-radius:20px;padding:4px 13px;min-height:36px}
+
+/* ===== 인쇄 · PDF 저장 (A4 한 장에 들어가도록) ===== */
+@media print{
+  @page{size:A4 portrait;margin:11mm 10mm}
+  header,.dbar,.chips,.mgbar,.addbox,.savebar,.upd,.stat,.ver,.recbtn,.prnbtn,.rbg,#skToast{display:none!important}
+  html,body{background:#fff!important;color:#000!important;font-size:11pt}
+  body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+  main{max-width:none;margin:0;padding:0}
+  .wsec{display:flex;align-items:baseline;gap:8pt;margin:0 0 5pt;padding-bottom:3pt;font-size:15pt;color:#000!important;
+    border-bottom:1.5pt solid #000;break-after:avoid}
+  .wsec .wdate{font-size:11pt;color:#000!important}
+  .whos{margin-left:auto;gap:3pt}
+  .who{font-size:8.5pt;padding:0 5pt;color:#000!important;background:none!important;border:0.8pt solid #666;border-radius:3pt;box-shadow:none!important}
+  .sub-t,.empty{font-size:9pt;color:#333;margin:4pt 0 0}
+  .tb{border:0;border-radius:0;overflow:visible}
+  .tb.p2{columns:2;column-gap:5mm;column-rule:0.5pt solid #ccc}
+  .tb.p2 .tr{grid-template-columns:1.35fr 19pt 19pt 21pt .5fr;gap:2pt;padding:.7pt 0}
+  .tb.p2 .c1,.tb.p2 .tr input{font-size:8pt}
+  .tgrp{background:none;color:#000;border-bottom:1pt solid #000;font-size:8.5pt;padding:2.5pt 0 .5pt;margin-top:1.5pt;break-after:avoid;break-inside:avoid}
+  .tr{grid-template-columns:1.25fr 26pt 26pt 28pt .75fr;gap:3pt;padding:1pt 0;border-top:0.4pt solid #ccc;break-inside:avoid;
+    align-items:baseline;border-left:0!important}
+  .tr.th{background:none;border-bottom:0.8pt solid #000;font-size:8pt;color:#000;padding:1pt 0}
+  .tr.done{background:none}
+  .c1{font-size:9pt;line-height:1.15}
+  .c1 small{display:none}
+
+  .tr input{border:0!important;background:none!important;padding:0;min-height:0;font-size:9pt;line-height:1.2;color:#000;
+    -webkit-appearance:none;appearance:none}
+  .tr input.qty,.tr input.buy{font-weight:700}
+  .tr input.base{color:#555;font-weight:400}
+  .tr input.buy.need{background:none!important;text-decoration:underline}
+  .tr input.note{text-align:left}
+  .tr input::placeholder{color:transparent}
+}
 </style>
 </head>
 <body>
@@ -206,7 +246,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 <div class="savebar" id="saveBar" hidden><span id="saveTx">저장하지 않은 내용이 있습니다</span><button id="saveBtn">저장</button></div>
 <script>
 (function () {
-  const APP_VERSION = '2026-10-26.2';
+  const APP_VERSION = '2026-10-26.4';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -239,7 +279,6 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
   const today = () => ymd(new Date());
   const dlabel = s => { const d = new Date(s + 'T00:00'); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`; };
-  const dshort = s => { const d = new Date(s + 'T00:00'); return `${d.getMonth() + 1}/${d.getDate()}`; };
   const hhmm = t => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
   const lum = c => { const x = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!x) return 0; const n = parseInt(x[1], 16);
     const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
@@ -264,8 +303,13 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   let SDATE = today();                      // 보고 있는 날짜
   let CAT = null;                           // 고른 분류
   let EDIT = false, ADD = false;            // 품목 관리 / 품목 추가 열림
-  const DIRTY = new Map();                  // 저장 대기: 품목id -> {qty,note}
+  const DIRTY = new Map();                  // 저장 대기 (날짜별): 품목id -> {qty,buy,note}
+  const BDIRTY = new Map();                 // 저장 대기 (기준량): 품목id -> base
   let SAVET = null, SAVING = false, STAT = '';
+  // 숫자로 읽기 (빈칸·글자는 null). '1박스' 처럼 적어도 앞의 숫자만 본다
+  const num = v => { const m = /-?\d+(\.\d+)?/.exec(String(v == null ? '' : v)); return m ? parseFloat(m[0]) : null; };
+  // 구매량 = 기준 − 재고 (음수면 0). 둘 중 하나라도 숫자가 아니면 계산하지 않음
+  const calcBuy = (base, qty) => { const b = num(base), q = num(qty); return b == null || q == null ? null : Math.max(0, Math.round((b - q) * 100) / 100); };
 
   try { const c = localStorage.getItem('oozy-stock-cat'); if (c) CAT = c; } catch (e) { }
 
@@ -296,6 +340,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       `<span class="whos">` +
       (list.length ? list.map(s => `<span class="who${s.name === meName ? ' me' : ''}" style="background:${esc(s.color)};color:${onC(s.color)}">${esc(s.name)}</span>`).join('')
         : `<span class="sub-t" style="margin:0">${DAYERR ? '연결 안 됨' : '불러오는 중...'}</span>`) +
+      `<button class="prnbtn" id="prnBtn">🖨 인쇄</button>` +
       `<button class="recbtn" id="recBtn">기록</button></span></div>` +
       (DAYERR ? `<div class="wmsg">${esc(DAYERR)}<br>지금은 수량이 저장되지 않습니다.</div>` : '');
   }
@@ -327,21 +372,30 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         `<div class="sub-t" style="margin-top:8px">품목을 지워도 지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.</div>`;
     } else {
       let grp = null;
-      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>날짜</span><span>수량</span><span>비고</span></div>` +
+      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>구매량</span><span>비고</span></div>` +
         items.map(i => {
-          const r = recOf(i.id), d = DIRTY.get(i.id);
+          const r = recOf(i.id), d = DIRTY.get(i.id), bd = BDIRTY.get(i.id);
+          const base = bd != null ? bd : (i.base || '');
           const qty = d ? d.qty : (r ? (r.qty || '') : '');
+          const buy = d ? d.buy : (r ? (r.buy || '') : '');
           const note = d ? d.note : (r ? (r.note || '') : '');
           let pre = '';
           if (CAT === ALL && i.cat !== grp) { grp = i.cat; pre = `<div class="tgrp">${esc(i.cat)}</div>`; }
-          return pre + `<div class="tr${r ? ' done' : ''}" data-row="${i.id}">` +
+          return pre + `<div class="tr${r ? ' done' : ''}" data-row="${i.id}"` +
+            (r ? ` style="border-left-color:${esc(r.color)}" title="${esc(r.name)} · ${hhmm(r.at)}"` : '') + `>` +
             `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
-            `<span class="c2" data-dc="${i.id}">${r ? `<b>${dshort(SDATE)}</b><i style="background:${esc(r.color)}" title="${esc(r.name)}"></i>` : '-'}</span>` +
-            `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="0" aria-label="${esc(i.name)} 수량">` +
+            `<input class="base" data-b="${i.id}" value="${esc(base)}" inputmode="decimal" placeholder="-" aria-label="${esc(i.name)} 기준량">` +
+            `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 재고">` +
+            `<input class="buy${num(buy) > 0 ? ' need' : ''}" data-y="${i.id}" value="${esc(buy)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 구매량">` +
             `<input class="note" data-n="${i.id}" value="${esc(note)}" placeholder="비고" aria-label="${esc(i.name)} 비고"></div>`;
         }).join('') + `</div>`;
     }
-    if (CAT === ALL && items.length) h += `<div class="sub-t" style="margin:10px 2px 0">${dlabel(SDATE)} · 적은 품목 모두 <b>${items.length}개</b> (분류 ${[...new Set(items.map(i => i.cat))].length}가지)</div>`;
+    if (CAT === ALL && items.length) {
+      const need = items.filter(i => { const r = recOf(i.id); return r && num(r.buy) > 0; }).length;
+      h += `<div class="sub-t" style="margin:10px 2px 0">${dlabel(SDATE)} · 적은 품목 모두 <b>${items.length}개</b>` +
+        ` (분류 ${[...new Set(items.map(i => i.cat))].length}가지)` +
+        (need ? ` · 구매할 품목 <b>${need}개</b>` : '') + `</div>`;
+    }
     h += `<div class="mgbar"><button id="addBtn"${ADD ? ' class="on"' : ''}>+ 품목 추가</button>` +
       (CAT === ALL ? '' : `<button id="editBtn"${EDIT ? ' class="on"' : ''}>${EDIT ? '✓ 품목 관리 끝내기' : '✎ 품목 관리'}</button>`) + `</div>`;
     if (ADD) {
@@ -352,6 +406,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         `<option value="__new">+ 새 분류 만들기</option></select>` +
         `<div id="aNewWrap" hidden><label>새 분류 이름</label><input id="aNew" placeholder="예) 청소용품"></div>` +
         `<label>품목 이름</label><input id="aName" placeholder="예) 소금빵">` +
+        `<label>기준량 — 늘 확보해 둘 양 (없으면 비워두세요)</label><input id="aBase" inputmode="decimal" placeholder="예) 10">` +
         `<label>규격 · 메모 (없으면 비워두세요)</label><input id="aSpec" placeholder="예) 1박스 20개">` +
         `<div class="btns"><button class="sec2" id="aCancel">취소</button><button class="pri" id="aSave">추가</button></div></div>`;
     }
@@ -369,43 +424,68 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   // ---------- 저장 ----------
   function setStat(t) { STAT = t; const el = document.getElementById('stat'); if (!el) return;
     el.textContent = t; el.className = 'stat' + (/실패|못/.test(t) ? ' bad' : /저장됨/.test(t) ? ' ok' : ''); }
-  function showBar() { const b = document.getElementById('saveBar'); b.hidden = !DIRTY.size;
-    document.getElementById('saveTx').textContent = DIRTY.size ? `저장하지 않은 ${DIRTY.size}개가 있습니다` : ''; }
+  function showBar() { const n = DIRTY.size + BDIRTY.size, b = document.getElementById('saveBar'); b.hidden = !n;
+    document.getElementById('saveTx').textContent = n ? `저장하지 않은 ${n}개가 있습니다` : ''; }
+  // 기준이나 재고를 고치면 구매량을 자동으로 채운다 (구매량을 직접 고친 줄은 건드리지 않음)
+  function autoBuy(id) {
+    const b = document.querySelector(`[data-b="${id}"]`), q = document.querySelector(`[data-q="${id}"]`), y = document.querySelector(`[data-y="${id}"]`);
+    if (!y || y.dataset.manual === '1') return;
+    const v = calcBuy(b ? b.value : '', q ? q.value : '');
+    const nv = v == null ? '' : String(v);
+    if (y.value !== nv) y.value = nv;
+    y.classList.toggle('need', num(nv) > 0);
+  }
   function markDirty(id) {
-    const q = document.querySelector(`[data-q="${id}"]`), n = document.querySelector(`[data-n="${id}"]`);
-    DIRTY.set(id, { qty: q ? q.value : '', note: n ? n.value : '' });
+    const q = document.querySelector(`[data-q="${id}"]`), y = document.querySelector(`[data-y="${id}"]`), n = document.querySelector(`[data-n="${id}"]`);
+    DIRTY.set(id, { qty: q ? q.value : '', buy: y ? y.value : '', note: n ? n.value : '' });
+    showBar(); clearTimeout(SAVET); SAVET = setTimeout(flush, 900);
+  }
+  function markBase(id) {
+    const b = document.querySelector(`[data-b="${id}"]`);
+    BDIRTY.set(id, b ? b.value : '');
     showBar(); clearTimeout(SAVET); SAVET = setTimeout(flush, 900);
   }
   async function flush() {
     clearTimeout(SAVET);
-    if (SAVING || !DIRTY.size) return;
+    if (SAVING || (!DIRTY.size && !BDIRTY.size)) return;
     const date = SDATE;
-    const rows = [...DIRTY.entries()].map(([item, v]) => ({ item: +item, qty: v.qty, note: v.note }));
-    DIRTY.clear(); showBar(); SAVING = true; setStat('저장 중...');
+    const rows = [...DIRTY.entries()].map(([item, v]) => ({ item: +item, qty: v.qty, buy: v.buy, note: v.note }));
+    const bases = [...BDIRTY.entries()].map(([id, base]) => ({ id: +id, base }));
+    DIRTY.clear(); BDIRTY.clear(); showBar(); SAVING = true; setStat('저장 중...');
     try {
-      const j = await api('/stock/day', { date, rows });
-      if (DAY && DAY.date === date) {
-        rows.forEach(r => {
-          if (String(r.qty).trim() || String(r.note).trim()) DAY.rec[r.item] = { qty: r.qty, note: r.note, name: j.by.name, color: j.by.color, at: j.at };
-          else delete DAY.rec[r.item];
-        });
-        rows.forEach(r => paintRow(r.item));
-        paintChips();
+      if (bases.length) {
+        await api('/stock/item/base', { rows: bases });
+        bases.forEach(x => { const it = (DAY && DAY.items || []).find(i => i.id === x.id); if (it) it.base = x.base; });
       }
-      setStat(`저장됨 · ${hhmm(j.at)} · ${j.by.name}`);
+      let j = null;
+      if (rows.length) {
+        j = await api('/stock/day', { date, rows });
+        if (DAY && DAY.date === date) {
+          rows.forEach(r => {
+            if (String(r.qty).trim() || String(r.buy).trim() || String(r.note).trim())
+              DAY.rec[r.item] = { qty: r.qty, buy: r.buy, note: r.note, name: j.by.name, color: j.by.color, at: j.at };
+            else delete DAY.rec[r.item];
+          });
+          rows.forEach(r => paintRow(r.item));
+          paintChips();
+        }
+      }
+      setStat(j ? `저장됨 · ${hhmm(j.at)} · ${j.by.name}` : '기준량 저장됨');
     } catch (e) {
-      rows.forEach(r => { if (!DIRTY.has(r.item)) DIRTY.set(r.item, { qty: r.qty, note: r.note }); });
+      rows.forEach(r => { if (!DIRTY.has(r.item)) DIRTY.set(r.item, { qty: r.qty, buy: r.buy, note: r.note }); });
+      bases.forEach(x => { if (!BDIRTY.has(x.id)) BDIRTY.set(x.id, x.base); });
       showBar(); setStat('저장 실패: ' + msgOf(e));
     }
     SAVING = false;
-    if (DIRTY.size) { clearTimeout(SAVET); SAVET = setTimeout(flush, 1500); }
+    if (DIRTY.size || BDIRTY.size) { clearTimeout(SAVET); SAVET = setTimeout(flush, 1500); }
   }
   // 화면을 다시 그리지 않고 그 줄만 고쳐 준다 (글 쓰는 중에 커서가 튀지 않도록)
   function paintRow(id) {
-    const c = document.querySelector(`[data-dc="${id}"]`); if (!c) return;
+    const row = document.querySelector(`[data-row="${id}"]`); if (!row) return;
     const r = recOf(id);
-    c.innerHTML = r ? `<b>${dshort(SDATE)}</b><i style="background:${esc(r.color)}" title="${esc(r.name)}"></i>` : '-';
-    const row = document.querySelector(`[data-row="${id}"]`); if (row) row.classList.toggle('done', !!r);
+    row.classList.toggle('done', !!r);
+    row.style.borderLeftColor = r ? r.color : 'transparent';
+    if (r) row.title = `${r.name} · ${hhmm(r.at)}`; else row.removeAttribute('title');
   }
   function paintChips() {
     document.querySelectorAll('#chips .chip').forEach(b => {
@@ -452,6 +532,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   // ---------- 누르기 · 입력 ----------
   $list.addEventListener('click', async e => {
     if (e.target.closest('#recBtn')) { openRecords(); return; }
+    if (e.target.closest('#prnBtn')) { doPrint(); return; }
     const c = e.target.closest('[data-cat]'); if (c) { CAT = c.dataset.cat; if (CAT === ALL) EDIT = false; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (x) { } draw(); return; }
     if (e.target.closest('#dPrev')) { shiftDay(-1); return; }
     if (e.target.closest('#dNext')) { shiftDay(1); return; }
@@ -462,31 +543,58 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     if (e.target.closest('#aSave')) { addItem(); return; }
     const d = e.target.closest('[data-del]'); if (d) { delItem(+d.dataset.del, d.dataset.nm); return; }
   });
+  function onEdit(t) {
+    const d = t.dataset;
+    if (d.b) { const id = +d.b; autoBuy(id); markBase(id); markDirty(id); return true; }     // 기준이 바뀌면 구매량도 다시 계산
+    if (d.q) { const id = +d.q; autoBuy(id); markDirty(id); return true; }
+    if (d.y) { const id = +d.y; t.dataset.manual = '1'; t.classList.toggle('need', num(t.value) > 0); markDirty(id); return true; }
+    if (d.n) { markDirty(+d.n); return true; }
+    return false;
+  }
   $list.addEventListener('change', e => {
     if (e.target.id === 'aCat') { const w = document.getElementById('aNewWrap'); if (w) { w.hidden = e.target.value !== '__new'; if (!w.hidden) document.getElementById('aNew').focus(); } return; }
-    const id = e.target.dataset.q || e.target.dataset.n; if (id) markDirty(+id);
+    onEdit(e.target);
   });
-  $list.addEventListener('input', e => { const id = e.target.dataset.q || e.target.dataset.n; if (id) markDirty(+id); });
+  $list.addEventListener('input', e => { onEdit(e.target); });
   $list.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
-    const id = e.target.dataset.q || e.target.dataset.n; if (!id) return;
+    const d = e.target.dataset, id = d.b || d.q || d.y || d.n; if (!id) return;
     e.preventDefault();
-    if (e.target.dataset.q) { const n = document.querySelector(`[data-n="${id}"]`); if (n) { n.focus(); return; } }
-    flush();
+    const order = ['b', 'q', 'y', 'n'], at = order.findIndex(k => d[k]);
+    for (let k = at + 1; k < order.length; k++) {                       // 같은 줄의 다음 칸으로
+      const nx = document.querySelector(`[data-${order[k]}="${id}"]`);
+      if (nx) { nx.focus(); nx.select && nx.select(); return; }
+    }
+    flush();                                                            // 줄 끝이면 다음 줄 재고 칸으로
     const rows = [...document.querySelectorAll('[data-row]')], i = rows.findIndex(r => r.dataset.row === String(id));
-    const nx = rows[i + 1]; if (nx) nx.querySelector('.qty').focus(); else e.target.blur();
+    const nr = rows[i + 1]; if (nr) nr.querySelector('.qty').focus(); else e.target.blur();
   });
   document.getElementById('saveBtn').onclick = () => flush();
+
+  // 인쇄 · PDF 저장 — 적은 것 전체를 보여 주고, 줄이 많으면 두 칸으로 찍어 A4 한 장에 담는다
+  async function doPrint() {
+    await flush();
+    if (CAT !== ALL) { CAT = ALL; EDIT = false; ADD = false; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (e) { } draw(); }
+    if (!doneItems().length) { toastMsg('이 날은 적은 품목이 없습니다.'); return; }
+    setTimeout(() => window.print(), 120);
+  }
+  function fitPrint() {
+    const tb = document.querySelector('.tb'); if (!tb) return;
+    tb.classList.toggle('p2', document.querySelectorAll('.tr[data-row]').length > 26);
+  }
+  window.addEventListener('beforeprint', fitPrint);
+  if (window.matchMedia) { const mq = window.matchMedia('print'); if (mq.addEventListener) mq.addEventListener('change', e => { if (e.matches) fitPrint(); }); }
 
   async function addItem() {
     const sel = document.getElementById('aCat'), nw = document.getElementById('aNew');
     const cat = (sel.value === '__new' ? (nw ? nw.value : '') : sel.value).trim();
     const name = document.getElementById('aName').value.trim(), spec = document.getElementById('aSpec').value.trim();
+    const base = document.getElementById('aBase').value.trim();
     if (!cat) { toastMsg('분류를 넣어주세요.'); return; }
     if (!name) { toastMsg('품목 이름을 넣어주세요.'); return; }
     const btn = document.getElementById('aSave'); btn.disabled = true; btn.textContent = '추가 중...';
     try {
-      const j = await api('/stock/item', { cat, name, spec });
+      const j = await api('/stock/item', { cat, name, spec, base });
       if (DAY) DAY.items = j.items;
       CAT = cat; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (e) { }
       ADD = false; draw(); toastMsg(`${name} 을(를) 추가했습니다`);
@@ -570,10 +678,13 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         h += `<h4>${esc(c)}</h4>` + rows.filter(r => (r.it ? r.it.cat : '지운 품목') === c).map(r =>
           `<div class="rli"><span class="rt">${esc(r.it ? r.it.name : '품목 ' + r.id)}` +
           (r.note ? `<small>비고 · ${esc(r.note)}</small>` : '') + `</span>` +
-          `<span class="rq">${esc(r.qty || '-')}</span>` +
+          `<span class="rq">재고 ${esc(r.qty || '-')}` +
+          (r.it && r.it.base ? `<small>기준 ${esc(r.it.base)}</small>` : '') +
+          (num(r.buy) > 0 ? `<small class="rbuy">구매 ${esc(r.buy)}</small>` : '') + `</span>` +
           `<span class="rw" style="background:${esc(r.color)};color:${onC(r.color)}">${esc(r.name)}</span></div>`).join('');
       });
-      h += `<div class="rempty">모두 ${rows.length}개 품목 · 마지막 기록 ${hhmm(rows[rows.length - 1].at)}</div>`;
+      const nb = rows.filter(r => num(r.buy) > 0).length;
+      h += `<div class="rempty">모두 ${rows.length}개 품목${nb ? ` · 구매할 품목 ${nb}개` : ''} · 마지막 기록 ${hhmm(rows[rows.length - 1].at)}</div>`;
     }
     box.innerHTML = h;
     const go = box.querySelector('[data-go]');
