@@ -130,17 +130,17 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '10.26.-v.25',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
+  VERSION: '10.27.-v.24',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
   APPS: [   // key: 서버(worker.js)의 APP_KEYS 와 같아야 함
     { key: 'work', name: '근무 · 급여', ic: '🕐', bg: '#e3f1e8', url: 'https://kghwang1.github.io/cafe/oozy-work.html' },
     { key: 'store', name: '매장관리', ic: '🧽', bg: '#e6f3f5', url: 'https://kghwang1.github.io/cafe/oozy-store.html' },
-    { key: 'stock', name: '재고관리', ic: '📦', bg: '#eaf0e2', url: 'https://kghwang1.github.io/cafe/oozy-stock.html',
-      subs: [['재고관리', 'https://kghwang1.github.io/cafe/oozy-stock.html?tab=stock'], ['소모품', 'https://kghwang1.github.io/cafe/oozy-stock.html?tab=parts']] },
     { key: 'recipe', name: '레시피', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/cafe/oozy-recipe.html' },
+    { key: 'stock', name: '재고관리', ic: '📦', bg: '#f1ecd2', url: 'https://kghwang1.github.io/cafe/oozy-stock.html' },
     { key: 'ledger', name: '카페 운영', ic: '💰', bg: '#fff1d6', url: 'https://kghwang1.github.io/cafe/oozy-ledger.html' },
+    { key: 'opening', perm: 'ledger', name: '개업자료', ic: '📒', bg: '#e8efe9', url: 'https://kghwang1.github.io/cafe/oozy-opening.html' },   // perm: 카페 운영과 같은 권한으로 열림
     { key: 'coffee', name: '커피회사', ic: '📊', bg: '#e6ecfa', url: 'https://kghwang1.github.io/coffee-board/',
       subs: [['장비 견적', 'https://kghwang1.github.io/coffee-board/equipment.html'], ['매장 지도', 'https://kghwang1.github.io/coffee-board/map.html']] },
   ],
@@ -258,7 +258,7 @@ function render() {
   $('#qrCard').hidden = !(AUTH && AUTH.role === 'admin');
   ctSetup();
   if (!AUTH) return renderLogin();
-  const list = CFG.APPS.filter(a => AUTH.apps.includes(a.key));
+  const list = CFG.APPS.filter(a => AUTH.apps.includes(a.perm || a.key));
   const deny = need && AUTH && !AUTH.apps.includes(need) ? (CFG.APPS.find(a => a.key === need) || {}).name : '';
   $('#main').innerHTML = `<div class="who"><span><b>${esc(AUTH.name)}</b>님${AUTH.role === 'admin' ? ' <span class="tagad">관리자</span>' : ''}</span>
       <span class="whob">${AUTH.role === 'admin' ? '<button id="admBtn">⚙ 관리</button>' : ''}<button id="outBtn">로그아웃</button></span></div>
@@ -294,12 +294,13 @@ function renderLogin() {
 async function renderAdmin() {
   const box = $('#admBox'); box.innerHTML = '<div class="admcard muted">불러오는 중...</div>';
   let staff; try { staff = await call('/admin/staff'); } catch (e) { box.innerHTML = `<div class="admcard err">${esc(e.message)}</div>`; return; }
-  const DEF = ['work', 'store', 'recipe', 'stock'];
+  const DEF = ['work', 'store', 'recipe'];
+  const PERMAPPS = CFG.APPS.filter(a => !a.perm);   // 개업자료는 카페 운영 권한을 따라가므로 따로 칸을 두지 않음
   const appsOf = s => s.apps == null ? DEF : String(s.apps).split(',').filter(Boolean);
   box.innerHTML = `<div class="admcard"><b style="font-size:16px">직원별 메뉴 권한</b><div class="muted" style="font-size:12.5px;margin:2px 0 8px">체크하면 그 직원 홈 화면에 메뉴가 보입니다. 바로 저장됩니다.</div>
-    <div style="overflow-x:auto"><table class="perm"><tr><th>직원</th>${CFG.APPS.map(a => `<th>${esc(a.name.replace(' · ', '·'))}</th>`).join('')}</tr>
-    ${staff.filter(s => s.active).map(s => `<tr><td>${esc(s.name)}</td>${CFG.APPS.map(a => `<td><input type="checkbox" data-sid="${s.id}" data-k="${a.key}" ${appsOf(s).includes(a.key) ? 'checked' : ''}></td>`).join('')}</tr>`).join('')
-      || `<tr><td colspan="${CFG.APPS.length + 1}" class="muted">재직 중인 직원이 없습니다. 근무 · 급여 → 직원 탭에서 추가하세요.</td></tr>`}</table></div>
+    <div style="overflow-x:auto"><table class="perm"><tr><th>직원</th>${PERMAPPS.map(a => `<th>${esc(a.name.replace(' · ', '·'))}</th>`).join('')}</tr>
+    ${staff.filter(s => s.active).map(s => `<tr><td>${esc(s.name)}</td>${PERMAPPS.map(a => `<td><input type="checkbox" data-sid="${s.id}" data-k="${a.key}" ${appsOf(s).includes(a.key) ? 'checked' : ''}></td>`).join('')}</tr>`).join('')
+      || `<tr><td colspan="${PERMAPPS.length + 1}" class="muted">재직 중인 직원이 없습니다. 근무 · 급여 → 직원 탭에서 추가하세요.</td></tr>`}</table></div>
     <div class="muted" style="font-size:12px;margin-top:8px">직원 이름 · 비밀번호(PIN)는 근무 · 급여 → 직원 탭에서 정합니다.</div></div>
     <a class="admlink" href="https://kghwang1.github.io/cafe/oozy-work.html?tab=bak">💾 백업 받기 <small>근무기록 엑셀 · 전체 백업</small></a>`;
   box.querySelectorAll('[data-sid]').forEach(c => c.onchange = async () => {
