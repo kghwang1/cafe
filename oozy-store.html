@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 매장관리</title>
-<meta name="app-version" content="2026-10-26.2">
+<meta name="app-version" content="2026-10-26.3">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -235,6 +235,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 60px}
 :root[data-theme="dark"] .qa b{color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .qa b{color:var(--butter)}}
 .qa span{display:block;font-size:.78em;line-height:1.55;margin-top:6px}
+.evtabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px}.evtabs .gbtn.on{background:var(--green);color:var(--butter);border-color:var(--green)}
 /* 사용법 사진 */
 .pht{display:block;width:100%;background:var(--card);border:1.5px solid var(--line);border-radius:14px;
   padding:10px;margin-bottom:10px;font:inherit;color:var(--ink);text-align:center}
@@ -304,7 +305,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-26.2';
+  const APP_VERSION = '2026-10-26.3';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -485,9 +486,11 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     return `<button class="pht${cls ? ' ' + cls : ''}" data-ph="${i}">` + `<img src="data:image/jpeg;base64,${PHOTOS[i][2]}" alt="${esc(PHOTOS[i][1])}">` + `<span>${esc(PHOTOS[i][1])}</span></button>`; };
   
   let MAN = null;                                   // null=목록, 'airfryer'=상세
-  const EQUIP = [['airfryer', '듀얼 에어프라이어', '닌자(NINJA) · 바스켓 2칸', '🍟']];
+  const EQUIP = [['eversys', '에버시스 커피머신', 'Eversys 전자동 · 커피 만들기 · 마감 세척 · 메뉴', '☕'], ['airfryer', '듀얼 에어프라이어', '닌자(NINJA) · 바스켓 2칸', '🍟']];
+  let EVT = 'make';                                 // 에버시스 안의 탭: make / close / menu
   const li = a => a.map(t => `<li>${esc(t)}</li>`).join('');
   function manualHTML() {
+    if (MAN === 'eversys') return eversysHTML();
     if (!MAN) {
       return `<div class="sec">사용법</div><div class="sub-t">장비를 누르면 사용법이 열립니다</div>` +
         EQUIP.map(([k, n, s, ic]) =>
@@ -565,6 +568,92 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       `<div class="sec">Q&amp;A</div>` +
       QA.map(([q, a]) => `<div class="qa"><b>Q. ${esc(q)}</b><span>A. ${esc(a)}</span></div>`).join('');
   }
+
+  // ---------- 에버시스(Eversys) 커피머신 사용법 ----------
+  function eversysHTML() {
+    const steps = (arr, hotIdx) => `<div class="wbox">` + arr.map(([t, d], i) =>
+      `<div class="mstep"><span class="mno${(hotIdx || []).includes(i) ? ' hot' : ''}">${i + 1}</span><div class="mtx">` +
+      `<b${(hotIdx || []).includes(i) ? ' class="r"' : ''}>${esc(t)}</b>` + (d || []).map(x => `<span>${esc(x)}</span>`).join('') + `</div></div>`).join('') + `</div>`;
+    const tabs = [['make', '커피 만들기'], ['close', '마감 (세척)'], ['menu', '메뉴 사용법']];
+    let h = `<div class="mtop"><button class="back" id="manBack">‹ 목록</button><div class="mttl">에버시스 커피머신</div></div>` +
+      `<div class="evtabs">` + tabs.map(([k, n]) => `<button class="gbtn${EVT === k ? ' on' : ''}" data-evt="${k}">${n}</button>`).join('') + `</div>`;
+    if (EVT === 'make') {
+      h += `<div class="sec">화면 버튼</div><div class="mbox">` + [
+        ['정지 (빨강 ✕)', '지금 나오는 음료·세척을 멈춤 — 마감 후 퇴근할 때 누르지 않기'],
+        ['헹굼 (빨강)', '커피 추출부를 물로 헹굼 · 3초 길게 누르면 자동 세척'],
+        ['2x espresso / 2x decaffe', '에스프레소 2샷 / 디카페인 2샷'],
+        ['2x Ristretto / decaffe Ristretto', '리스트레토 (짧고 진한 추출)'],
+        ['Latte · cappuccino (e foam)', '우유 거품을 자동으로 만들어 라떼 · 카푸치노'],
+        ['Hot Water', '뜨거운 물 (아메리카노용)'],
+        ['Manual Steam', '스팀 노즐 수동 스팀'],
+        ['아래 초 표시 (예: 26.1s)', '마지막 커피 추출 시간'],
+      ].map(([n, d]) => `<div class="mrow bl"><span class="mitem">${esc(n)}<span class="mspec">${esc(d)}</span></span></div>`).join('') + `</div>` +
+      `<div class="sec">음료 만들기</div>` +
+      `<div class="flow"><span>컵 놓기</span><i>▶</i><span>메뉴 버튼</span><i>▶</i><span>완료까지 기다리기</span></div>` +
+      steps([
+        ['컵을 토출구 바로 아래에 놓는다.', ['아이스 음료는 얼음컵, 핫 음료는 데운 컵']],
+        ['만들 메뉴 버튼을 누른다.', ['음료 버튼은 시작 · 멈춤 버튼입니다. 다시 누르면 멈춥니다.']],
+        ['추출이 끝날 때까지 컵을 빼지 않는다.', ['아래 초 표시로 추출 시간을 확인 (에스프레소 보통 25~30초)']],
+        ['아메리카노는 샷 + Hot Water로 만든다.', ['샷 수 · 물 양은 레시피 앱의 매장 레시피를 따릅니다.']],
+      ]) +
+      `<div class="memo">메모 · 추출 시간이 평소보다 많이 짧거나 길면 사장님께 알려 주세요 (분쇄도 조정 필요).</div>` +
+      `<div class="sec">아침 오픈</div>` +
+      steps([
+        ['대기 상태면 대기(전원) 버튼을 3초 길게 눌러 켠다.', ['대기 시간 설정이 되어 있으면 오픈 전에 저절로 켜져 있습니다.']],
+        ['헹굼을 눌러 추출부를 헹군다.', []],
+        ['그룹마다 에스프레소를 한 번씩 뽑아 버린다.', ['추출 시간이 정상인지 확인']],
+        ['스팀 노즐을 한 번 빼 준다 (스팀 퍼지).', []],
+        ['우유 라인으로 우유를 한 번 내려 버린다.', ['우유 냉장고 온도 5℃ 이하 확인']],
+        ['원두 통이 가득한지, 잠금이 걸렸는지 확인한다.', []],
+      ]);
+    } else if (EVT === 'close') {
+      h += `<div class="warn2">★ 마감 세척이 끝나면 기계가 스스로 대기(에코)로 들어갑니다. 정지 · 전원 버튼은 누르지 않고 퇴근 ★</div>` +
+      `<div class="sec">마감 세척 순서 (매일)</div>` +
+      `<div class="flow sm"><span>세척 볼</span><i>▶</i><span>헹굼 3초</span><i>▶</i><span>우유 세척</span><i>▶</i><span>찌꺼기통</span><i>▶</i><span>그대로 퇴근</span></div>` +
+      steps([
+        ['커피 세척 볼을 세척제 투입구에 넣는다.', ['추출 그룹 1개당 1알 · 원두 통(호퍼)과 다른 곳 · 장갑 착용']],
+        ['헹굼 버튼을 3초 길게 눌러 자동 세척을 시작한다.', ['기계에 따라 메뉴의 「세척」']],
+        ['화면이 우유 세척을 요구하면 우유는 냉장고에 넣고, 우유 튜브를 세척통에 꽂고 「계속」.', ['Everclean 토출구당 25ml 또는 우유 세척 정제 토출구당 1정 · 강알칼리라 장갑 · 보안경']],
+        ['세척하는 동안(약 10~15분) 물받이 판, 컵 받침, 주변을 닦는다.', []],
+        ['화면이 요구할 때 세척통을 빼서 헹구고, 튜브를 닦아 우유통에 다시 꽂는다.', ['화면이 요구하기 전에 튜브를 빼지 않기']],
+        ['커피 찌꺼기통을 비우고 씻어 말린 뒤 넣고 「예(확인)」.', []],
+        ['화면 메뉴의 「화면 청소」를 누르고 소독제 묻힌 천으로 닦는다.', ['화면에 직접 뿌리지 않기']],
+        ['정지 · 전원을 누르지 않고 그대로 퇴근한다.', ['세척 중 정지 · 전원을 누르면 세척이 중간에 멈춥니다']],
+      ], [7]) +
+      `<div class="sec">세척제 주기</div><div class="mbox">` + [
+        ['커피 세척 볼', '추출 그룹 1개당 1알', '매일'],
+        ['우유 세척 (Everclean)', '토출구 1개당 25ml (또는 정제 1정)', '매일'],
+        ['우유 라인 딥 클리닝', '우유 모듈당 50ml (Everclean과 함께)', '주 1회'],
+      ].map(([n, s, c]) => `<div class="mrow"><span class="mitem">${esc(n)}<span class="mspec">${esc(s)}</span></span><span class="cyc ${c === '매일' ? 'd' : 'w'}">${c}</span></div>`).join('') + `</div>` +
+      `<div class="memo">메모 · 세척제는 반드시 Eversys 지정 제품 · 하루 몇 잔을 팔든 매일 1번</div>`;
+    } else {
+      h += `<div class="sec">메뉴 들어가기</div>` +
+      steps([
+        ['화면 위쪽 가운데를 누르면 메뉴가 열린다.', ['설정 메뉴는 관리자 비밀번호가 필요할 수 있습니다 — 사장님만 변경']],
+        ['메뉴 이름은 기계 언어 설정에 따라 한글 또는 영어로 보입니다.', []],
+      ]) +
+      `<div class="sec">대기 시간 설정 (Clean / Standby)</div><div class="mbox">` + [
+        ['Disable Standby', '대기 없이 계속 켜져 있음'],
+        ['Eco Mode (에코)', '히터 · 모터가 꺼져 전기를 거의 안 씀 — 밤에 권장'],
+        ['Full Standby', '대기 중에도 화면 터치에 바로 반응'],
+        ['Standby On/Off Times', '요일별로 꺼지는 시간 · 켜지는 시간 지정'],
+        ['세척 후 대기', '마감 세척이 끝나면 바로 대기로 들어감'],
+      ].map(([n, d]) => `<div class="mrow bl"><span class="mitem">${esc(n)}<span class="mspec">${esc(d)}</span></span></div>`).join('') + `</div>` +
+      steps([
+        ['메뉴 → Clean / Standby(세척 · 대기)로 들어간다.', []],
+        ['Standby On/Off Times에서 Off 또는 On 칸을 고른다.', []],
+        ['시간 줄을 누르고 화살표로 꺼지는 · 켜지는 시간을 맞춘다.', ['우리 매장 권장: 켜짐 06:20 (오픈 40분 전) · 꺼짐은 마감 세척 뒤 (또는 「세척 후 대기」)']],
+        ['저장 후 메뉴를 닫는다.', []],
+      ]) +
+      `<div class="sec">그 밖의 메뉴</div><div class="mbox">` + [
+        ['화면 청소', '화면을 잠시 잠가 닦을 수 있게 함'],
+        ['우유 시스템 세척제', 'Menu › Cleaning / Standby › Milk system detergent — 쓰는 세척제 종류와 맞추기'],
+        ['세척 기록 · 경고', '세척을 건너뛰면 경고가 뜰 수 있음 — 마감 세척을 매일 하기'],
+      ].map(([n, d]) => `<div class="mrow bl"><span class="mitem">${esc(n)}<span class="mspec">${esc(d)}</span></span></div>`).join('') + `</div>`;
+    }
+    return h + `<div class="sub-t" style="margin-top:14px">※ Eversys 공식 안내와 일반 매장 운영 기준으로 정리했습니다. 우리 매장 설치 기사 · 본사 안내와 다른 부분은 사장님이 고쳐 주세요.</div>`;
+  }
+
   function openPhoto(i) {
     const cap = PHOTOS[i][1], b64 = PHOTOS[i][2];
     const bg = document.createElement('div'); bg.className = 'phbg';
@@ -656,6 +745,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
     const ph = e.target.closest('[data-ph]'); if (ph) { openPhoto(+ph.dataset.ph); return; }
     const eq = e.target.closest('[data-eq]'); if (eq) { MAN = eq.dataset.eq; redraw(); return; }
     if (e.target.closest('#manBack')) { MAN = null; redraw(); return; }
+    const evt = e.target.closest('[data-evt]'); if (evt) { EVT = evt.dataset.evt; redraw(); return; }
     const r = e.target.closest('.wrow'); if (r) toggleRow(r);
   });
   $list.addEventListener('keydown', e => { if (e.key !== 'Enter' && e.key !== ' ') return; const r = e.target.closest('.wrow'); if (r) { e.preventDefault(); toggleRow(r); } });
