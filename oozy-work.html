@@ -209,6 +209,9 @@ body.practice{background:#fff4e0}
 @media (max-width:420px){.dayt{font-size:13px}.dayt .sw{margin-right:3px}}
 .dayt .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
 .wbox{margin-top:10px;padding:10px;border-radius:10px;background:#f5f2ee;font-size:14px}
+.badge.otb{background:#ffe0b2;color:#a64b00;font-size:11px}
+.otchk{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;padding:10px;border:1.5px solid #ffcc80;background:#fff8ec;border-radius:10px;font-size:14px;cursor:pointer}.otchk input{width:20px;height:20px;margin:0}.otchk .muted{font-size:12px}
+.wagecard .wrow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 4px;flex-wrap:wrap}.wagecard .wi{display:flex;gap:6px;align-items:center}.wagecard input{width:120px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:15px}
 </style>
 </head>
 <body>
@@ -219,6 +222,8 @@ body.practice{background:#fff4e0}
 <!-- 연습 모드용: worker.js와 같은 내용 (빌드 때 자동으로 채움) -->
 <script type="text/plain" id="practiceSrc">
 // 우지커피 근무관리 Worker (Cloudflare Workers + D1)
+// 2026-10-22 : 매장관리 오픈·마감 확인 기록(/store/*) 추가
+// 2026-10-27 : 주휴수당·계약시간·휴게 정리·연습 가져오기·추가근무(시급/체크) 합침
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -292,8 +297,8 @@ const log = (env, id, action, before, after) => env.DB.prepare('INSERT INTO punc
 
 // ===== 로그인: 이름 + 비밀번호, 한 번 로그인한 기기는 토큰으로 바로 들어감 =====
 const ADMIN_NAME_DEFAULT = '황승유';                 // 관리자 이름 (Cloudflare 변수 ADMIN_NAME 이 있으면 그 값)
-const APP_KEYS = ['work', 'store', 'recipe', 'ledger', 'coffee'];   // 근무급여, 매장관리, 레시피, 카페운영, 커피회사
-const STAFF_DEFAULT_APPS = ['work', 'store', 'recipe'];
+const APP_KEYS = ['work', 'store', 'recipe', 'ledger', 'coffee', 'stock'];   // 근무급여, 매장관리, 레시피, 카페운영, 커피회사, 재고관리
+const STAFF_DEFAULT_APPS = ['work', 'store', 'recipe', 'stock'];
 const appsOf = s => s.apps == null ? STAFF_DEFAULT_APPS.slice() : String(s.apps).split(',').filter(k => APP_KEYS.includes(k));
 const adminName = env => String(env.ADMIN_NAME || ADMIN_NAME_DEFAULT).trim();
 async function auth(req, env) {
@@ -329,13 +334,24 @@ async function ensureSettings(env) {
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)').run();
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS payslip (staff_id INTEGER NOT NULL, month TEXT NOT NULL, data TEXT, at INTEGER, PRIMARY KEY(staff_id, month))').run();
   // 출퇴근 방식 변경으로 추가된 칸 (이미 있으면 무시)
-  for (const col of ['plan_start INTEGER', 'plan_end INTEGER', 'raw_start INTEGER', 'raw_end INTEGER', 'end_type TEXT', 'brk_min INTEGER', 'memo TEXT']) {   // brk_min: 기록한 휴게(분), 비어 있으면 자동 계산
+  for (const col of ['plan_start INTEGER', 'plan_end INTEGER', 'raw_start INTEGER', 'raw_end INTEGER', 'end_type TEXT', 'brk_min INTEGER', 'memo TEXT', 'ot INTEGER']) {   // brk_min: 기록한 휴게(분), 비어 있으면 자동 계산
     try { await env.DB.prepare('ALTER TABLE punch ADD COLUMN ' + col).run(); } catch (e) { }
   }
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN use_break INTEGER NOT NULL DEFAULT 1').run(); } catch (e) { } // 휴게시간 사용 여부
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0').run(); } catch (e) { } // 삭제한 직원 (지난 기록만 남김)
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN apps TEXT').run(); } catch (e) { }   // 쓸 수 있는 앱 (비어 있으면 기본)
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS contract (staff_id INTEGER NOT NULL, month TEXT NOT NULL, weekly_min INTEGER NOT NULL, PRIMARY KEY(staff_id, month))').run();   // 주 계약시간 (그 달부터 적용)
+  // 매장관리: 오픈·마감 확인 기록
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS store_check (date TEXT NOT NULL, kind TEXT NOT NULL, item TEXT NOT NULL, title TEXT,
+    staff_id INTEGER, name TEXT NOT NULL, color TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(date, kind, item))`).run();
+  // 재고관리: 품목 목록 + 날짜별 수량 기록
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS stock_item (id INTEGER PRIMARY KEY AUTOINCREMENT, cat TEXT NOT NULL,
+    name TEXT NOT NULL, spec TEXT, base TEXT, sort INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS stock_log (date TEXT NOT NULL, item INTEGER NOT NULL, qty TEXT, buy TEXT, note TEXT,
+    staff_id INTEGER, name TEXT NOT NULL, color TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(date, item))`).run();
+  // 기준량·구매량 칸 (예전에 만든 표에는 없으므로 뒤에 붙임, 이미 있으면 무시)
+  try { await env.DB.prepare('ALTER TABLE stock_item ADD COLUMN base TEXT').run(); } catch (e) { }
+  try { await env.DB.prepare('ALTER TABLE stock_log ADD COLUMN buy TEXT').run(); } catch (e) { }
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS device (token TEXT PRIMARY KEY, role TEXT NOT NULL, staff_id INTEGER, ua TEXT, created INTEGER, seen INTEGER)').run();
   READY[key] = true;
   if (env.PRACTICE && !(await env.DB.prepare('SELECT COUNT(*) c FROM staff').first()).c) await seedPractice(env);
@@ -414,6 +430,9 @@ async function punchEnabled(env) {
   const r = await env.DB.prepare("SELECT v FROM settings WHERE k='punch_on'").first();
   return r ? r.v === '1' : !!env.PRACTICE;
 }
+const MIN_WAGE = 10320;   // 법정 최저시급 (2026년) — 직원 시급의 기본값
+async function baseWageOf(env) { const r = await env.DB.prepare("SELECT v FROM settings WHERE k='base_wage'").first(); return r && +r.v ? +r.v : MIN_WAGE; }
+async function otWageOf(env) { const r = await env.DB.prepare("SELECT v FROM settings WHERE k='ot_wage'").first(); return r && +r.v ? +r.v : null; }
 async function computePay(env, month, onlyId) {
   const mm = /^(\d{4})-(\d{2})$/.exec(month || '');
   if (!mm) return { error: 'month=YYYY-MM 형식이 필요합니다.' };
@@ -426,7 +445,7 @@ async function computePay(env, month, onlyId) {
   const pending = (await env.DB.prepare("SELECT staff_id, COUNT(*) c FROM punch WHERE status IN ('open','missing') AND start>=? AND start<?" + one + " GROUP BY staff_id").bind(from, to).all()).results;
   const sched = (await env.DB.prepare('SELECT staff_id,start FROM schedule WHERE start>=? AND start<?' + one).bind(wFrom, wTo).all()).results;
   const lastWork = (await env.DB.prepare("SELECT staff_id, MAX(start) t FROM punch WHERE status='done'" + one + " GROUP BY staff_id").all()).results;
-  const nowT = Date.now();
+  const nowT = Date.now(), otW = await otWageOf(env);
   const contracts = (await env.DB.prepare('SELECT * FROM contract' + (onlyId ? ' WHERE staff_id=' + (+onlyId) : '') + ' ORDER BY month').all()).results;
   const contractAt = (sid, ym) => { let c = null; contracts.forEach(r => { if (r.staff_id === sid && r.month <= ym) c = r; }); return c; };
   const out = staff.map(s => {
@@ -434,11 +453,13 @@ async function computePay(env, month, onlyId) {
     const weeks = {}, shifts = [];
     for (const r of mine) {
       const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;   // 순서: 직원 설정(기본) → 기록에 적은 휴게가 있으면 그 값
-      const w = weekStart(r.start);
-      weeks[w] = (weeks[w] || 0) + paid;
-      if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, edited: r.edited, end_type: r.end_type, memo: r.memo || null });
+      const w = weekStart(r.start), ot = r.ot ? 1 : 0;
+      if (!ot) weeks[w] = (weeks[w] || 0) + paid;                 // 추가근무는 주휴 기준 시간(소정근로)에서 뺀다
+      if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, ot, edited: r.edited, end_type: r.end_type, memo: r.memo || null });
     }
     const total = shifts.reduce((a, x) => a + x.min, 0), brk = shifts.reduce((a, x) => a + x.brk, 0), paid = total - brk;
+    const otPaid = shifts.filter(x => x.ot).reduce((a, x) => a + x.paid, 0), basePaid = paid - otPaid;
+    const otWage = otW || s.wage, basePay = Math.floor(basePaid * s.wage / 60), otPay = Math.floor(otPaid * otWage / 60);
     // 주휴수당: 그 주 일요일이 이달에 속한 주만. 주 15시간 이상 + 예정일 개근 + 주가 끝났고 다음 주에도 근로관계가 이어질 때
     const juhuWeeks = []; let juhu = 0;
     const lw = (lastWork.find(x => x.staff_id === s.id) || {}).t || 0;
@@ -463,7 +484,7 @@ async function computePay(env, month, onlyId) {
     const days = new Set(shifts.map(x => dayStart(x.start))).size;
     const overWeeks = Object.entries(weeks).filter(([, v]) => v >= WEEK_LIMIT_MIN).map(([w, v]) => ({ week: +w, minutes: v }));
     const pc = pending.find(x => x.staff_id === s.id);
-    return { id: s.id, name: s.name, wage: s.wage, color: s.color, active: s.active, useBreak: s.use_break !== 0, days, total, brk, paid, pay: Math.floor(paid * s.wage / 60), juhu, juhuWeeks, payTotal: Math.floor(paid * s.wage / 60) + juhu, shifts, overWeeks, unresolved: pc ? pc.c : 0 };
+    return { id: s.id, name: s.name, wage: s.wage, color: s.color, active: s.active, useBreak: s.use_break !== 0, days, total, brk, paid, basePaid, otPaid, otWage, basePay, otPay, pay: basePay + otPay, juhu, juhuWeeks, payTotal: basePay + otPay + juhu, shifts, overWeeks, unresolved: pc ? pc.c : 0 };
   }).filter(x => onlyId || x.shifts.length || x.unresolved || x.active || x.juhu);
   return { month: `${y}-${String(mo).padStart(2, '0')}`, staff: out };
 }
@@ -524,7 +545,7 @@ async function route(req, env) {
     return json({ ok: true });
   }
   // 퇴근누락 정리는 기록을 다루는 요청에서만 (조회 속도 위해 /week, /login 제외)
-  if (p !== '/week' && p !== '/login') await closeStale(env);
+  if (p !== '/week' && p !== '/login' && !p.startsWith('/store/') && !p.startsWith('/stock/')) await closeStale(env);
   const now = Date.now();
 
   if (p === '/login') return json(me.role === 'admin' ? { role: 'admin', name: adminName(env) } : { role: 'staff', id: me.staff.id, name: me.staff.name });
@@ -548,6 +569,207 @@ async function route(req, env) {
     ]);
     const owner = ownerKeys(parseTemplate(t.results[0]).grid);
     return json({ staff: a.results, schedules: b2.results, punches: c.results, owner });
+  }
+
+  // ---------- 매장관리: 오픈·마감 확인 (모든 직원이 함께 봄) ----------
+  if (p.startsWith('/store/')) {
+    if (me.role !== 'admin' && !appsOf(me.staff).includes('store')) return err('매장관리를 쓸 권한이 없습니다. 관리자에게 문의하세요.', 403);
+    const OWNER_COLOR = '#5b3a29';                                  // 사장 색 (원하면 바꾸세요)
+    const ymdK = ts => { const x = k(ts); return `${x.y}-${String(x.mo).padStart(2, '0')}-${String(x.d).padStart(2, '0')}`; };
+    const okDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+    const who = me.role === 'admin'
+      ? { id: null, name: adminName(env), color: OWNER_COLOR }
+      : { id: me.staff.id, name: me.staff.name, color: me.staff.color || '#4f7cff' };
+
+    // 그날 체크 상태 + 직원 색 목록
+    if (p === '/store/check' && m === 'GET') {
+      const date = url.searchParams.get('date') || ymdK(now);
+      if (!okDate(date)) return err('날짜 형식(YYYY-MM-DD)이 올바르지 않습니다.');
+      const [rows, st] = await env.DB.batch([
+        env.DB.prepare('SELECT kind,item,title,name,color,at FROM store_check WHERE date=?').bind(date),
+        env.DB.prepare('SELECT id,name,color,apps FROM staff WHERE active=1 AND deleted=0 ORDER BY id'),
+      ]);
+      const items = {};
+      for (const r of rows.results) items[r.kind + ':' + r.item] = { title: r.title, name: r.name, color: r.color, at: r.at };
+      const staff = [{ id: null, name: adminName(env), color: OWNER_COLOR, owner: 1 }]
+        .concat(st.results.filter(s => appsOf(s).includes('store')).map(s => ({ id: s.id, name: s.name, color: s.color })));
+      return json({ date, today: ymdK(now), items, staff, me: who });
+    }
+
+    // 체크 / 체크 해제
+    if (p === '/store/check' && m === 'POST') {
+      const date = String(b.date || '').trim();
+      const kind = b.kind === 'open' ? 'open' : 'close';
+      const item = String(b.item || '').trim().slice(0, 40);
+      if (!okDate(date) || !item) return err('잘못된 요청입니다.');
+      if (date !== ymdK(now) && date !== ymdK(now - DAY)) return err('오늘 또는 어제 날짜만 체크할 수 있습니다.', 403);
+      if (b.on) {
+        await env.DB.prepare(`INSERT INTO store_check(date,kind,item,title,staff_id,name,color,at) VALUES(?,?,?,?,?,?,?,?)
+          ON CONFLICT(date,kind,item) DO UPDATE SET title=excluded.title, staff_id=excluded.staff_id,
+            name=excluded.name, color=excluded.color, at=excluded.at`)
+          .bind(date, kind, item, String(b.title || '').slice(0, 80), who.id, who.name, who.color, now).run();
+      } else {
+        await env.DB.prepare('DELETE FROM store_check WHERE date=? AND kind=? AND item=?').bind(date, kind, item).run();
+      }
+      return json({ ok: true, on: !!b.on, by: who, at: now });
+    }
+
+    // 달력용: 그 달에 기록이 있는 날짜와 참여한 사람
+    if (p === '/store/days' && m === 'GET') {
+      const mo = String(url.searchParams.get('month') || '').trim();
+      if (!/^\d{4}-\d{2}$/.test(mo)) return err('month=YYYY-MM 형식이 필요합니다.');
+      const rows = (await env.DB.prepare('SELECT date,kind,name,color,COUNT(*) c FROM store_check WHERE date LIKE ? GROUP BY date,kind,name,color')
+        .bind(mo + '-%').all()).results;
+      const days = {};
+      for (const r of rows) {
+        const d = days[r.date] || (days[r.date] = { open: 0, close: 0, who: [] });
+        d[r.kind] += r.c;
+        if (!d.who.some(w => w.name === r.name)) d.who.push({ name: r.name, color: r.color });
+      }
+      return json({ month: mo, days });
+    }
+    return err('매장관리: 알 수 없는 요청입니다.', 404);
+  }
+
+  // ---------- 재고관리: 품목 목록 + 날짜별 수량 (모든 직원이 함께 봄) ----------
+  if (p.startsWith('/stock/')) {
+    if (me.role !== 'admin' && !appsOf(me.staff).includes('stock')) return err('재고관리를 쓸 권한이 없습니다. 관리자에게 문의하세요.', 403);
+    const OWNER_COLOR = '#5b3a29';
+    const ymdK = ts => { const x = k(ts); return `${x.y}-${String(x.mo).padStart(2, '0')}-${String(x.d).padStart(2, '0')}`; };
+    // 모양도 맞고 실제로 있는 날짜인지까지 확인 (2026-13-99 같은 값 막기)
+    const okDate = s => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return false;
+      const [y, mo, d] = s.split('-').map(Number);
+      const t = new Date(Date.UTC(y, mo - 1, d));
+      return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+    };
+    const who = me.role === 'admin'
+      ? { id: null, name: adminName(env), color: OWNER_COLOR }
+      : { id: me.staff.id, name: me.staff.name, color: me.staff.color || '#4f7cff' };
+    const itemsOf = async () => (await env.DB.prepare(
+      'SELECT id,cat,name,spec,sort FROM stock_item WHERE deleted=0 ORDER BY sort, id').all()).results;
+    // 처음 한 번만: 기본 품목 넣기 (레시피 기준 · 앱에서 추가·삭제할 수 있음)
+    const seedStock = async () => {
+      if (globalThis.__stockSeeded) return;
+      const c = (await env.DB.prepare('SELECT COUNT(*) c FROM stock_item').first()).c;
+      if (c) {
+        // 이미 품목이 있는 매장: 「케이크 3종」 한 줄을 초코·버터·밀크 세 줄로 나눠 준다 (한 번만)
+        const old = await env.DB.prepare("SELECT id,cat,sort FROM stock_item WHERE deleted=0 AND name='케이크 3종'").first();
+        if (old) await env.DB.batch([
+          env.DB.prepare('UPDATE stock_item SET name=? WHERE id=?').bind('초코케이크', old.id),
+          env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(old.cat, '버터케이크', '', old.sort + 1),
+          env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(old.cat, '밀크케이크', '', old.sort + 2),
+        ]);
+        globalThis.__stockSeeded = true;
+        return;
+      }
+      const SEED = [
+        ['베이커리', [['화이트롤슈', ''], ['초코케이크', ''], ['버터케이크', ''], ['밀크케이크', ''], ['글레이즈도넛', ''], ['빅 글레이즈도넛', ''], ['흑임자 빅 글레이즈도넛', ''],
+          ['클래식도넛', ''], ['츄러스', ''], ['바삭츄러스 호두과자', ''], ['소금빵', ''], ['에그듬뿍모닝빵', ''],
+          ['더블치즈베이글', ''], ['딥 미니버거', ''], ['클래식 프렌치토스트', ''], ['에그포테이토샐러드', '샐러드믹스용'], ['마카로니샐러드', '샐러드믹스용']]],
+        ['커피 · 원두', [['원두', '상온 · 개봉 후 3일'], ['디카페인 원두', '상온 · 개봉 후 7일'], ['콜드브루 원액', '냉장 · 개봉 후 7일']]],
+        ['유제품 · 냉장', [['우유', '개봉 후 24시간'], ['오트밀크', '냉장 · 7일'], ['연유', '냉장 · 5일'], ['에버휩', ''],
+          ['휘핑스프레이', '냉장 · 3일'], ['체다치즈', '냉장 · 30일'], ['홍체리', '냉장 · 7일'], ['포션버터', '']]],
+        ['파우더 · 베이스', [['초코파우더', ''], ['녹차파우더', ''], ['말차파우더', ''], ['아이스크림파우더', ''], ['프라페파우더', ''],
+          ['요거트파우더', ''], ['바닐라파우더', ''], ['홍차파우더', ''], ['율무파우더', ''], ['체리파우더', ''],
+          ['프림커피파우더', ''], ['코코아파우더', ''], ['우지밸런스베이스', '딥베이스용'], ['우지곡물베이스', ''], ['아이스티', '']]],
+        ['시럽 · 소스', [['슈가시럽', ''], ['제로시럽', ''], ['바닐라시럽', ''], ['헤이즐넛시럽', ''], ['카라멜시럽', ''],
+          ['카라멜소스', ''], ['초코쉘', ''], ['초코드리즐', ''], ['피넛소스', ''], ['케이크시럽', ''], ['치폴레소스', ''], ['꿀', '']]],
+        ['냉동 · 과일', [['냉동딸기', ''], ['냉동딸기다이스', ''], ['냉동블루베리', ''], ['딸기퓨레', ''], ['망고퓨레', ''],
+          ['블루베리베이스', ''], ['냉동 타피오카 펄', '해동 금지'], ['오렌지주스', '']]],
+        ['토핑', [['쿠키분태', ''], ['오레오', ''], ['핑거쿠키', ''], ['아몬드슬라이스', ''], ['그래놀라', ''],
+          ['초코크런치볼', ''], ['다크블라썸', ''], ['메이플팝콘', ''], ['카라멜팝콘', ''], ['시나몬', ''], ['황설탕', ''], ['맛소금', '']]],
+        ['컵 · 포장재', [['10oz 아이스컵', ''], ['20oz 아이스컵', ''], ['24oz 아이스컵', ''], ['핫컵', ''], ['컵 뚜껑', ''],
+          ['컵홀더', ''], ['빨대', ''], ['파우치봉투', ''], ['각대봉투', ''], ['포장박스(소)', ''], ['포장박스(대)', ''],
+          ['소스용기', ''], ['캐리어', ''], ['냅킨', ''], ['물티슈', '']]],
+      ];
+      const st = [];
+      let n = 0;
+      for (const [cat, list] of SEED) for (const [name, spec] of list)
+        st.push(env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(cat, name, spec, n += 10));
+      for (let i = 0; i < st.length; i += 40) await env.DB.batch(st.slice(i, i + 40));   // 한 번에 너무 많이 넣지 않도록
+      globalThis.__stockSeeded = true;
+    };
+
+    // 품목 목록
+    if (p === '/stock/items' && m === 'GET') {
+      await seedStock();
+      return json({ items: await itemsOf() });
+    }
+
+    // 품목 추가
+    if (p === '/stock/item' && m === 'POST') {
+      const cat = String(b.cat || '').trim().slice(0, 30), name = String(b.name || '').trim().slice(0, 40);
+      const spec = String(b.spec || '').trim().slice(0, 60);
+      if (!cat || !name) return err('분류와 품목 이름을 넣어주세요.');
+      const dup = await env.DB.prepare('SELECT id FROM stock_item WHERE deleted=0 AND cat=? AND name=?').bind(cat, name).first();
+      if (dup) return err('같은 분류에 같은 이름의 품목이 이미 있습니다.');
+      const mx = (await env.DB.prepare('SELECT COALESCE(MAX(sort),0) s FROM stock_item WHERE cat=?').bind(cat).first()).s;
+      const r = await env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(cat, name, spec, mx + 1).run();
+      return json({ ok: true, id: r.meta.last_row_id, items: await itemsOf() });
+    }
+
+    // 품목 삭제 (지난 기록은 그대로 남음)
+    if (p === '/stock/item/del' && m === 'POST') {
+      const id = Number(b.id || 0);
+      if (!id) return err('잘못된 요청입니다.');
+      await env.DB.prepare('UPDATE stock_item SET deleted=1 WHERE id=?').bind(id).run();
+      return json({ ok: true, items: await itemsOf() });
+    }
+
+    // 그날 수량 + 직원 색 목록
+    if (p === '/stock/day' && m === 'GET') {
+      await seedStock();
+      const date = url.searchParams.get('date') || ymdK(now);
+      if (!okDate(date)) return err('날짜 형식(YYYY-MM-DD)이 올바르지 않습니다.');
+      const [rows, st] = await env.DB.batch([
+        env.DB.prepare('SELECT item,qty,note,name,color,at FROM stock_log WHERE date=?').bind(date),
+        env.DB.prepare('SELECT id,name,color,apps FROM staff WHERE active=1 AND deleted=0 ORDER BY id'),
+      ]);
+      const rec = {};
+      for (const r of rows.results) rec[r.item] = { qty: r.qty, note: r.note, name: r.name, color: r.color, at: r.at };
+      const staff = [{ id: null, name: adminName(env), color: OWNER_COLOR, owner: 1 }]
+        .concat(st.results.filter(s => appsOf(s).includes('stock')).map(s => ({ id: s.id, name: s.name, color: s.color })));
+      return json({ date, today: ymdK(now), items: await itemsOf(), rec, staff, me: who });
+    }
+
+    // 수량 · 비고 저장 (여러 줄을 한 번에)
+    if (p === '/stock/day' && m === 'POST') {
+      const date = String(b.date || '').trim();
+      if (!okDate(date)) return err('날짜 형식(YYYY-MM-DD)이 올바르지 않습니다.');
+      const list = (Array.isArray(b.rows) ? b.rows : [b]).slice(0, 200);
+      const st = [];
+      for (const r of list) {
+        const id = Number(r.item || 0);
+        if (!id) continue;
+        const qty = String(r.qty == null ? '' : r.qty).trim().slice(0, 20);
+        const note = String(r.note == null ? '' : r.note).trim().slice(0, 80);
+        if (!qty && !note) st.push(env.DB.prepare('DELETE FROM stock_log WHERE date=? AND item=?').bind(date, id));
+        else st.push(env.DB.prepare(`INSERT INTO stock_log(date,item,qty,note,staff_id,name,color,at) VALUES(?,?,?,?,?,?,?,?)
+          ON CONFLICT(date,item) DO UPDATE SET qty=excluded.qty, note=excluded.note, staff_id=excluded.staff_id,
+            name=excluded.name, color=excluded.color, at=excluded.at`)
+          .bind(date, id, qty, note, who.id, who.name, who.color, now));
+      }
+      if (!st.length) return err('저장할 내용이 없습니다.');
+      for (let i = 0; i < st.length; i += 40) await env.DB.batch(st.slice(i, i + 40));
+      return json({ ok: true, n: st.length, by: who, at: now });
+    }
+
+    // 달력용: 그 달에 기록이 있는 날짜와 적은 사람
+    if (p === '/stock/days' && m === 'GET') {
+      const mo = String(url.searchParams.get('month') || '').trim();
+      if (!/^\d{4}-\d{2}$/.test(mo)) return err('month=YYYY-MM 형식이 필요합니다.');
+      const rows = (await env.DB.prepare('SELECT date,name,color,COUNT(*) c FROM stock_log WHERE date LIKE ? GROUP BY date,name,color')
+        .bind(mo + '-%').all()).results;
+      const days = {};
+      for (const r of rows) {
+        const d = days[r.date] || (days[r.date] = { n: 0, who: [] });
+        d.n += r.c;
+        if (!d.who.some(w => w.name === r.name)) d.who.push({ name: r.name, color: r.color });
+      }
+      return json({ month: mo, days });
+    }
+    return err('재고관리: 알 수 없는 요청입니다.', 404);
   }
 
   // ---------- 직원 ----------
@@ -806,16 +1028,28 @@ async function route(req, env) {
   // 직원 출근하기 버튼 사용 여부
   // 전체 백업: 모든 표를 한 번에 (로그인 기기 목록은 빼고)
   if (p === '/admin/backup' && m === 'GET') {
-    const tables = ['staff', 'schedule', 'punch', 'edit_request', 'punch_log', 'payslip', 'settings', 'contract'];
+    const tables = ['staff', 'schedule', 'punch', 'edit_request', 'punch_log', 'payslip', 'settings', 'contract', 'store_check', 'stock_item', 'stock_log'];
     const res = await env.DB.batch(tables.map(t => env.DB.prepare('SELECT * FROM ' + t)));
     const out = { app: 'oozy-work', version: 1, at: Date.now() };
     tables.forEach((t, i) => { out[t] = res[i].results; });
     return json(out);
   }
-  if (p === '/admin/settings' && m === 'GET') return json({ punchOn: await punchEnabled(env) });
+  if (p === '/admin/settings' && m === 'GET') return json({ punchOn: await punchEnabled(env), otWage: await otWageOf(env), baseWage: await baseWageOf(env), minWage: MIN_WAGE });
   if (p === '/admin/settings' && m === 'POST') {
-    await env.DB.prepare("INSERT INTO settings(k,v) VALUES('punch_on',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(b.punchOn ? '1' : '0').run();
-    return json({ ok: true, punchOn: !!b.punchOn });
+    if (b.punchOn !== undefined) await env.DB.prepare("INSERT INTO settings(k,v) VALUES('punch_on',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(b.punchOn ? '1' : '0').run();
+    if (b.baseWage !== undefined) {                     // 기본근무 시급: 저장하면 모든 직원 시급을 이 금액으로 맞춤
+      const w = Math.round(+b.baseWage);
+      if (!(w >= 1000)) return err('기본근무 시급을 확인하세요.');
+      await env.DB.batch([env.DB.prepare("INSERT INTO settings(k,v) VALUES('base_wage',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(String(w)),
+        env.DB.prepare('UPDATE staff SET wage=? WHERE deleted=0').bind(w)]);
+    }
+    if (b.otWage !== undefined) {                       // 추가근무 시급 (비우면 기본 시급과 같게)
+      const w = b.otWage === '' || b.otWage == null ? null : Math.round(+b.otWage);
+      if (w != null && !(w >= 1000)) return err('추가근무 시급을 확인하세요.');
+      if (w == null) await env.DB.prepare("DELETE FROM settings WHERE k='ot_wage'").run();
+      else await env.DB.prepare("INSERT INTO settings(k,v) VALUES('ot_wage',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(String(w)).run();
+    }
+    return json({ ok: true, punchOn: await punchEnabled(env), otWage: await otWageOf(env), baseWage: await baseWageOf(env), minWage: MIN_WAGE });
   }
   if (p === '/admin/punches' && m === 'GET') {
     const from = +url.searchParams.get('from'), to = +url.searchParams.get('to');
@@ -826,16 +1060,17 @@ async function route(req, env) {
   if (p === '/admin/punch' && m === 'POST') {
     const sid = +b.staff_id, s = num(b.start), e = num(b.end);
     const bm = b.brk_min === '' || b.brk_min == null ? null : Math.max(0, Math.round(+b.brk_min) || 0);   // 휴게(분)
+    const ot = b.ot ? 1 : 0;                                                                             // 추가근무 체크
     const v = validRange(s, e); if (v) return err(v);
     if (bm != null && bm >= (e - s) / MIN) return err('휴게시간이 근무시간보다 깁니다.');
     if (await overlap(env, 'punch', sid, s, e, +b.id || 0)) return err('이 직원의 다른 근무 기록과 시간이 겹칩니다.', 409);
     if (b.id) {
       const before = await env.DB.prepare('SELECT * FROM punch WHERE id=?').bind(+b.id).first();
-      await env.DB.prepare("UPDATE punch SET staff_id=?,start=?,end=?,brk_min=?,status='done',edited=1 WHERE id=?").bind(sid, s, e, bm, +b.id).run();
-      await log(env, +b.id, 'admin_edit', before, { staff_id: sid, start: s, end: e, brk_min: bm });
+      await env.DB.prepare("UPDATE punch SET staff_id=?,start=?,end=?,brk_min=?,ot=?,status='done',edited=1 WHERE id=?").bind(sid, s, e, bm, ot, +b.id).run();
+      await log(env, +b.id, 'admin_edit', before, { staff_id: sid, start: s, end: e, brk_min: bm, ot });
     } else {
-      const r = await env.DB.prepare("INSERT INTO punch(staff_id,start,end,brk_min,status,edited,created,note) VALUES(?,?,?,?,'done',1,?, '관리자 추가')").bind(sid, s, e, bm, now).run();
-      await log(env, r.meta.last_row_id, 'admin_add', null, { staff_id: sid, start: s, end: e, brk_min: bm });
+      const r = await env.DB.prepare("INSERT INTO punch(staff_id,start,end,brk_min,ot,status,edited,created,note) VALUES(?,?,?,?,?,'done',1,?, '관리자 추가')").bind(sid, s, e, bm, ot, now).run();
+      await log(env, r.meta.last_row_id, 'admin_add', null, { staff_id: sid, start: s, end: e, brk_min: bm, ot });
     }
     return json({ ok: true });
   }
@@ -1744,7 +1979,7 @@ async function applyTpl() {
 }
 
 // 근무기록/수정 — 달력에서 날짜를 골라 하루씩 고친다
-let PMONTH = ymd(Date.now()).slice(0, 7), PDAY = ymd(Date.now()), PROWS = [], PJUHU = {};
+let PMONTH = ymd(Date.now()).slice(0, 7), PDAY = ymd(Date.now()), PROWS = [], PJUHU = {}, POTW = {};
 const brkOf = (p, min) => {                     // 이 기록의 휴게(분): 기록에 적은 값 > 직원 설정(휴게 사용이면 자동 규칙, 없음이면 0)
   if (p.brk_min != null) return Math.min(+p.brk_min, min);
   const s = STAFF.find(x => x.id === p.staff_id); const use = !s || s.use_break !== 0;
@@ -1765,7 +2000,7 @@ async function tabPunch() {
   const payP = api('/admin/pay?month=' + PMONTH).catch(() => null);         // 주휴수당 (같이 받아 둠)
   const rows = await run(() => api(`/admin/punches?from=${from}&to=${to}`)); if (!rows) return;
   PROWS = rows.filter(p => p.start >= from && p.start < to);
-  const pay = await payP; PJUHU = {}; if (pay) pay.staff.forEach(s => { PJUHU[s.id] = s.juhuWeeks || []; });
+  const pay = await payP; PJUHU = {}; POTW = {}; if (pay) pay.staff.forEach(s => { PJUHU[s.id] = s.juhuWeeks || []; POTW[s.id] = s.otWage; });
   drawCal(y, m); drawDay();
 }
 function drawCal(y, m) {
@@ -1795,12 +2030,14 @@ function drawDay() {
     if (p.status === 'missing') work = '<span class="badge bad">퇴근누락</span>';
     else if (p.status === 'open') work = '<span class="badge ok">근무중</span>';
     else { const min = Math.round((p.end - p.start) / MIN), b = brkOf(p, min); sum += min - b;
-      work = `<b class="wk">${fmtHM(min - b)}</b>${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
+      work = `<b class="wk">${fmtHM(min - b)}</b>${p.ot ? '<div><span class="badge otb">추가근무</span></div>' : ''}${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
     const cum = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY).reduce((a, x) => a + paidMin(x), 0);   // 이달 1일~이 날
     const s = STAFF.find(x => x.id === p.staff_id);
     const dayEnd = new Date(PDAY + 'T00:00').getTime() + DAY;
     const jh = (PJUHU[p.staff_id] || []).filter(w => w.ok && w.week + 7 * DAY <= dayEnd).reduce((a, w) => a + w.amount, 0);   // 이 날까지 끝난 주의 주휴수당
-    const mpay = Math.floor(cum * ((s && s.wage) || 0) / 60) + jh;             // 월급여 = 기본급 + 주휴수당 (이달 1일~이 날)
+    const mine = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY), wg = (s && s.wage) || 0, otw = POTW[p.staff_id] || wg;
+    const otCum = mine.filter(x => x.ot).reduce((a, x) => a + paidMin(x), 0);
+    const mpay = Math.floor((cum - otCum) * wg / 60) + Math.floor(otCum * otw / 60) + jh;   // 월급여 = 기본급 + 추가근무수당 + 주휴수당 (이달 1일~이 날)
     if (!seen.has(p.staff_id)) { seen.add(p.staff_id); cumSum += cum; paySum += mpay; jhSum += jh; }
     return `<tr><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
       <td><span class="rng">${hhmm(p.start)}~${p.end ? hhmm(p.end) : '?'}</span>${endBadge(p) ? `<div>${endBadge(p)}</div>` : ''}${p.note && p.note !== '관리자 추가' ? `<div class="muted" style="font-size:11px">⚠ ${esc(p.note)}</div>` : ''}</td>
@@ -1816,7 +2053,7 @@ function drawDay() {
     ${list.length ? `<div class="dayscroll"><table class="dayt"><tr><th>근무자</th><th>근무구간</th><th>근무시간<br><small>(휴게 제외)</small></th><th>월누계</th><th>주휴수당</th><th>월급여<br><small>(이 날까지)</small></th><th>기록</th><th></th></tr>${body}
       <tr class="sum"><td colspan="2">합계</td><td><b class="wk">${fmtHM(sum)}</b></td><td><b class="cum">${fmtHM(cumSum)}</b></td><td class="jpay"><b>${jhSum.toLocaleString('ko-KR')}</b><small>원</small></td><td class="mpay"><b>${paySum.toLocaleString('ko-KR')}</b><small>원</small></td><td></td><td></td></tr></table></div>
       <div class="muted swipehint" style="font-size:11.5px;margin-top:6px">← 표를 옆으로 밀면 수정 · 삭제 버튼이 보입니다</div>
-      <div class="muted" style="font-size:11.5px;margin-top:6px">기록 칸은 쓰고 칸 밖을 누르면 저장됩니다. 월누계: 이달 1일부터 이 날까지 휴게를 뺀 근무시간. 주휴수당: 이 날까지 끝난 주 중 조건(주 15시간 이상·개근)을 채운 주. 월급여: 시급 × 월누계 + 주휴수당</div>`
+      <div class="muted" style="font-size:11.5px;margin-top:6px">기록 칸은 쓰고 칸 밖을 누르면 저장됩니다. 월누계: 이달 1일부터 이 날까지 휴게를 뺀 근무시간. 주휴수당: 이 날까지 끝난 주 중 조건(주 15시간 이상·개근)을 채운 주. 월급여: 시급 × 월누계 + 주휴수당 (추가근무로 체크한 기록은 추가근무 시급으로 계산)</div>`
       : '<div class="muted" style="margin-top:10px">이 날은 근무 기록이 없습니다.</div>'}`;
   $('#pAdd').onclick = () => editPunch(null, false, PDAY);
   document.querySelectorAll('[data-pm]').forEach(t => {          // 기록 칸: 칸을 벗어나면 저장
@@ -1902,11 +2139,12 @@ async function editPunch(p, fromWeek, day) {
       <div><label>퇴근</label><input type="hidden" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"><button type="button" class="tbtn" id="kBb">${tLabel(p && p.end ? hhmm(p.end) : '')}</button></div></div>
     <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${defBrk}">
     <div class="muted" style="font-size:12px" id="kRn">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
+    <label class="otchk"><input type="checkbox" id="kO" ${p && p.ot ? 'checked' : ''}> <b>추가근무</b> <span class="muted">— 체크하면 이 기록은 <b>추가근무 시급</b>으로 계산 (급여 탭에서 설정)</span></label>
     <div class="wbox">근무시간 (휴게 제외): <b id="kW">-</b></div>`, '저장', () => {
       const d = $('#kD').value, a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
       if (!d || !a || !b) { toast('날짜와 시간을 모두 입력하세요'); return false; }
       if (r !== '' && !(+r >= 0)) { toast('휴게시간은 0 이상의 분으로 넣으세요'); return false; }
-      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? null : +r };
+      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? null : +r, ot: $('#kO').checked ? 1 : 0 };
     });
   if (!v) return;
   if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else { PDAY = ymd(v.start); PMONTH = PDAY.slice(0, 7); tabPunch(); } }
@@ -1926,11 +2164,19 @@ let PAYMONTH = ymd(Date.now()).slice(0, 7), PAY = null;
 async function tabPay() {
   $('#body').innerHTML = `<div class="card"><div class="row"><div><label>급여 월</label><input type="month" id="pm" value="${PAYMONTH}"></div><button class="pri" id="pgo" style="flex:0 0 auto">계산</button></div></div><div id="paybody"></div>`;
   $('#pgo').onclick = () => { PAYMONTH = $('#pm').value; tabPay(); };
+  const setP = api('/admin/settings').catch(() => null);
   PAY = await run(() => api('/admin/pay?month=' + PAYMONTH)); if (!PAY) return;
+  const SET = (await setP) || {}; if (SET.baseWage) BASEW = SET.baseWage;
   const sum = PAY.staff.reduce((a, s) => a + totOf(s), 0);
   const confAt = PAY.staff.map(s => s.confirmedAt).filter(Boolean).sort().pop();
   const unres = PAY.staff.reduce((a, s) => a + s.unresolved, 0);
-  $('#paybody').innerHTML = `<div class="card"><b>${PAY.month} 인건비 합계: ${won(sum)}</b><div class="muted">휴게시간 차감: 근무기록/수정에서 휴게를 적은 날은 적은 시간만큼. 그 밖의 날은 직원 탭에서 "휴게시간 사용"인 사람만 출근~퇴근 4시간 이상 30분, 8시간 30분 이상 1시간</div>
+  $('#paybody').innerHTML = `<div class="card wagecard"><b>시급 설정</b>
+      <div class="wrow"><span>기본근무 시급</span><span class="wi"><input type="number" id="bsW" inputmode="numeric" step="10" min="0" value="${SET.baseWage || SET.minWage || 10320}">원</span></div>
+      <div class="muted" style="font-size:12px">기본은 법정 최저시급 ${won(SET.minWage || 10320)}입니다. 저장하면 <b>모든 직원의 시급</b>이 이 금액으로 바뀌고, 새 직원도 이 금액으로 등록됩니다. (한 사람만 다르게 하려면 저장 뒤 직원 탭에서 고치세요)</div>
+      <div class="wrow"><span>추가근무 시급</span><span class="wi"><input type="number" id="otW" inputmode="numeric" step="10" min="0" placeholder="비우면 기본 시급" value="${SET.otWage || ''}">원</span></div>
+      <div class="muted" style="font-size:12px">근무기록에서 <b>추가근무</b>로 체크한 기록에만 적용됩니다. 비워 두면 기본 시급으로 계산합니다.${SET.minWage ? ` (참고: 법정시급의 1.5배 = ${won(Math.round(SET.minWage * 1.5))})` : ''}</div>
+      <button class="pri" id="wSave" style="width:100%;margin-top:10px">시급 저장</button></div>
+    <div class="card"><b>${PAY.month} 인건비 합계: ${won(sum)}</b><div class="muted">휴게시간 차감: 근무기록/수정에서 휴게를 적은 날은 적은 시간만큼. 그 밖의 날은 직원 탭에서 "휴게시간 사용"인 사람만 출근~퇴근 4시간 이상 30분, 8시간 30분 이상 1시간</div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${confAt ? `<span class="stamp ok">확정됨 ${mdw(confAt)} ${hhmm(confAt)}</span>` : '<span class="stamp wip">확정 전</span>'}
         <span style="flex:1"></span>
@@ -1940,11 +2186,27 @@ async function tabPay() {
       <div class="muted" style="margin-top:6px">확정하면 알바가 자기 PIN으로 로그인해 <b>확정급여</b>에서 본인 명세서만 볼 수 있습니다.</div></div>` +
     PAY.staff.map(s => `<div class="card" style="border-left:5px solid ${s.color}">
       <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">시급 ${won(s.wage)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><button class="sm" data-slip="${s.id}" style="flex:0 0 auto">명세서</button></div>
-      <table class="pay" style="margin-top:6px"><tr><th>근무일</th><th>총 시간</th><th>휴게</th><th>유급 시간</th><th>기본급</th><th>주휴수당</th><th>월 급여</th></tr>
-      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.pay)}</td><td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
+      <table class="pay" style="margin-top:6px"><tr><th>근무일</th><th>총 시간</th><th>휴게</th><th>유급 시간</th></tr>
+      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}${s.otPaid ? `<div style="font-size:11px;color:#a64b00">추가 ${fmtH(s.otPaid)}</div>` : ''}</td></tr></table>
+      <table class="pay" style="margin-top:6px"><tr><th>기본급</th><th>추가근무수당</th><th>주휴수당</th><th>월 급여</th></tr>
+      <tr><td>${won(baseOf(s))}</td><td>${s.otPaid ? `${won(s.otPay)}<div style="font-size:11px;color:#777">${fmtH(s.otPaid)} × ${won(s.otWage)}</div>` : '-'}</td><td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
       ${(s.juhuWeeks || []).length ? `<div class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"><b>주휴수당</b><br>${juhuTxt(s).join('<br>')}</div>` : ''}
       ${s.unresolved ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${s.unresolved}건이 계산에서 빠졌습니다. 기록 탭에서 정리하세요.</div>` : ''}
     </div>`).join('');
+  $('#wSave').onclick = async () => {
+    const bw = +$('#bsW').value, v = $('#otW').value.trim(), minW = SET.minWage || 10320;
+    if (!(bw >= 1000)) return toast('기본근무 시급을 확인하세요');
+    if (v !== '' && !(+v >= 1000)) return toast('추가근무 시급을 확인하세요');
+    const body = { otWage: v === '' ? null : +v };
+    const diff = PAY.staff.filter(s => s.active && s.wage !== bw);
+    if (bw !== (SET.baseWage || minW) || diff.length) {
+      const ok = await modal(`<h3>기본근무 시급 저장</h3>모든 직원의 시급을 <b>${won(bw)}</b>으로 맞춥니다.${diff.length ? `<div class="muted" style="margin-top:6px">바뀌는 직원: ${diff.map(s => `${esc(s.name)} ${won(s.wage)} → ${won(bw)}`).join(', ')}</div>` : ''}
+        ${bw < minW ? `<div class="warnlist" style="background:#fde3e3">⚠ 법정 최저시급(${won(minW)})보다 낮습니다.</div>` : ''}`, '저장');
+      if (!ok) return;
+      body.baseWage = bw;
+    }
+    if (await run(() => api('/admin/settings', body))) { toast('시급을 저장했습니다'); tabPay(); }
+  };
   document.querySelectorAll('[data-slip]').forEach(b => b.onclick = () => { const s = PAY.staff.find(x => x.id === +b.dataset.slip); showSlip(s, PAY.month, s.confirmedAt ? `<span class="stamp ok">확정 ${ymd(s.confirmedAt)}</span>` : '<span class="stamp wip">확정 전</span>'); });
   $('#pConfirm').onclick = async () => {
     const ok = await modal(`<h3>${PAY.month} 급여 확정</h3>지금 계산된 금액으로 명세서를 확정합니다. 알바는 자기 화면의 <b>확정급여</b>에서 본인 것만 볼 수 있습니다.
@@ -1975,6 +2237,8 @@ async function kakaoNotice() {
 const juhuWhy = s => {                              // 15시간 넘게 일했는데 주휴가 없는 주의 이유
   const r = [...new Set((s.juhuWeeks || []).filter(w => !w.ok && w.minutes >= 15 * 60).map(w => w.reason))];
   return r.length ? `<div style="font-size:11px;color:#b25e00;line-height:1.35;margin-top:2px">${r.map(esc).join('<br>')}</div>` : ''; };
+let BASEW = 10320;   // 새 직원 기본 시급 (급여 탭 기본근무 시급)
+const baseOf = s => s.basePay != null ? s.basePay : s.pay;          // 기본급 (추가근무수당 제외)
 const totOf = s => s.payTotal != null ? s.payTotal : s.pay;          // 월 급여 = 기본급 + 주휴수당 (예전 확정본은 기본급만)
 const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week + 6 * DAY).replace(/\(.\)/, '')} 주 · 실근무 ${fmtH(w.minutes)}${w.basis === 'contract' ? ` · 계약 ${fmtH(w.base)}` : ' · 계약시간 없음(실근무 기준)'} → ${w.ok ? won(w.amount) : '없음 (' + w.reason + ')'}`);
 function slipHTML(s, month, label) {
@@ -1984,7 +2248,8 @@ function slipHTML(s, month, label) {
     <table><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
     <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
     <h3>지급 내역</h3><table><tr><th>항목</th><th>계산 방법</th><th>금액</th></tr>
-    <tr><td>기본급</td><td>${(s.paid / 60).toFixed(2)}시간 × ${won(s.wage)}</td><td>${won(s.pay)}</td></tr>
+    <tr><td>기본급</td><td>${((s.basePaid != null ? s.basePaid : s.paid) / 60).toFixed(2)}시간 × ${won(s.wage)}</td><td>${won(baseOf(s))}</td></tr>
+    ${s.otPaid ? `<tr><td>추가근무수당</td><td>${(s.otPaid / 60).toFixed(2)}시간 × ${won(s.otWage)}</td><td>${won(s.otPay)}</td></tr>` : ''}
     <tr><td>주휴수당</td><td style="font-size:12px;text-align:left">${(s.juhuWeeks || []).filter(w => w.ok).map(w => `${mdw(w.week)}주 ${w.basis === 'contract' ? '계약' : '실근무'} ${(Math.min(w.base != null ? w.base : w.minutes, 2400) / 60).toFixed(1)}h ÷ 40 × 8h × ${won(s.wage)}`).join('<br>') || '-'}</td><td>${won(s.juhu || 0)}</td></tr>
     <tr><td>공제</td><td>-</td><td>0원</td></tr>
     <tr class="tot"><th colspan="2">실 지급액</th><td>${won(totOf(s))}</td></tr></table>
@@ -2042,14 +2307,14 @@ function tabBackup() {
     if (months.length > 24) return toast('한 번에 24개월까지 받을 수 있습니다');
     toast('만드는 중...');
     let X; try { X = await needXLSX(); } catch (e) { return toast(e.message, 3500); }
-    const rec = [['날짜', '요일', '이름', '출근', '퇴근', '근무(분)', '휴게(분)', '유급(분)', '유급 시간', '퇴근 방식', '수정됨', '기록']];
-    const sum = [['월', '이름', '시급', '근무일수', '총 근무', '휴게', '유급 시간', '유급(분)', '기본급(원)', '주휴수당(원)', '월 급여(원)', '확정']];
+    const rec = [['날짜', '요일', '이름', '출근', '퇴근', '근무(분)', '휴게(분)', '유급(분)', '유급 시간', '퇴근 방식', '수정됨', '추가근무', '기록']];
+    const sum = [['월', '이름', '시급', '근무일수', '총 근무', '휴게', '유급 시간', '유급(분)', '기본급(원)', '추가근무(분)', '추가근무 시급', '추가근무수당(원)', '주휴수당(원)', '월 급여(원)', '확정']];
     for (const mo of months) {
       const r = await run(() => api('/admin/pay?month=' + mo)); if (!r) return;
       const rows = [];
       r.staff.forEach(s => {
-        s.shifts.forEach(x => rows.push([ymd(x.start), DOW[new Date(x.start).getDay()], s.name, hhmm(x.start), hhmm(x.end), x.min, x.brk, x.paid, hm2(x.paid), END_LABEL[x.end_type] || '', x.edited ? 'O' : '', x.memo || '']));
-        if (s.shifts.length || s.juhu) sum.push([mo, s.name, s.wage, s.days, hm2(s.total), hm2(s.brk), hm2(s.paid), s.paid, s.pay, s.juhu || 0, totOf(s), s.confirmedAt ? '확정' : '']);
+        s.shifts.forEach(x => rows.push([ymd(x.start), DOW[new Date(x.start).getDay()], s.name, hhmm(x.start), hhmm(x.end), x.min, x.brk, x.paid, hm2(x.paid), END_LABEL[x.end_type] || '', x.edited ? 'O' : '', x.ot ? 'O' : '', x.memo || '']));
+        if (s.shifts.length || s.juhu) sum.push([mo, s.name, s.wage, s.days, hm2(s.total), hm2(s.brk), hm2(s.paid), s.paid, baseOf(s), s.otPaid || 0, s.otPaid ? s.otWage : '', s.otPay || 0, s.juhu || 0, totOf(s), s.confirmedAt ? '확정' : '']);
       });
       rows.sort((a, b) => (a[0] + a[3]).localeCompare(b[0] + b[3])); rec.push(...rows);
     }
@@ -2069,7 +2334,7 @@ async function tabStaff() {
       $('#pOnTxt').textContent = on ? '직원이 출근하기를 누를 수 있습니다.' : '직원 화면의 출근하기 버튼이 회색으로 잠겨 있습니다.';
       b.onclick = async () => { if (!await modal(`<h3>출근하기 버튼</h3>직원 출근하기 버튼을 <b>${on ? '잠글까요' : '사용하도록 할까요'}</b>?`, on ? '잠그기' : '사용하기')) return;
         const r = await run(() => api('/admin/settings', { punchOn: !on })); if (r) { toast(r.punchOn ? '출근하기 버튼을 켰습니다' : '출근하기 버튼을 잠갔습니다'); draw(r.punchOn); } }; };
-    const s = await run(() => api('/admin/settings')); if (s) draw(s.punchOn);
+    const s = await run(() => api('/admin/settings')); if (s) { draw(s.punchOn); if (s.baseWage) BASEW = s.baseWage; }
   }, 0);
   const COLORS = ['#e4572e', '#1d8a4b', '#3a6ea5', '#9c27b0', '#d98200', '#00897b', '#c2185b', '#5d4037'];
   const PALETTE = [['빨강', '#e4572e'], ['초록', '#1d8a4b'], ['진한녹색', '#0b5d2a'], ['청록', '#00897b'], ['파랑', '#3a6ea5'], ['남색', '#283593'], ['보라', '#9c27b0'], ['분홍', '#c2185b'], ['주황', '#d98200'], ['노랑', '#f5c400'], ['갈색', '#5d4037'], ['회색', '#757575']];
@@ -2085,7 +2350,7 @@ async function tabStaff() {
     const v = await modal(`<h3>${s ? '직원 수정' : '직원 추가'}</h3>
       <label>이름</label><input id="fN" value="${esc(s ? s.name : '')}">
       <label>PIN (숫자 4~6자리, 직원마다 다르게)</label><input id="fP" inputmode="numeric" value="${esc(s ? s.pin : '')}">
-      <label>시급</label><input id="fW" type="number" value="${s ? s.wage : 10320}">
+      <label>시급</label><input id="fW" type="number" value="${s ? s.wage : BASEW}">
       <label>주 계약시간 (소정근로시간)</label>
       <div class="kline"><span>주</span><input id="fK" type="number" inputmode="decimal" step="0.5" min="0" max="52" placeholder="예: 14" value="${curC ? curC.min / 60 : ''}"><span>시간,</span><input id="fKm" type="month" value="${curM}"><span>부터</span></div>
       <div class="muted" style="font-size:12px;margin:2px 0 4px">주휴수당은 이 시간으로 판단합니다 (15시간 이상이면 대상, 금액도 이 시간 기준). 비워 두면 실제 근무시간으로 계산합니다.
