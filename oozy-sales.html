@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-10-27.1">
+<meta name="app-version" content="2026-10-28.1">
 <title>우지커피 매출분석</title>
 <style>
 :root{
@@ -358,7 +358,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-10-27.1';
+const APP_VERSION = '2026-10-28.1';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = 'sales';
@@ -374,7 +374,8 @@ const SALES = {
   '2026-10-23':[11300,84100,107200,140600,89900,136100,108100,108100,52600,48200,34100,24400,35700,52800,92000,2000],
   '2026-10-24':[0,0,97600,77700,86300,143500,132800,131100,135800,60800,34100,78700,72700,41300,29800,0],
   '2026-10-25':[0,0,89800,167700,140700,78100,83600,166900,69300,64800,70400,41200,24300,14400,12300,4800],
-  '2026-10-26':[3900,49700,48400,41400,34300,87350,69300,72450,82050,63600,60650,9500,52600,54600,27500,0]
+  '2026-10-26':[3900,49700,48400,41400,34300,87350,69300,72450,82050,63600,60650,9500,52600,54600,27500,0],
+  '2026-10-27':[43450,39250,104300,12400,1650,44800,205300,57050,81400,31650,6000,26400,34800,35700,21700,0]
 };
 const SALES_PART = {'2026-10-26':[21,22]};          // 영수증을 뽑은 시각(21:48) 때문에 덜 잡힌 시간
 const SALES_NOTE = {'2026-10-26':'21:48 조회 — 21시 이후 일부 미반영'};
