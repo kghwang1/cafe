@@ -2259,8 +2259,12 @@ function slipHTML(s, month, label) {
     <tr><td>주휴수당</td><td style="font-size:12px;text-align:left">${(s.juhuWeeks || []).filter(w => w.ok).map(w => `${mdw(w.week)}주 ${w.basis === 'contract' ? '계약' : '실근무'} ${(Math.min(w.base != null ? w.base : w.minutes, 2400) / 60).toFixed(1)}h ÷ 40 × 8h × ${won(s.wage)}`).join('<br>') || '-'}</td><td>${won(s.juhu || 0)}</td></tr>
     <tr><td>공제</td><td>-</td><td>0원</td></tr>
     <tr class="tot"><th colspan="2">실 지급액</th><td>${won(totOf(s))}</td></tr></table>
-    <h3>근무 내역 (${s.shifts.length}회)</h3><table><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>근무</th><th>휴게</th></tr>
-    ${s.shifts.map(x => `<tr><td>${mdw(x.start)}</td><td>${hhmm(x.start)}</td><td>${hhmm(x.end)}</td><td>${fmtH(x.min)}</td><td>${x.brk ? x.brk + '분' : '-'}</td></tr>`).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}</table>
+    <h3>근무 내역 (${s.shifts.length}회)</h3><table><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>휴게</th><th>계약시간</th><th>추가시간</th></tr>
+    ${s.shifts.map(x => `<tr><td>${mdw(x.start)}</td><td>${hhmm(x.start)}</td><td>${hhmm(x.end)}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td>${x.ot ? '-' : fmtH(x.paid)}</td><td>${x.ot ? fmtH(x.paid) : '-'}</td></tr>`).join('') || '<tr><td colspan="6">근무 기록이 없습니다</td></tr>'}
+    ${s.shifts.length ? (() => { const reg = s.shifts.filter(x => !x.ot).reduce((a, x) => a + x.paid, 0), ot = s.shifts.filter(x => x.ot).reduce((a, x) => a + x.paid, 0);
+      const ok = reg === (s.basePaid != null ? s.basePaid : s.paid) && ot === (s.otPaid || 0);
+      return `<tr class="tot"><th colspan="4">합계 (휴게 제외)</th><td><b>${fmtH(reg)}</b></td><td><b>${ot ? fmtH(ot) : '-'}</b></td></tr></table>
+      <p style="font-size:12px;margin-top:6px;color:${ok ? '#2e7d32' : '#d32f2f'}">${ok ? '✓ 지급 내역의 기본급 시간(' + (reg / 60).toFixed(2) + '시간)과 추가근무 시간(' + (ot / 60).toFixed(2) + '시간)이 이 합계와 같습니다.' : '⚠ 지급 내역의 시간과 근무 내역 합계가 다릅니다. 관리자에게 문의하세요.'}</p>`; })() : '</table>'}
     ${s.unresolved ? `<p style="color:#d32f2f;margin-top:10px">※ 퇴근누락·근무중 기록 ${s.unresolved}건은 포함되지 않았습니다.</p>` : ''}
     <p style="margin-top:24px;text-align:right">발행일: ${ymd(Date.now())}</p></div>`;
 }
