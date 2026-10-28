@@ -120,6 +120,7 @@ button.warn{background:var(--warn);color:#fff}
 .warnlist{background:#fff6e5;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.5}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;z-index:60;max-width:90vw;display:none}
 .pay td,.pay th{padding:6px 4px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
+.pay.bx{border-collapse:collapse}.pay.bx td,.pay.bx th{border:1px solid #9a8f84;text-align:center}.pay.bx th{background:#f1eeea}
 .pay{width:100%;border-collapse:collapse}
 /* 근무표 */
 .pal{position:sticky;top:0;z-index:5;background:#fff;padding:8px 0 10px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:8px}
@@ -164,6 +165,8 @@ body.practice{background:#fff4e0}
 .slip table{width:100%;border-collapse:collapse}
 .slip td,.slip th{border:1px solid #999;padding:6px 4px;text-align:center;font-size:13px;word-break:keep-all}
 .slip th{background:#f1eeea}
+.slip table.t6{table-layout:fixed}.slip .t6 td,.slip .t6 th{font-size:12px;padding:5px 2px}
+.pay td,.pay th{word-break:keep-all}.pay.t6{table-layout:fixed}.pay.t6 td,.pay.t6 th{font-size:12px;padding:5px 2px}
 .slip .tot td,.slip .tot th{font-size:15px;font-weight:700;background:#fff7e8}
 .stamp{display:inline-block;padding:3px 12px;border-radius:99px;font-size:13px;font-weight:700}
 .stamp.ok{background:#dcf3e5;color:var(--ok)}.stamp.wip{background:#fff1d6;color:#9a5c00}
@@ -2187,10 +2190,10 @@ async function tabPay() {
       </div>
       <div class="muted" style="margin-top:6px">확정하면 알바가 자기 PIN으로 로그인해 <b>확정급여</b>에서 본인 명세서만 볼 수 있습니다.</div></div>` +
     PAY.staff.map(s => `<div class="card" style="border-left:5px solid ${s.color}">
-      <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">시급 ${won(s.wage)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><button class="sm" data-slip="${s.id}" style="flex:0 0 auto">명세서</button></div>
-      <table class="pay" style="margin-top:6px"><tr><th>근무일</th><th>총 시간</th><th>휴게</th><th>유급 시간</th></tr>
-      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}${s.otPaid ? `<div style="font-size:11px;color:#a64b00">추가 ${fmtH(s.otPaid)}</div>` : ''}</td></tr></table>
-      <table class="pay" style="margin-top:6px"><tr><th>기본급</th><th>추가근무수당</th><th>주휴수당</th><th>월 급여</th></tr>
+      <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">${ctrLbl(s, PAY.month)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><button class="sm" data-slip="${s.id}" style="flex:0 0 auto">명세서</button></div>
+      <table class="pay t6" style="margin-top:6px"><tr><th>근로일수</th><th>계약시간</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
+      <tr><td>${s.days}일</td><td>${ctrTxt(s, PAY.month)}</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}${s.otPaid ? `<div style="font-size:11px;color:#a64b00">추가 ${fmtH(s.otPaid)}</div>` : ''}</td><td>${won(s.wage)}</td></tr></table>
+      <table class="pay bx" style="margin-top:8px"><tr><th>기본급</th><th>추가근무수당</th><th>주휴수당</th><th>월 급여</th></tr>
       <tr><td>${won(baseOf(s))}</td><td>${s.otPaid ? `${won(s.otPay)}<div style="font-size:11px;color:#777">${fmtH(s.otPaid)} × ${won(s.otWage)}</div>` : '-'}</td><td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
       ${(s.juhuWeeks || []).length ? `<div class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"><b>주휴수당</b><br>${juhuTxt(s).join('<br>')}</div>` : ''}
       ${s.unresolved ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${s.unresolved}건이 계산에서 빠졌습니다. 기록 탭에서 정리하세요.</div>` : ''}
@@ -2247,9 +2250,9 @@ const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week +
 function slipHTML(s, month, label) {
   return `<div class="slip"><h2>임금명세서</h2>
     ${label ? `<div style="text-align:center;margin:-8px 0 12px">${label}</div>` : ''}
-    <div class="meta"><span>사업장: <b>우지커피 광양용강점</b></span><span>지급월: <b>${month}</b></span><span>성명: <b>${esc(s.name)}</b></span></div>
-    <table><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
-    <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
+    <div class="meta"><span>사업장: <b>우지커피 광양용강점</b></span><span>지급월: <b>${month}</b></span><span>성명: <b>${esc(s.name)}</b> <span style="font-size:12.5px;color:#666">(${ctrLbl(s, month)})</span></span></div>
+    <table class="t6"><tr><th>근로일수</th><th>계약시간</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
+    <tr><td>${s.days}일</td><td>${ctrTxt(s, month)}</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
     <h3>지급 내역</h3><table><tr><th>항목</th><th>계산 방법</th><th>금액</th></tr>
     <tr><td>기본급</td><td>${((s.basePaid != null ? s.basePaid : s.paid) / 60).toFixed(2)}시간 × ${won(s.wage)}</td><td>${won(baseOf(s))}</td></tr>
     ${s.otPaid ? `<tr><td>추가근무수당</td><td>${(s.otPaid / 60).toFixed(2)}시간 × ${won(s.otWage)}</td><td>${won(s.otPay)}</td></tr>` : ''}
@@ -2330,6 +2333,14 @@ function tabBackup() {
     toast(`엑셀을 내려받았습니다 (${rec.length - 1}건)`, 3500);
   };
 }
+// 그 달 주 계약시간(분): 직원 목록의 계약 기록 → 없으면 주휴 계산에 쓴 계약시간
+function ctrMin(s, ym) {
+  const st = (typeof STAFF !== 'undefined' && STAFF || []).find(x => x.id === s.id);
+  const c = st ? contractNow(st, ym) : null; if (c) return c.min;
+  const w = (s.juhuWeeks || []).filter(x => x.basis === 'contract').pop(); return w ? w.base : null;
+}
+const ctrTxt = (s, ym) => { const m = ctrMin(s, ym); return m == null ? '<span class="muted">없음</span>' : '주 ' + fmtH(m); };
+const ctrLbl = (s, ym) => { const m = ctrMin(s, ym); return m == null ? '계약시간 없음' : '주당 계약 ' + fmtH(m); };
 const contractNow = (s, ym) => { let c = null; (s.contracts || []).forEach(x => { if (x.month <= ym) c = x; }); return c; };
 async function tabStaff() {
   setTimeout(async () => {                         // 출근하기 버튼 사용 여부
