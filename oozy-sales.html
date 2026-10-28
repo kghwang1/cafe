@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-10-28.1">
+<meta name="app-version" content="2026-10-28.3">
 <title>우지커피 매출분석</title>
 <style>
 :root{
@@ -358,7 +358,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-10-28.1';
+const APP_VERSION = '2026-10-28.3';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = 'sales';
@@ -375,7 +375,8 @@ const SALES = {
   '2026-10-24':[0,0,97600,77700,86300,143500,132800,131100,135800,60800,34100,78700,72700,41300,29800,0],
   '2026-10-25':[0,0,89800,167700,140700,78100,83600,166900,69300,64800,70400,41200,24300,14400,12300,4800],
   '2026-10-26':[3900,49700,48400,41400,34300,87350,69300,72450,82050,63600,60650,9500,52600,54600,27500,0],
-  '2026-10-27':[43450,39250,104300,12400,1650,44800,205300,57050,81400,31650,6000,26400,34800,35700,21700,0]
+  '2026-10-27':[43450,39250,104300,12400,1650,44800,205300,57050,81400,31650,6000,26400,34800,35700,21700,0],
+  '2026-10-28':[21850,34600,55200,103450,40900,92200,98950,48300,56900,40400,75500,17300,26400,56500,29500,0]
 };
 const SALES_PART = {'2026-10-26':[21,22]};          // 영수증을 뽑은 시각(21:48) 때문에 덜 잡힌 시간
 const SALES_NOTE = {'2026-10-26':'21:48 조회 — 21시 이후 일부 미반영'};
@@ -397,6 +398,19 @@ const sPart = (d,h) => (SALES_PART[d]||[]).indexOf(h)>=0;
 const sDow = d => WKN[new Date(d+'T00:00:00').getDay()];
 const sLab = d => d.slice(5,7)+'/'+d.slice(8,10)+'('+sDow(d)+')'+(SALES_PART[d]?'*':'');
 const sK = n => (n/1000).toFixed(1);
+/* 요일별 — 월요일을 한 주의 시작으로 본다 */
+const WD_LAB = ['월','화','수','목','금','토','일'];
+const wdIdx = d => (new Date(d+'T00:00:00').getDay()+6)%7;          // 월=0 … 일=6
+const isoOf = t => t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+function monOf(d){ const t=new Date(d+'T00:00:00'); t.setDate(t.getDate()-wdIdx(d)); return isoOf(t) }
+function dayOfWeek(mon,j){ const t=new Date(mon+'T00:00:00'); t.setDate(t.getDate()+j); return isoOf(t) }
+function sWeeks(days){ const w=[]; days.forEach(d=>{ const k=monOf(d); if(w.indexOf(k)<0) w.push(k) }); return w.sort() }
+const wLab = (k,i) => (i+1)+'주 ('+k.slice(5,7)+'/'+k.slice(8,10)+'~)';
+function sWdStat(days){                                              // 요일별 평균·건수
+  const o = WD_LAB.map(()=>({s:0,n:0}));
+  days.forEach(d=>{ const x=o[wdIdx(d)]; x.s+=sTotal(d); x.n++ });
+  return o.map((x,i)=>({w:WD_LAB[i], n:x.n, avg:x.n? x.s/x.n : null}));
+}
 function sHourAvg(days){                         // 시간대별 평균 — 영업 전(7~8시 0원)·조회 전 시간은 뺀다
   return SALES_HOURS.map((h,i)=>{
     let s=0,c=0;
@@ -412,7 +426,7 @@ function sMonthStat(m){
 }
 function salesText(days){
   const mon = sCurMon(), avg = sHourAvg(days);
-  const out = {h:[], d:[], m:[]};
+  const out = {h:[], d:[], w:[], m:[]};
   /* 시간대별 */
   const idx = avg.map((v,i)=>({v:v||0,h:SALES_HOURS[i]})).sort((a,b)=>b.v-a.v);
   const sumAll = avg.reduce((t,v)=>t+(v||0),0) || 1;
@@ -430,13 +444,26 @@ function salesText(days){
   const wk = tots.filter(x=>{ const w=new Date(x.d+'T00:00:00').getDay(); return w>=1&&w<=5 }), we = tots.filter(x=>{ const w=new Date(x.d+'T00:00:00').getDay(); return w===0||w===6 });
   if(wk.length && we.length){
     const a=wk.reduce((t,x)=>t+x.t,0)/wk.length, b=we.reduce((t,x)=>t+x.t,0)/we.length;
-    out.d.push(b>a ? `평일 평균 ${won(a)}원, 주말 평균 ${won(b)}원으로 주말이 평일보다 ${Math.round((b/a-1)*100)}% 높습니다.` : `평일 평균 ${won(a)}원, 주말 평균 ${won(b)}원으로 평일이 주말보다 ${Math.round((a/b-1)*100)}% 높습니다.`);
+    const gap = b>a ? Math.round((b/a-1)*100) : Math.round((a/b-1)*100);
+    out.d.push(gap===0 ? `평일 평균 ${won(a)}원, 주말 평균 ${won(b)}원으로 거의 같습니다.`
+      : `평일 평균 ${won(a)}원, 주말 평균 ${won(b)}원으로 ${b>a?'주말이 평일':'평일이 주말'}보다 ${gap}% 높습니다.`);
   }
   if(days.length>=3){
     const f=tots[0], l=tots[tots.length-1];
     out.d.push(`${sLab(f.d)} ${won(f.t)}원에서 ${sLab(l.d)} ${won(l.t)}원으로 ${l.t<f.t?'내려왔습니다':'올랐습니다'}(${Math.round((l.t/f.t-1)*100)}%). `+(days[0]===sDays()[0]?'오픈 직후 며칠은 신규 방문 효과가 섞여 있어, 추세는 2~3주 더 쌓인 뒤 판단하는 것이 안전합니다.':''));
   }
   days.filter(d=>SALES_NOTE[d]).forEach(d=>out.d.push(`* ${sLab(d)}: ${SALES_NOTE[d]} (실제는 이보다 조금 더 큽니다).`));
+  /* 요일별 */
+  const wd = sWdStat(days).filter(x=>x.n), wks = sWeeks(days);
+  if(wd.length){
+    const hi = wd.slice().sort((a,b)=>b.avg-a.avg)[0], lo = wd.slice().sort((a,b)=>a.avg-b.avg)[0];
+    out.w.push('요일별 평균은 '+wd.map(x=>`${x.w} ${won(x.avg)}원`).join(' · ')+' 입니다.');
+    if(wd.length>1) out.w.push(`${hi.w}요일이 ${won(hi.avg)}원으로 가장 높고, ${lo.w}요일이 ${won(lo.avg)}원으로 가장 낮습니다.`);
+    const few = wd.filter(x=>x.n<2).map(x=>x.w);
+    if(few.length===wd.length) out.w.push('아직 요일마다 한 번씩뿐이라 위 평균은 그날 매출 그대로입니다. 주가 쌓이면 요일 차이가 또렷해집니다.');
+    else if(few.length) out.w.push(`${few.join('·')}요일은 아직 한 번뿐이라 평균으로 보기 이릅니다.`);
+    out.w.push(`지금까지 ${wks.length}주 치가 쌓였습니다. 그래프에서 주마다 선이 하나씩 늘어납니다.`);
+  }
   /* 월별 */
   const ms = mon==='ALL' ? sMonths() : [mon];
   ms.forEach(m=>{ const s=sMonthStat(m);
@@ -480,9 +507,14 @@ function vSales(){
   <div class="card"><h2>3. 일별 순매출 <span class="hint" style="display:inline">천원</span></h2>
     <div style="position:relative;height:240px"><canvas id="slC3"></canvas></div>
     ${days.some(d=>SALES_PART[d])?'<p class="hint" style="margin:6px 0 0">* 조회 시각 때문에 마지막 시간대가 일부만 반영된 날</p>':''}</div>
+  <div class="card"><h2>4. 요일별 순매출 <span class="hint" style="display:inline">천원 · 주마다 한 줄</span></h2>
+    <div id="slLg4" style="display:flex;flex-wrap:wrap;gap:6px 12px;margin:4px 0 10px;font-size:12.5px"></div>
+    <div style="position:relative;height:260px"><canvas id="slC4"></canvas></div>
+    <p class="hint" style="margin:8px 0 0">월요일을 한 주의 시작으로 봅니다. 아직 문을 열지 않았거나 자료가 없는 요일은 선이 끊깁니다.</p></div>
   <div class="card"><h2>분석</h2>
     <h3 style="font-size:14px;margin:12px 0 2px">시간대별</h3><ul style="margin:0;padding-left:18px">${li(tx.h)}</ul>
     <h3 style="font-size:14px;margin:16px 0 2px">일별</h3><ul style="margin:0;padding-left:18px">${li(tx.d)}</ul>
+    <h3 style="font-size:14px;margin:16px 0 2px">요일별</h3><ul style="margin:0;padding-left:18px">${li(tx.w)}</ul>
     <h3 style="font-size:14px;margin:16px 0 2px">월별</h3><ul style="margin:0;padding-left:18px">${li(tx.m)}</ul>
     <p class="hint" style="margin:14px 0 0">금액은 POS 영수증의 순매출액(할인 제외) 기준입니다. 새 영수증 사진을 보내 주시면 날짜 줄이 더해지고 그래프·분석이 자동으로 바뀝니다.</p>
   </div>`;
@@ -530,6 +562,13 @@ function drawSales(){
   mk('slC2',{type:'line',data:{labels:lab,datasets:shown.map(d=>({label:sLab(d),borderColor:sColor(d,days),borderWidth:2,tension:.25,pointRadius:0,pointHoverRadius:4,spanGaps:false,
     data:SALES[d].map((v,j)=> (sPart(d,SALES_HOURS[j]) || (SALES_HOURS[j]<9&&v===0) || (SALES_HOURS[j]===22&&v===0)) ? null : +(v/1000).toFixed(1))}))},
     options:Object.assign(base(''),{interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+' '+(c.parsed.y==null?'-':c.parsed.y.toFixed(1)+'천원')}}}})});
+  const wks = sWeeks(days), lg4 = document.getElementById('slLg4');
+  if(lg4) lg4.innerHTML = wks.map((k,i)=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${SPAL[i%SPAL.length]}"></span>${wLab(k,i)}</span>`).join('');
+  mk('slC4',{type:'line',data:{labels:WD_LAB,datasets:wks.map((k,i)=>({label:wLab(k,i),borderColor:SPAL[i%SPAL.length],borderWidth:2,tension:.25,
+    pointRadius:4,pointBackgroundColor:SPAL[i%SPAL.length],spanGaps:false,
+    data:WD_LAB.map((_,j)=>{ const d=dayOfWeek(k,j); return (SALES[d] && days.indexOf(d)>=0) ? +(sTotal(d)/1000).toFixed(1) : null })}))},
+    options:Object.assign(base(''),{interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.dataset.label+' '+(c.parsed.y==null?'-':c.parsed.y.toFixed(1)+'천원')}}}})});
   mk('slC3',{type:'line',data:{labels:days.map(sLab),datasets:[{data:days.map(d=>+(sTotal(d)/1000).toFixed(1)),borderColor:'#eb6834',borderWidth:2,tension:.2,pointRadius:5,pointBackgroundColor:'#eb6834'}]},options:base('')});
 }
 
