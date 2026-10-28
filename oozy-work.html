@@ -2191,9 +2191,9 @@ async function tabPay() {
       <div class="muted" style="margin-top:6px">확정하면 알바가 자기 PIN으로 로그인해 <b>확정급여</b>에서 본인 명세서만 볼 수 있습니다.</div></div>` +
     PAY.staff.map(s => `<div class="card" style="border-left:5px solid ${s.color}">
       <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">${ctrLbl(s, PAY.month)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><button class="sm" data-slip="${s.id}" style="flex:0 0 auto">명세서</button></div>
-      <table class="pay t6" style="margin-top:6px"><tr><th>근로일수</th><th>계약시간</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
-      <tr><td>${s.days}일</td><td>${ctrTxt(s, PAY.month)}</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}${s.otPaid ? `<div style="font-size:11px;color:#a64b00">추가 ${fmtH(s.otPaid)}</div>` : ''}</td><td>${won(s.wage)}</td></tr></table>
-      <table class="pay bx" style="margin-top:8px"><tr><th>기본급</th><th>추가근무수당</th><th>주휴수당</th><th>월 급여</th></tr>
+      <table class="pay t6" style="margin-top:6px"><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
+      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}${s.otPaid ? `<div style="font-size:11px;color:#a64b00">추가 ${fmtH(s.otPaid)}</div>` : ''}</td><td>${won(s.wage)}</td></tr></table>
+      <table class="pay bx" style="margin-top:8px"><tr><th>기본급</th><th>추가근무</th><th>주휴수당</th><th>월 급여</th></tr>
       <tr><td>${won(baseOf(s))}</td><td>${s.otPaid ? `${won(s.otPay)}<div style="font-size:11px;color:#777">${fmtH(s.otPaid)} × ${won(s.otWage)}</div>` : '-'}</td><td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
       ${(s.juhuWeeks || []).length ? `<div class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"><b>주휴수당</b><br>${juhuTxt(s).join('<br>')}</div>` : ''}
       ${s.unresolved ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${s.unresolved}건이 계산에서 빠졌습니다. 기록 탭에서 정리하세요.</div>` : ''}
@@ -2251,11 +2251,11 @@ function slipHTML(s, month, label) {
   return `<div class="slip"><h2>임금명세서</h2>
     ${label ? `<div style="text-align:center;margin:-8px 0 12px">${label}</div>` : ''}
     <div class="meta"><span>사업장: <b>우지커피 광양용강점</b></span><span>지급월: <b>${month}</b></span><span>성명: <b>${esc(s.name)}</b> <span style="font-size:12.5px;color:#666">(${ctrLbl(s, month)})</span></span></div>
-    <table class="t6"><tr><th>근로일수</th><th>계약시간</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
-    <tr><td>${s.days}일</td><td>${ctrTxt(s, month)}</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
+    <table class="t6"><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
+    <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
     <h3>지급 내역</h3><table><tr><th>항목</th><th>계산 방법</th><th>금액</th></tr>
     <tr><td>기본급</td><td>${((s.basePaid != null ? s.basePaid : s.paid) / 60).toFixed(2)}시간 × ${won(s.wage)}</td><td>${won(baseOf(s))}</td></tr>
-    ${s.otPaid ? `<tr><td>추가근무수당</td><td>${(s.otPaid / 60).toFixed(2)}시간 × ${won(s.otWage)}</td><td>${won(s.otPay)}</td></tr>` : ''}
+    ${s.otPaid ? `<tr><td>추가근무</td><td>${(s.otPaid / 60).toFixed(2)}시간 × ${won(s.otWage)}</td><td>${won(s.otPay)}</td></tr>` : ''}
     <tr><td>주휴수당</td><td style="font-size:12px;text-align:left">${(s.juhuWeeks || []).filter(w => w.ok).map(w => `${mdw(w.week)}주 ${w.basis === 'contract' ? '계약' : '실근무'} ${(Math.min(w.base != null ? w.base : w.minutes, 2400) / 60).toFixed(1)}h ÷ 40 × 8h × ${won(s.wage)}`).join('<br>') || '-'}</td><td>${won(s.juhu || 0)}</td></tr>
     <tr><td>공제</td><td>-</td><td>0원</td></tr>
     <tr class="tot"><th colspan="2">실 지급액</th><td>${won(totOf(s))}</td></tr></table>
@@ -2314,7 +2314,7 @@ function tabBackup() {
     toast('만드는 중...');
     let X; try { X = await needXLSX(); } catch (e) { return toast(e.message, 3500); }
     const rec = [['날짜', '요일', '이름', '출근', '퇴근', '근무(분)', '휴게(분)', '유급(분)', '유급 시간', '퇴근 방식', '수정됨', '추가근무', '기록']];
-    const sum = [['월', '이름', '시급', '근무일수', '총 근무', '휴게', '유급 시간', '유급(분)', '기본급(원)', '추가근무(분)', '추가근무 시급', '추가근무수당(원)', '주휴수당(원)', '월 급여(원)', '확정']];
+    const sum = [['월', '이름', '시급', '근무일수', '총 근무', '휴게', '유급 시간', '유급(분)', '기본급(원)', '추가근무(분)', '추가근무 시급', '추가근무(원)', '주휴수당(원)', '월 급여(원)', '확정']];
     for (const mo of months) {
       const r = await run(() => api('/admin/pay?month=' + mo)); if (!r) return;
       const rows = [];
