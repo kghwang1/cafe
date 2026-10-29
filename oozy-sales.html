@@ -376,7 +376,8 @@ const SALES = {
   '2026-10-25':[0,0,89800,167700,140700,78100,83600,166900,69300,64800,70400,41200,24300,14400,12300,4800],
   '2026-10-26':[3900,49700,48400,41400,34300,87350,69300,72450,82050,63600,60650,9500,52600,54600,27500,0],
   '2026-10-27':[43450,39250,104300,12400,1650,44800,205300,57050,81400,31650,6000,26400,34800,35700,21700,0],
-  '2026-10-28':[21850,34600,55200,103450,40900,92200,98950,48300,56900,40400,75500,17300,26400,56500,29500,0]
+  '2026-10-28':[21850,34600,55200,103450,40900,92200,98950,48300,56900,40400,75500,17300,26400,56500,29500,0],
+  '2026-10-29':[24600,84300,73400,30350,67600,64800,14650,86850,32100,26600,35750,155700,21400,79800,9300,0]
 };
 const SALES_PART = {'2026-10-26':[21,22]};          // 영수증을 뽑은 시각(21:48) 때문에 덜 잡힌 시간
 const SALES_NOTE = {'2026-10-26':'21:48 조회 — 21시 이후 일부 미반영'};
@@ -556,30 +557,12 @@ function drawSales(){
     tooltip:{callbacks:{label:c=> (c.dataset.label? c.dataset.label+' ':'')+(c.parsed.y==null?'-':c.parsed.y.toFixed(1)+'천원')}}},
     scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{beginAtZero:true,grid:{color:'#e6e4de'},ticks:{font:{size:11}},title:{display:!!ytitle,text:ytitle}}}});
   const mk=(id,cfg)=>salesCharts.push(new Chart(document.getElementById(id),cfg));
-  /* 계단식: 12시 매출은 12:00~13:00 구간에 수평선으로 그린다 */
-  const H0=SALES_HOURS[0], H1=SALES_HOURS[SALES_HOURS.length-1]+1;
-  const stepPts = vals => { const out=[]; vals.forEach((v,i)=>{ const h=SALES_HOURS[i];
-      if(v==null){ out.push({x:h+0.5,y:null}); return }
-      out.push({x:h,y:v},{x:h+0.5,y:v,m:h},{x:h+1,y:v}) }); return out };   // 가운데 점(m)은 풍선 도움말용
-  if(!Chart.Interaction.modes.hourStep) Chart.Interaction.modes.hourStep = (chart, e)=>{   // 손가락이 있는 시간 칸의 값
-    const hh = Math.floor(chart.scales.x.getValueForPixel(e.x)), items=[];
-    chart.data.datasets.forEach((ds,di)=>{ if(!chart.isDatasetVisible(di)) return;
-      const i = ds.data.findIndex(q=>q && q.m===hh && q.y!=null);
-      if(i>=0) items.push({element:chart.getDatasetMeta(di).data[i], datasetIndex:di, index:i}) });
-    return items };
-  const stepOpt = (multi)=>{ const o=base(''); o.parsing=false;
-    o.scales.x={type:'linear',min:H0,max:H1,grid:{color:'#efece6'},ticks:{stepSize:1,maxRotation:0,font:{size:11},callback:v=>v}};
-    o.interaction={mode:'hourStep',intersect:false};
-    o.plugins.tooltip={mode:'hourStep',intersect:false,
-      callbacks:{title:it=>it.length? `${it[0].raw.m}:00 ~ ${it[0].raw.m+1}:00` : '',
-        label:c=>(c.dataset.label? c.dataset.label+' ':'')+c.raw.y.toFixed(1)+'천원'}};
-    return o };
-  mk('slC1',{type:'line',data:{datasets:[{data:stepPts(sHourAvg(days).map(v=>v==null?null:+(v/1000).toFixed(1))),borderColor:'#2a78d6',backgroundColor:'rgba(42,120,214,.1)',fill:true,borderWidth:2,tension:0,pointRadius:0,pointHoverRadius:3,spanGaps:false}]},options:stepOpt(false)});
+  mk('slC1',{type:'line',data:{labels:lab,datasets:[{data:sHourAvg(days).map(v=>v==null?null:+(v/1000).toFixed(1)),borderColor:'#2a78d6',backgroundColor:'rgba(42,120,214,.1)',fill:true,borderWidth:2,tension:.3,pointRadius:4,pointBackgroundColor:'#2a78d6'}]},options:base('')});
   const shown = days.filter(sOn);
   salesDayBtns(days);
-  mk('slC2',{type:'line',data:{datasets:shown.map(d=>({label:sLab(d),borderColor:sColor(d,days),borderWidth:2,tension:0,pointRadius:0,pointHoverRadius:3,spanGaps:false,
-    data:stepPts(SALES[d].map((v,j)=> (sPart(d,SALES_HOURS[j]) || (SALES_HOURS[j]<9&&v===0) || (SALES_HOURS[j]===22&&v===0)) ? null : +(v/1000).toFixed(1)))}))},
-    options:stepOpt(true)});
+  mk('slC2',{type:'line',data:{labels:lab,datasets:shown.map(d=>({label:sLab(d),borderColor:sColor(d,days),borderWidth:2,tension:.25,pointRadius:0,pointHoverRadius:4,spanGaps:false,
+    data:SALES[d].map((v,j)=> (sPart(d,SALES_HOURS[j]) || (SALES_HOURS[j]<9&&v===0) || (SALES_HOURS[j]===22&&v===0)) ? null : +(v/1000).toFixed(1))}))},
+    options:Object.assign(base(''),{interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+' '+(c.parsed.y==null?'-':c.parsed.y.toFixed(1)+'천원')}}}})});
   const wks = sWeeks(days), lg4 = document.getElementById('slLg4');
   if(lg4) lg4.innerHTML = wks.map((k,i)=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${SPAL[i%SPAL.length]}"></span>${wLab(k,i)}</span>`).join('');
   mk('slC4',{type:'line',data:{labels:WD_LAB,datasets:wks.map((k,i)=>({label:wLab(k,i),borderColor:SPAL[i%SPAL.length],borderWidth:2,tension:.25,
