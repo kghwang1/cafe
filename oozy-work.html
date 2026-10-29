@@ -163,6 +163,7 @@ body.practice{background:#fff4e0}
 .slip table.wl{table-layout:fixed}.slip .wl td.kdc{text-align:left;white-space:nowrap}.slip .wl td.kdc{font-size:12px;padding-left:5px}.slip .wl td.kdc span:first-child{display:inline-block;width:2.4em}.slip .wl td.kdc.x{color:#8a5a00;font-weight:600}.slip .wl td,.slip .wl th{padding:5px 2px;font-size:12.5px}
 .slip .slipft{text-align:center;font-size:20px;font-weight:700;letter-spacing:3px;margin-top:22px;padding-top:14px;border-top:1px solid #ccc}
 .slip h3{font-size:15px;margin:18px 0 6px}
+.slip.wlin{box-shadow:none;padding:4px 0 0;margin-top:6px;max-width:none;background:transparent}.slip.wlin h3{margin-top:4px}.slip.wlin[hidden]{display:none}
 .slip .meta{display:flex;flex-wrap:wrap;gap:4px 16px;margin-bottom:10px}
 .slip table{width:100%;border-collapse:collapse}
 .slip td,.slip th{border:1px solid #999;padding:6px 4px;text-align:center;font-size:13px;word-break:keep-all}
@@ -2232,6 +2233,8 @@ async function tabPay() {
       <tr>${payItems(s).map(x => `<td>${x.amt ? won(x.amt) : '0원'}</td>`).join('')}<td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
       ${(s.juhuWeeks || []).length ? `<div class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"><b>주휴수당</b><br>${juhuTxt(s).join('<br>')}</div>` : ''}
       ${s.unresolved ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${s.unresolved}건이 계산에서 빠졌습니다. 기록 탭에서 정리하세요.</div>` : ''}
+      <div style="margin-top:10px"><button class="sm" data-wl="${s.id}">📋 근무내역</button></div>
+      <div class="slip wlin" id="wl${s.id}" hidden></div>
     </div>`).join('');
   $('#bsMin').onclick = () => { $('#bsW').value = SET.minWage || 10320; toast(`법정 최저시급 ${won(SET.minWage || 10320)}을 넣었습니다. 시급 저장을 누르세요`); };
   $('#wSave').onclick = async () => {
@@ -2251,6 +2254,11 @@ async function tabPay() {
     }
     if (await run(() => api('/admin/settings', body))) { toast('시급을 저장했습니다'); tabPay(); }
   };
+  document.querySelectorAll('[data-wl]').forEach(b => b.onclick = () => {
+    const s = PAY.staff.find(x => x.id === +b.dataset.wl), box = $('#wl' + s.id);
+    if (!box.hidden) { box.hidden = true; b.textContent = '📋 근무내역'; return; }
+    box.innerHTML = workListHTML(s); box.hidden = false; b.textContent = '📋 근무내역 닫기';
+  });
   document.querySelectorAll('[data-slip]').forEach(b => b.onclick = () => { const s = PAY.staff.find(x => x.id === +b.dataset.slip); showSlip(s, PAY.month, s.confirmedAt ? `<span class="stamp ok">확정 ${ymd(s.confirmedAt)}</span>` : '<span class="stamp wip">확정 전</span>'); });
   $('#pConfirm').onclick = async () => {
     const ok = await modal(`<h3>${PAY.month} 급여 확정</h3>지금 계산된 금액으로 명세서를 확정합니다. 알바는 자기 화면의 <b>확정급여</b>에서 본인 것만 볼 수 있습니다.
@@ -2295,6 +2303,15 @@ const kindOf = x => x.kind || (x.ot ? 'ot' : 'base');
 const baseOf = s => s.basePay != null ? s.basePay : s.pay;          // 기본급 (추가근무수당 제외)
 const totOf = s => s.payTotal != null ? s.payTotal : s.pay;          // 월 급여 = 기본급 + 주휴수당 (예전 확정본은 기본급만)
 const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week + 6 * DAY).replace(/\(.\)/, '')} 주 · 실근무 ${fmtH(w.minutes)}${w.basis === 'contract' ? ` · 계약 ${fmtH(w.base)}` : ' · 계약시간 없음(실근무 기준)'} → ${w.ok ? won(w.amount) : '없음 (' + w.reason + ')'}`);
+function workListHTML(s) {
+  return `<h3>근무 내역 (${s.shifts.length}회)</h3><table class="wl"><colgroup><col style="width:17%"><col style="width:26%"><col style="width:10%"><col style="width:32%"><col style="width:15%"></colgroup><tr><th>날짜</th><th>출퇴근</th><th>휴게</th><th>구분</th><th>기타</th></tr>
+    ${s.shifts.map(x => { const kd = kindOf(x), rest = tagArr(x).filter(t => t !== KN[kd]).map(t => t.startsWith('기타') ? (t.slice(3) || '기타') : t).join(', ');
+      return `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td class="kdc${kd !== 'base' ? ' x' : ''}"><span>${KN[kd]}</span><span>${fmtH(x.paid)}</span></td><td style="font-size:11.5px">${rest ? esc(rest) : '-'}</td></tr>`; }).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
+    ${s.shifts.length ? (() => { const sum = kd => s.shifts.filter(x => kindOf(x) === kd).reduce((a, x) => a + x.paid, 0);
+      const ok = payItems(s).every((it, i) => sum(['base', 'edu', 'evt', 'ot'][i]) === it.min);
+      return `<tr class="tot"><th colspan="2">합계 (휴게 제외)</th><td colspan="3" style="text-align:left;white-space:nowrap;font-size:12.5px"><b>${['base', 'edu', 'evt', 'ot'].filter(k => sum(k)).map(k => `${KN[k]} ${sum(k) % 60 ? Math.floor(sum(k) / 60) + ':' + pad(sum(k) % 60) : sum(k) / 60}`).join(',&nbsp; ')}</b></td></tr></table>
+      <p style="font-size:12px;margin-top:6px;color:${ok ? '#2e7d32' : '#d32f2f'}">${ok ? '✓ 근무 내역의 구분별 합계가 지급 내역의 시간과 같습니다.' : '⚠ 지급 내역의 시간과 근무 내역 합계가 다릅니다. 관리자에게 문의하세요.'}</p>`; })() : '</table>'}`;
+}
 function slipHTML(s, month, label) {
   return `<div class="slip"><h2>( ${+month.slice(5, 7)} 월 ) 임금 명세서</h2>
     ${label ? `<div style="text-align:center;margin:-8px 0 12px">${label}</div>` : ''}
@@ -2306,13 +2323,7 @@ function slipHTML(s, month, label) {
     <tr><td>주휴수당</td><td style="font-size:12px;text-align:left">${(s.juhuWeeks || []).filter(w => w.ok).map(w => `${mdw(w.week)}주 ${w.basis === 'contract' ? '계약' : '실근무'} ${(Math.min(w.base != null ? w.base : w.minutes, 2400) / 60).toFixed(1)}h ÷ 40 × 8h × ${won(s.wage)}`).join('<br>') || '-'}</td><td>${won(s.juhu || 0)}</td></tr>
     <tr><td>공제</td><td>-</td><td>0원</td></tr>
     <tr class="tot"><th colspan="2">실 지급액</th><td>${won(totOf(s))}</td></tr></table>
-    <h3>근무 내역 (${s.shifts.length}회)</h3><table class="wl"><colgroup><col style="width:17%"><col style="width:26%"><col style="width:10%"><col style="width:32%"><col style="width:15%"></colgroup><tr><th>날짜</th><th>출퇴근</th><th>휴게</th><th>구분</th><th>기타</th></tr>
-    ${s.shifts.map(x => { const kd = kindOf(x), rest = tagArr(x).filter(t => t !== KN[kd]).map(t => t.startsWith('기타') ? (t.slice(3) || '기타') : t).join(', ');
-      return `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td class="kdc${kd !== 'base' ? ' x' : ''}"><span>${KN[kd]}</span><span>${fmtH(x.paid)}</span></td><td style="font-size:11.5px">${rest ? esc(rest) : '-'}</td></tr>`; }).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
-    ${s.shifts.length ? (() => { const sum = kd => s.shifts.filter(x => kindOf(x) === kd).reduce((a, x) => a + x.paid, 0);
-      const ok = payItems(s).every((it, i) => sum(['base', 'edu', 'evt', 'ot'][i]) === it.min);
-      return `<tr class="tot"><th colspan="2">합계 (휴게 제외)</th><td colspan="3" style="text-align:left;white-space:nowrap;font-size:12.5px"><b>${['base', 'edu', 'evt', 'ot'].filter(k => sum(k)).map(k => `${KN[k]} ${sum(k) % 60 ? Math.floor(sum(k) / 60) + ':' + pad(sum(k) % 60) : sum(k) / 60}`).join(',&nbsp; ')}</b></td></tr></table>
-      <p style="font-size:12px;margin-top:6px;color:${ok ? '#2e7d32' : '#d32f2f'}">${ok ? '✓ 근무 내역의 구분별 합계가 지급 내역의 시간과 같습니다.' : '⚠ 지급 내역의 시간과 근무 내역 합계가 다릅니다. 관리자에게 문의하세요.'}</p>`; })() : '</table>'}
+    ${workListHTML(s)}
     ${s.unresolved ? `<p style="color:#d32f2f;margin-top:10px">※ 퇴근누락·근무중 기록 ${s.unresolved}건은 포함되지 않았습니다.</p>` : ''}
     <p style="margin-top:20px;text-align:right;font-size:12.5px;color:#666">발행일: ${ymd(Date.now())}</p>
     <div class="slipft">우 지 커 피 &nbsp;광양용강점</div></div>`;
