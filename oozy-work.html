@@ -2303,27 +2303,27 @@ const kindOf = x => x.kind || (x.ot ? 'ot' : 'base');
 const baseOf = s => s.basePay != null ? s.basePay : s.pay;          // 기본급 (추가근무수당 제외)
 const totOf = s => s.payTotal != null ? s.payTotal : s.pay;          // 월 급여 = 기본급 + 주휴수당 (예전 확정본은 기본급만)
 const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week + 6 * DAY).replace(/\(.\)/, '')} 주 · 실근무 ${fmtH(w.minutes)}${w.basis === 'contract' ? ` · 계약 ${fmtH(w.base)}` : ' · 계약시간 없음(실근무 기준)'} → ${w.ok ? won(w.amount) : '없음 (' + w.reason + ')'}`);
-function workListHTML(s) {
+function workListHTML(s, check = true) {
   return `<h3>근무 내역 (${s.shifts.length}회)</h3><table class="wl"><colgroup><col style="width:17%"><col style="width:26%"><col style="width:10%"><col style="width:32%"><col style="width:15%"></colgroup><tr><th>날짜</th><th>출퇴근</th><th>휴게</th><th>구분</th><th>기타</th></tr>
     ${s.shifts.map(x => { const kd = kindOf(x), rest = tagArr(x).filter(t => t !== KN[kd]).map(t => t.startsWith('기타') ? (t.slice(3) || '기타') : t).join(', ');
       return `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td class="kdc${kd !== 'base' ? ' x' : ''}"><span>${KN[kd]}</span><span>${fmtH(x.paid)}</span></td><td style="font-size:11.5px">${rest ? esc(rest) : '-'}</td></tr>`; }).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
     ${s.shifts.length ? (() => { const sum = kd => s.shifts.filter(x => kindOf(x) === kd).reduce((a, x) => a + x.paid, 0);
       const ok = payItems(s).every((it, i) => sum(['base', 'edu', 'evt', 'ot'][i]) === it.min);
       return `<tr class="tot"><th colspan="2">합계 (휴게 제외)</th><td colspan="3" style="text-align:left;white-space:nowrap;font-size:12.5px"><b>${['base', 'edu', 'evt', 'ot'].filter(k => sum(k)).map(k => `${KN[k]} ${sum(k) % 60 ? Math.floor(sum(k) / 60) + ':' + pad(sum(k) % 60) : sum(k) / 60}`).join(',&nbsp; ')}</b></td></tr></table>
-      <p style="font-size:12px;margin-top:6px;color:${ok ? '#2e7d32' : '#d32f2f'}">${ok ? '✓ 근무 내역의 구분별 합계가 지급 내역의 시간과 같습니다.' : '⚠ 지급 내역의 시간과 근무 내역 합계가 다릅니다. 관리자에게 문의하세요.'}</p>`; })() : '</table>'}`;
+      ${check ? '' : '<!--'}<p style="font-size:12px;margin-top:6px;color:${ok ? '#2e7d32' : '#d32f2f'}">${ok ? '✓ 근무 내역의 구분별 합계가 지급 내역의 시간과 같습니다.' : '⚠ 지급 내역의 시간과 근무 내역 합계가 다릅니다. 관리자에게 문의하세요.'}</p>${check ? '' : '-->'}`; })() : '</table>'}`;
 }
 function slipHTML(s, month, label) {
   return `<div class="slip"><h2>( ${+month.slice(5, 7)} 월 ) 임금 명세서</h2>
     ${label ? `<div style="text-align:center;margin:-8px 0 12px">${label}</div>` : ''}
-    <div class="meta"><span>직원명: <b>${esc(s.name)}</b> 님 &nbsp;( ${(m => m == null ? '계약시간 없음' : '주당 ' + fmtH(m))(ctrMin(s, month))} )</span><span style="margin-left:auto;color:#666;font-size:12.5px">${month.slice(0, 4)}년 ${+month.slice(5, 7)}월분</span></div>
-    <table class="t6"><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
-    <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
-    <h3>지급 내역</h3><table><tr><th>항목</th><th>계산 방법</th><th>금액</th></tr>
+    <div class="meta"><span>직원명: <b>${esc(s.name)}</b> 님</span><span style="margin-left:auto;color:#666;font-size:12.5px">${month.slice(0, 4)}년 ${+month.slice(5, 7)}월분</span></div>
+    <table class="t6"><tr><th>근로일수</th><th>계약시간</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
+    <tr><td>${s.days}일</td><td style="white-space:nowrap">${(m => m == null ? '-' : '주 ' + fmtH(m))(ctrMin(s, month))}</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
+    <h3>지급 내역</h3><table><tr><th>항목</th><th>급여계산</th><th>금액</th></tr>
     ${payItems(s).map(x => `<tr><td>${x.n}</td><td>${x.min ? `${hrsTxt(x.min)} × ${won(x.w)}` : '-'}</td><td>${won(x.amt)}</td></tr>`).join('')}
     <tr><td>주휴수당</td><td style="font-size:12px;text-align:left">${(s.juhuWeeks || []).filter(w => w.ok).map(w => `${mdw(w.week)}주 ${w.basis === 'contract' ? '계약' : '실근무'} ${(Math.min(w.base != null ? w.base : w.minutes, 2400) / 60).toFixed(1)}h ÷ 40 × 8h × ${won(s.wage)}`).join('<br>') || '-'}</td><td>${won(s.juhu || 0)}</td></tr>
     <tr><td>공제</td><td>-</td><td>0원</td></tr>
-    <tr class="tot"><th colspan="2">실 지급액</th><td>${won(totOf(s))}</td></tr></table>
-    ${workListHTML(s)}
+    <tr class="tot"><th colspan="2">지급액</th><td>${won(totOf(s))}</td></tr></table>
+    ${workListHTML(s, false)}
     ${s.unresolved ? `<p style="color:#d32f2f;margin-top:10px">※ 퇴근누락·근무중 기록 ${s.unresolved}건은 포함되지 않았습니다.</p>` : ''}
     <p style="margin-top:20px;text-align:right;font-size:12.5px;color:#666">발행일: ${ymd(Date.now())}</p>
     <div class="slipft">우 지 커 피 &nbsp;광양용강점</div></div>`;
