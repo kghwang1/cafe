@@ -120,7 +120,7 @@ button.warn{background:var(--warn);color:#fff}
 .warnlist{background:#fff6e5;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.5}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;z-index:60;max-width:90vw;display:none}
 .pay td,.pay th{padding:6px 4px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
-.pay.bx{border-collapse:collapse}.pay.bx td,.pay.bx th{border:1px solid #9a8f84;text-align:center}.pay.bx th{background:#f1eeea}
+.pay.bx{border-collapse:collapse;table-layout:fixed}.pay.bx td,.pay.bx th{font-size:12px;padding:5px 2px;word-break:keep-all}.pay.bx td,.pay.bx th{border:1px solid #9a8f84;text-align:center}.pay.bx th{background:#f1eeea}
 .pay{width:100%;border-collapse:collapse}
 /* 근무표 */
 .pal{position:sticky;top:0;z-index:5;background:#fff;padding:8px 0 10px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:8px}
@@ -217,7 +217,10 @@ body.practice{background:#fff4e0}
 .dayt .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
 .wbox{margin-top:10px;padding:10px;border-radius:10px;background:#f5f2ee;font-size:14px}
 .badge.otb{background:#ffe0b2;color:#a64b00;font-size:11px}
-.otchk{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;padding:10px;border:1.5px solid #ffcc80;background:#fff8ec;border-radius:10px;font-size:14px;cursor:pointer}.otchk input{width:20px;height:20px;margin:0}.otchk .muted{font-size:12px}
+.otchk{margin-top:12px;padding:10px;border:1.5px solid #ffcc80;background:#fff8ec;border-radius:10px;font-size:14px}
+.otchk .kinds{display:flex;gap:6px 16px;flex-wrap:wrap}.otchk label{display:flex;align-items:center;gap:5px;cursor:pointer;margin:0}
+.otchk input[type=checkbox]{width:20px;height:20px;margin:0}.otchk input[type=text]{width:100%;margin-top:8px;box-sizing:border-box}.otchk input[hidden]{display:none}.otchk .muted{font-size:12px;margin-top:6px}
+.dayt .tagt{font-size:11.5px;color:#8a5a00;font-weight:600}
 .wagecard .wrow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 4px;flex-wrap:wrap}.wagecard .wi{display:flex;gap:6px;align-items:center}.wagecard input{width:120px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:15px}
 </style>
 </head>
@@ -231,6 +234,7 @@ body.practice{background:#fff4e0}
 // 우지커피 근무관리 Worker (Cloudflare Workers + D1)
 // 2026-10-22 : 매장관리 오픈·마감 확인 기록(/store/*) 추가
 // 2026-10-27 : 주휴수당·계약시간·휴게 정리·연습 가져오기·추가근무(시급/체크) 합침
+// 2026-10-29 : 근무 구분(교육·행사·기타) 저장 — punch.tag, 교육·행사 시급 따로
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -341,7 +345,7 @@ async function ensureSettings(env) {
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)').run();
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS payslip (staff_id INTEGER NOT NULL, month TEXT NOT NULL, data TEXT, at INTEGER, PRIMARY KEY(staff_id, month))').run();
   // 출퇴근 방식 변경으로 추가된 칸 (이미 있으면 무시)
-  for (const col of ['plan_start INTEGER', 'plan_end INTEGER', 'raw_start INTEGER', 'raw_end INTEGER', 'end_type TEXT', 'brk_min INTEGER', 'memo TEXT', 'ot INTEGER']) {   // brk_min: 기록한 휴게(분), 비어 있으면 자동 계산
+  for (const col of ['plan_start INTEGER', 'plan_end INTEGER', 'raw_start INTEGER', 'raw_end INTEGER', 'end_type TEXT', 'brk_min INTEGER', 'memo TEXT', 'ot INTEGER', 'tag TEXT']) {   // brk_min: 기록한 휴게(분), 비어 있으면 자동 계산
     try { await env.DB.prepare('ALTER TABLE punch ADD COLUMN ' + col).run(); } catch (e) { }
   }
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN use_break INTEGER NOT NULL DEFAULT 1').run(); } catch (e) { } // 휴게시간 사용 여부
@@ -439,6 +443,8 @@ async function punchEnabled(env) {
 }
 const MIN_WAGE = 10320;   // 법정 최저시급 (2026년) — 직원 시급의 기본값
 async function baseWageOf(env) { const r = await env.DB.prepare("SELECT v FROM settings WHERE k='base_wage'").first(); return r && +r.v ? +r.v : MIN_WAGE; }
+async function wageSet(env, k) { const r = await env.DB.prepare('SELECT v FROM settings WHERE k=?').bind(k).first(); return r && +r.v ? +r.v : null; }
+const KIND = r => r.ot ? 'ot' : /(^|,)교육(,|$)/.test(r.tag || '') ? 'edu' : /(^|,)행사(,|$)/.test(r.tag || '') ? 'evt' : 'base';   // 시급 구분: 추가 > 교육 > 행사 > 기본
 async function otWageOf(env) { const r = await env.DB.prepare("SELECT v FROM settings WHERE k='ot_wage'").first(); return r && +r.v ? +r.v : null; }
 async function computePay(env, month, onlyId) {
   const mm = /^(\d{4})-(\d{2})$/.exec(month || '');
@@ -452,7 +458,7 @@ async function computePay(env, month, onlyId) {
   const pending = (await env.DB.prepare("SELECT staff_id, COUNT(*) c FROM punch WHERE status IN ('open','missing') AND start>=? AND start<?" + one + " GROUP BY staff_id").bind(from, to).all()).results;
   const sched = (await env.DB.prepare('SELECT staff_id,start FROM schedule WHERE start>=? AND start<?' + one).bind(wFrom, wTo).all()).results;
   const lastWork = (await env.DB.prepare("SELECT staff_id, MAX(start) t FROM punch WHERE status='done'" + one + " GROUP BY staff_id").all()).results;
-  const nowT = Date.now(), otW = await otWageOf(env);
+  const nowT = Date.now(), otW = await otWageOf(env), eduW = await wageSet(env, 'edu_wage'), evtW = await wageSet(env, 'evt_wage');
   const contracts = (await env.DB.prepare('SELECT * FROM contract' + (onlyId ? ' WHERE staff_id=' + (+onlyId) : '') + ' ORDER BY month').all()).results;
   const contractAt = (sid, ym) => { let c = null; contracts.forEach(r => { if (r.staff_id === sid && r.month <= ym) c = r; }); return c; };
   const out = staff.map(s => {
@@ -462,11 +468,14 @@ async function computePay(env, month, onlyId) {
       const min = Math.round((r.end - r.start) / MIN), brk = r.brk_min != null ? Math.min(+r.brk_min, min) : breakMin(min, s.use_break), paid = min - brk;   // 순서: 직원 설정(기본) → 기록에 적은 휴게가 있으면 그 값
       const w = weekStart(r.start), ot = r.ot ? 1 : 0;
       if (!ot) weeks[w] = (weeks[w] || 0) + paid;                 // 추가근무는 주휴 기준 시간(소정근로)에서 뺀다
-      if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, ot, edited: r.edited, end_type: r.end_type, memo: r.memo || null });
+      if (r.start >= from && r.start < to) shifts.push({ id: r.id, start: r.start, end: r.end, min, brk, paid, ot, tag: r.tag || null, kind: KIND(r), edited: r.edited, end_type: r.end_type, memo: r.memo || null });
     }
     const total = shifts.reduce((a, x) => a + x.min, 0), brk = shifts.reduce((a, x) => a + x.brk, 0), paid = total - brk;
-    const otPaid = shifts.filter(x => x.ot).reduce((a, x) => a + x.paid, 0), basePaid = paid - otPaid;
-    const otWage = otW || s.wage, basePay = Math.floor(basePaid * s.wage / 60), otPay = Math.floor(otPaid * otWage / 60);
+    const sumK = kd => shifts.filter(x => x.kind === kd).reduce((a, x) => a + x.paid, 0);
+    const otPaid = sumK('ot'), eduPaid = sumK('edu'), evtPaid = sumK('evt'), basePaid = paid - otPaid - eduPaid - evtPaid;
+    const otWage = otW || s.wage, eduWage = eduW || s.wage, evtWage = evtW || s.wage;
+    const basePay = Math.floor(basePaid * s.wage / 60), otPay = Math.floor(otPaid * otWage / 60);
+    const eduPay = Math.floor(eduPaid * eduWage / 60), evtPay = Math.floor(evtPaid * evtWage / 60);
     // 주휴수당: 그 주 일요일이 이달에 속한 주만. 주 15시간 이상 + 예정일 개근 + 주가 끝났고 다음 주에도 근로관계가 이어질 때
     const juhuWeeks = []; let juhu = 0;
     const lw = (lastWork.find(x => x.staff_id === s.id) || {}).t || 0;
@@ -491,7 +500,7 @@ async function computePay(env, month, onlyId) {
     const days = new Set(shifts.map(x => dayStart(x.start))).size;
     const overWeeks = Object.entries(weeks).filter(([, v]) => v >= WEEK_LIMIT_MIN).map(([w, v]) => ({ week: +w, minutes: v }));
     const pc = pending.find(x => x.staff_id === s.id);
-    return { id: s.id, name: s.name, wage: s.wage, color: s.color, active: s.active, useBreak: s.use_break !== 0, days, total, brk, paid, basePaid, otPaid, otWage, basePay, otPay, pay: basePay + otPay, juhu, juhuWeeks, payTotal: basePay + otPay + juhu, shifts, overWeeks, unresolved: pc ? pc.c : 0 };
+    return { id: s.id, name: s.name, wage: s.wage, color: s.color, active: s.active, useBreak: s.use_break !== 0, days, total, brk, paid, basePaid, otPaid, otWage, basePay, otPay, eduPaid, eduWage, eduPay, evtPaid, evtWage, evtPay, pay: basePay + otPay + eduPay + evtPay, juhu, juhuWeeks, payTotal: basePay + otPay + eduPay + evtPay + juhu, shifts, overWeeks, unresolved: pc ? pc.c : 0 };
   }).filter(x => onlyId || x.shifts.length || x.unresolved || x.active || x.juhu);
   return { month: `${y}-${String(mo).padStart(2, '0')}`, staff: out };
 }
@@ -1041,7 +1050,7 @@ async function route(req, env) {
     tables.forEach((t, i) => { out[t] = res[i].results; });
     return json(out);
   }
-  if (p === '/admin/settings' && m === 'GET') return json({ punchOn: await punchEnabled(env), otWage: await otWageOf(env), baseWage: await baseWageOf(env), minWage: MIN_WAGE });
+  if (p === '/admin/settings' && m === 'GET') return json({ punchOn: await punchEnabled(env), otWage: await otWageOf(env), eduWage: await wageSet(env, 'edu_wage'), evtWage: await wageSet(env, 'evt_wage'), baseWage: await baseWageOf(env), minWage: MIN_WAGE });
   if (p === '/admin/settings' && m === 'POST') {
     if (b.punchOn !== undefined) await env.DB.prepare("INSERT INTO settings(k,v) VALUES('punch_on',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(b.punchOn ? '1' : '0').run();
     if (b.baseWage !== undefined) {                     // 기본근무 시급: 저장하면 모든 직원 시급을 이 금액으로 맞춤
@@ -1056,7 +1065,14 @@ async function route(req, env) {
       if (w == null) await env.DB.prepare("DELETE FROM settings WHERE k='ot_wage'").run();
       else await env.DB.prepare("INSERT INTO settings(k,v) VALUES('ot_wage',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(String(w)).run();
     }
-    return json({ ok: true, punchOn: await punchEnabled(env), otWage: await otWageOf(env), baseWage: await baseWageOf(env), minWage: MIN_WAGE });
+    for (const [f, key, nm] of [['eduWage', 'edu_wage', '교육'], ['evtWage', 'evt_wage', '행사']]) {   // 교육·행사 시급 (비우면 기본 시급과 같게)
+      if (b[f] === undefined) continue;
+      const w = b[f] === '' || b[f] == null ? null : Math.round(+b[f]);
+      if (w != null && !(w >= 1000)) return err(nm + ' 시급을 확인하세요.');
+      if (w == null) await env.DB.prepare('DELETE FROM settings WHERE k=?').bind(key).run();
+      else await env.DB.prepare('INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(key, String(w)).run();
+    }
+    return json({ ok: true, punchOn: await punchEnabled(env), otWage: await otWageOf(env), eduWage: await wageSet(env, 'edu_wage'), evtWage: await wageSet(env, 'evt_wage'), baseWage: await baseWageOf(env), minWage: MIN_WAGE });
   }
   if (p === '/admin/punches' && m === 'GET') {
     const from = +url.searchParams.get('from'), to = +url.searchParams.get('to');
@@ -1068,16 +1084,17 @@ async function route(req, env) {
     const sid = +b.staff_id, s = num(b.start), e = num(b.end);
     const bm = b.brk_min === '' || b.brk_min == null ? null : Math.max(0, Math.round(+b.brk_min) || 0);   // 휴게(분)
     const ot = b.ot ? 1 : 0;                                                                             // 추가근무 체크
+    const tag = String(b.tag || '').split(',').map(x => x.trim()).filter(x => /^(교육|행사|기타(:.{0,30})?)$/.test(x)).join(',') || null;   // 근무 구분 (표시용)
     const v = validRange(s, e); if (v) return err(v);
     if (bm != null && bm >= (e - s) / MIN) return err('휴게시간이 근무시간보다 깁니다.');
     if (await overlap(env, 'punch', sid, s, e, +b.id || 0)) return err('이 직원의 다른 근무 기록과 시간이 겹칩니다.', 409);
     if (b.id) {
       const before = await env.DB.prepare('SELECT * FROM punch WHERE id=?').bind(+b.id).first();
-      await env.DB.prepare("UPDATE punch SET staff_id=?,start=?,end=?,brk_min=?,ot=?,status='done',edited=1 WHERE id=?").bind(sid, s, e, bm, ot, +b.id).run();
-      await log(env, +b.id, 'admin_edit', before, { staff_id: sid, start: s, end: e, brk_min: bm, ot });
+      await env.DB.prepare("UPDATE punch SET staff_id=?,start=?,end=?,brk_min=?,ot=?,tag=?,status='done',edited=1 WHERE id=?").bind(sid, s, e, bm, ot, tag, +b.id).run();
+      await log(env, +b.id, 'admin_edit', before, { staff_id: sid, start: s, end: e, brk_min: bm, ot, tag });
     } else {
-      const r = await env.DB.prepare("INSERT INTO punch(staff_id,start,end,brk_min,ot,status,edited,created,note) VALUES(?,?,?,?,?,'done',1,?, '관리자 추가')").bind(sid, s, e, bm, ot, now).run();
-      await log(env, r.meta.last_row_id, 'admin_add', null, { staff_id: sid, start: s, end: e, brk_min: bm, ot });
+      const r = await env.DB.prepare("INSERT INTO punch(staff_id,start,end,brk_min,ot,tag,status,edited,created,note) VALUES(?,?,?,?,?,?,'done',1,?, '관리자 추가')").bind(sid, s, e, bm, ot, tag, now).run();
+      await log(env, r.meta.last_row_id, 'admin_add', null, { staff_id: sid, start: s, end: e, brk_min: bm, ot, tag });
     }
     return json({ ok: true });
   }
@@ -1987,6 +2004,11 @@ async function applyTpl() {
 
 // 근무기록/수정 — 달력에서 날짜를 골라 하루씩 고친다
 let PMONTH = ymd(Date.now()).slice(0, 7), PDAY = ymd(Date.now()), PROWS = [], PJUHU = {}, POTW = {};
+// 근무 구분 (추가는 ot 칸, 교육·행사·기타는 tag 칸에 '교육,행사,기타:내용' 형식으로 저장)
+const tagArr = p => String((p && p.tag) || '').split(',').filter(Boolean);
+const tagHas = (p, t) => tagArr(p).includes(t);
+const tagEtc = p => { const x = tagArr(p).find(s => s.startsWith('기타')); return x == null ? null : x.slice(3); };
+const tagTxt = p => tagArr(p).map(s => s.startsWith('기타') ? (s.slice(3) ? '기타(' + s.slice(3) + ')' : '기타') : s).join(' · ');
 const brkOf = (p, min) => {                     // 이 기록의 휴게(분): 기록에 적은 값 > 직원 설정(휴게 사용이면 자동 규칙, 없음이면 0)
   if (p.brk_min != null) return Math.min(+p.brk_min, min);
   const s = STAFF.find(x => x.id === p.staff_id); const use = !s || s.use_break !== 0;
@@ -2007,7 +2029,7 @@ async function tabPunch() {
   const payP = api('/admin/pay?month=' + PMONTH).catch(() => null);         // 주휴수당 (같이 받아 둠)
   const rows = await run(() => api(`/admin/punches?from=${from}&to=${to}`)); if (!rows) return;
   PROWS = rows.filter(p => p.start >= from && p.start < to);
-  const pay = await payP; PJUHU = {}; POTW = {}; if (pay) pay.staff.forEach(s => { PJUHU[s.id] = s.juhuWeeks || []; POTW[s.id] = s.otWage; });
+  const pay = await payP; PJUHU = {}; POTW = {}; if (pay) pay.staff.forEach(s => { PJUHU[s.id] = s.juhuWeeks || []; POTW[s.id] = { ot: s.otWage, edu: s.eduWage, evt: s.evtWage }; });
   drawCal(y, m); drawDay();
 }
 function drawCal(y, m) {
@@ -2042,12 +2064,12 @@ function drawDay() {
     const s = STAFF.find(x => x.id === p.staff_id);
     const dayEnd = new Date(PDAY + 'T00:00').getTime() + DAY;
     const jh = (PJUHU[p.staff_id] || []).filter(w => w.ok && w.week + 7 * DAY <= dayEnd).reduce((a, w) => a + w.amount, 0);   // 이 날까지 끝난 주의 주휴수당
-    const mine = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY), wg = (s && s.wage) || 0, otw = POTW[p.staff_id] || wg;
-    const otCum = mine.filter(x => x.ot).reduce((a, x) => a + paidMin(x), 0);
-    const mpay = Math.floor((cum - otCum) * wg / 60) + Math.floor(otCum * otw / 60) + jh;   // 월급여 = 기본급 + 추가근무수당 + 주휴수당 (이달 1일~이 날)
+    const mine = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY), wg = (s && s.wage) || 0, ww = POTW[p.staff_id] || {};
+    const kd = x => x.ot ? 'ot' : tagHas(x, '교육') ? 'edu' : tagHas(x, '행사') ? 'evt' : 'base';
+    let mpay = jh; ['base', 'ot', 'edu', 'evt'].forEach(k => { const m = mine.filter(x => kd(x) === k).reduce((a, x) => a + paidMin(x), 0); mpay += Math.floor(m * (k === 'base' ? wg : (ww[k] || wg)) / 60); });   // 월급여 = 기본급 + 추가근무수당 + 주휴수당 (이달 1일~이 날)
     if (!seen.has(p.staff_id)) { seen.add(p.staff_id); cumSum += cum; paySum += mpay; jhSum += jh; }
     return `<tr${p.ot ? ' class="otrow"' : ''}><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
-      <td><span class="rng">${hhmm(p.start)}~${p.end ? hhmm(p.end) : '?'}</span>${endBadge(p) ? `<div>${endBadge(p)}</div>` : ''}${p.note && p.note !== '관리자 추가' ? `<div class="muted" style="font-size:11px">⚠ ${esc(p.note)}</div>` : ''}</td>
+      <td><span class="rng">${hhmm(p.start)}~${p.end ? hhmm(p.end) : '?'}</span>${tagTxt(p) ? `<div class="tagt">${esc(tagTxt(p))}</div>` : ''}${endBadge(p) ? `<div>${endBadge(p)}</div>` : ''}${p.note && p.note !== '관리자 추가' ? `<div class="muted" style="font-size:11px">⚠ ${esc(p.note)}</div>` : ''}</td>
       <td class="wkc">${work}</td>
       <td><b class="cum">${fmtHM(cum)}</b></td>
       <td class="jpay">${jh ? jh.toLocaleString('ko-KR') + '<small>원</small>' : '<span class="muted">-</span>'}</td>
@@ -2139,6 +2161,7 @@ async function editPunch(p, fromWeek, day) {
       $('#kR').placeholder = off ? '비우면 0 (직원 설정: 휴게 없음)' : '비우면 자동 (4시간 이상 30분 · 8시간 30분 이상 60분)';
       $('#kRn').innerHTML = `비워 두면 <b>직원 설정</b>(${off ? '휴게 없음' : '휴게 사용 · 자동'})을 따릅니다. 이 날만 다르게 하려면 분을 넣으세요 (넣은 값이 우선).`; upd(); };
     if (ks) ks.onchange = sync; sync();
+    const ke = $('#kEtc'); if (ke) ke.onchange = () => { const t = $('#kEtcT'); t.hidden = !ke.checked; if (ke.checked) t.focus(); };
   }, 0);
   const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'} · ${dt.getMonth() + 1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</h3><label>이름</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
     <input type="hidden" id="kD" value="${dd}">
@@ -2146,12 +2169,18 @@ async function editPunch(p, fromWeek, day) {
       <div><label>퇴근</label><input type="hidden" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"><button type="button" class="tbtn" id="kBb">${tLabel(p && p.end ? hhmm(p.end) : '')}</button></div></div>
     <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${defBrk}">
     <div class="muted" style="font-size:12px" id="kRn">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
-    <label class="otchk"><input type="checkbox" id="kO" ${p && p.ot ? 'checked' : ''}> <b>추가근무</b> <span class="muted">— 체크하면 이 기록은 <b>추가근무 시급</b>으로 계산 (급여 탭에서 설정)</span></label>
+    <div class="otchk"><div class="kinds">
+      <label><input type="checkbox" id="kO" ${p && p.ot ? 'checked' : ''}> <b>추가</b></label>
+      ${['교육', '행사'].map(t => `<label><input type="checkbox" data-kt="${t}" ${tagHas(p, t) ? 'checked' : ''}> <b>${t}</b></label>`).join('')}
+      <label><input type="checkbox" id="kEtc" ${tagEtc(p) != null ? 'checked' : ''}> <b>기타</b></label></div>
+      <input type="text" id="kEtcT" maxlength="30" placeholder="기타 내용 (예: 매장 청소)" value="${esc(tagEtc(p) || '')}" ${tagEtc(p) != null ? '' : 'hidden'}>
+      <div class="muted">추가: <b>추가근무 시급</b>으로 계산 (급여 탭에서 설정) · 교육·행사: 각 시급 (급여 탭) · 기타: 표시만 (기본 시급)</div></div>
     <div class="wbox">근무시간 (휴게 제외): <b id="kW">-</b></div>`, '저장', () => {
       const d = $('#kD').value, a = $('#kA').value, b = $('#kB').value, r = $('#kR').value.trim();
       if (!d || !a || !b) { toast('날짜와 시간을 모두 입력하세요'); return false; }
       if (r !== '' && !(+r >= 0)) { toast('휴게시간은 0 이상의 분으로 넣으세요'); return false; }
-      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? null : +r, ot: $('#kO').checked ? 1 : 0 };
+      return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? null : +r, ot: $('#kO').checked ? 1 : 0,
+        tag: [...document.querySelectorAll('[data-kt]')].filter(x => x.checked).map(x => x.dataset.kt).concat($('#kEtc').checked ? ['기타:' + $('#kEtcT').value.trim().replace(/,/g, ' ')] : []).join(',') };
     });
   if (!v) return;
   if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else { PDAY = ymd(v.start); PMONTH = PDAY.slice(0, 7); tabPunch(); } }
@@ -2182,6 +2211,9 @@ async function tabPay() {
       <div class="muted" style="font-size:12px">기본은 법정 최저시급 ${won(SET.minWage || 10320)}입니다. 저장하면 <b>모든 직원의 시급</b>이 이 금액으로 바뀌고, 새 직원도 이 금액으로 등록됩니다. (한 사람만 다르게 하려면 저장 뒤 직원 탭에서 고치세요)</div>
       <div class="wrow"><span>추가근무 시급</span><span class="wi"><input type="number" id="otW" inputmode="numeric" step="10" min="0" placeholder="비우면 기본 시급" value="${SET.otWage || ''}">원</span></div>
       <div class="muted" style="font-size:12px">근무기록에서 <b>추가근무</b>로 체크한 기록에만 적용됩니다. 비워 두면 기본 시급으로 계산합니다.${SET.minWage ? ` (참고: 법정시급의 1.5배 = ${won(Math.round(SET.minWage * 1.5))})` : ''}</div>
+      <div class="wrow"><span>교육 시급</span><span class="wi"><input type="number" id="edW" inputmode="numeric" step="10" min="0" placeholder="비우면 기본 시급" value="${SET.eduWage || ''}">원</span></div>
+      <div class="wrow"><span>행사 시급</span><span class="wi"><input type="number" id="evW" inputmode="numeric" step="10" min="0" placeholder="비우면 기본 시급" value="${SET.evtWage || ''}">원</span></div>
+      <div class="muted" style="font-size:12px">근무기록에서 <b>교육</b>·<b>행사</b>로 체크한 기록에 적용됩니다. 비워 두면 기본 시급. 한 기록에 여러 개를 체크하면 추가 → 교육 → 행사 순으로 하나만 적용됩니다.</div>
       <button class="pri" id="wSave" style="width:100%;margin-top:10px">시급 저장</button></div>
     <div class="card"><b>${PAY.month} 인건비 합계: ${won(sum)}</b><div class="muted">휴게시간 차감: 근무기록/수정에서 휴게를 적은 날은 적은 시간만큼. 그 밖의 날은 직원 탭에서 "휴게시간 사용"인 사람만 출근~퇴근 4시간 이상 30분, 8시간 30분 이상 1시간</div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -2194,9 +2226,9 @@ async function tabPay() {
     PAY.staff.map(s => `<div class="card" style="border-left:5px solid ${s.color}">
       <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">${ctrLbl(s, PAY.month)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><button class="sm" data-slip="${s.id}" style="flex:0 0 auto">명세서</button></div>
       <table class="pay t6" style="margin-top:6px"><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
-      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}${s.otPaid ? `<div style="font-size:11px;color:#a64b00">추가 ${fmtH(s.otPaid)}</div>` : ''}</td><td>${won(s.wage)}</td></tr></table>
-      <table class="pay bx" style="margin-top:8px"><tr><th>기본급</th><th>추가근무</th><th>주휴수당</th><th>월 급여</th></tr>
-      <tr><td>${won(baseOf(s))}</td><td>${s.otPaid ? `${won(s.otPay)}<div style="font-size:11px;color:#777">${fmtH(s.otPaid)} × ${won(s.otWage)}</div>` : '-'}</td><td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
+      <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}${XK.filter(k => s[k.p]).map(k => `<div style="font-size:11px;color:#a64b00">${k.n} ${fmtH(s[k.p])}</div>`).join('')}</td><td>${won(s.wage)}</td></tr></table>
+      <table class="pay bx" style="margin-top:8px"><tr><th>기본급</th>${XK.filter(k => k.k === 'ot' || s[k.p]).map(k => `<th>${k.t}</th>`).join('')}<th>주휴수당</th><th>월 급여</th></tr>
+      <tr><td>${won(baseOf(s))}</td>${XK.filter(k => k.k === 'ot' || s[k.p]).map(k => `<td>${s[k.p] ? `${won(s[k.y])}<div style="font-size:11px;color:#777">${fmtH(s[k.p])} × ${won(s[k.w])}</div>` : '-'}</td>`).join('')}<td>${won(s.juhu || 0)}${juhuWhy(s)}</td><td><b>${won(totOf(s))}</b></td></tr></table>
       ${(s.juhuWeeks || []).length ? `<div class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"><b>주휴수당</b><br>${juhuTxt(s).join('<br>')}</div>` : ''}
       ${s.unresolved ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${s.unresolved}건이 계산에서 빠졌습니다. 기록 탭에서 정리하세요.</div>` : ''}
     </div>`).join('');
@@ -2205,7 +2237,10 @@ async function tabPay() {
     const bw = +($('#bsW').value || SET.minWage || 10320), v = $('#otW').value.trim(), minW = SET.minWage || 10320;
     if (!(bw >= 1000)) return toast('기본근무 시급을 확인하세요');
     if (v !== '' && !(+v >= 1000)) return toast('추가근무 시급을 확인하세요');
-    const body = { otWage: v === '' ? null : +v };
+    const ev = $('#edW').value.trim(), vv = $('#evW').value.trim();
+    if (ev !== '' && !(+ev >= 1000)) return toast('교육 시급을 확인하세요');
+    if (vv !== '' && !(+vv >= 1000)) return toast('행사 시급을 확인하세요');
+    const body = { otWage: v === '' ? null : +v, eduWage: ev === '' ? null : +ev, evtWage: vv === '' ? null : +vv };
     const diff = PAY.staff.filter(s => s.active && s.wage !== bw);
     if (bw !== (SET.baseWage || minW) || diff.length) {
       const ok = await modal(`<h3>기본근무 시급 저장</h3>모든 직원의 시급을 <b>${won(bw)}</b>으로 맞춥니다.${diff.length ? `<div class="muted" style="margin-top:6px">바뀌는 직원: ${diff.map(s => `${esc(s.name)} ${won(s.wage)} → ${won(bw)}`).join(', ')}</div>` : ''}
@@ -2246,6 +2281,8 @@ const juhuWhy = s => {                              // 15시간 넘게 일했는
   const r = [...new Set((s.juhuWeeks || []).filter(w => !w.ok && w.minutes >= 15 * 60).map(w => w.reason))];
   return r.length ? `<div style="font-size:11px;color:#b25e00;line-height:1.35;margin-top:2px">${r.map(esc).join('<br>')}</div>` : ''; };
 let BASEW = 10320;   // 새 직원 기본 시급 (급여 탭 기본근무 시급)
+const XK = [{ k: 'ot', n: '추가', t: '추가근무', p: 'otPaid', w: 'otWage', y: 'otPay' }, { k: 'edu', n: '교육', t: '교육', p: 'eduPaid', w: 'eduWage', y: 'eduPay' }, { k: 'evt', n: '행사', t: '행사', p: 'evtPaid', w: 'evtWage', y: 'evtPay' }];   // 기본 시급과 따로 계산하는 근무
+const kindOf = x => x.kind || (x.ot ? 'ot' : 'base');
 const baseOf = s => s.basePay != null ? s.basePay : s.pay;          // 기본급 (추가근무수당 제외)
 const totOf = s => s.payTotal != null ? s.payTotal : s.pay;          // 월 급여 = 기본급 + 주휴수당 (예전 확정본은 기본급만)
 const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week + 6 * DAY).replace(/\(.\)/, '')} 주 · 실근무 ${fmtH(w.minutes)}${w.basis === 'contract' ? ` · 계약 ${fmtH(w.base)}` : ' · 계약시간 없음(실근무 기준)'} → ${w.ok ? won(w.amount) : '없음 (' + w.reason + ')'}`);
@@ -2257,16 +2294,16 @@ function slipHTML(s, month, label) {
     <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
     <h3>지급 내역</h3><table><tr><th>항목</th><th>계산 방법</th><th>금액</th></tr>
     <tr><td>기본급</td><td>${((s.basePaid != null ? s.basePaid : s.paid) / 60).toFixed(2)}시간 × ${won(s.wage)}</td><td>${won(baseOf(s))}</td></tr>
-    ${s.otPaid ? `<tr><td>추가근무</td><td>${(s.otPaid / 60).toFixed(2)}시간 × ${won(s.otWage)}</td><td>${won(s.otPay)}</td></tr>` : ''}
+    ${XK.filter(k => s[k.p]).map(k => `<tr><td>${k.t}</td><td>${(s[k.p] / 60).toFixed(2)}시간 × ${won(s[k.w])}</td><td>${won(s[k.y])}</td></tr>`).join('')}
     <tr><td>주휴수당</td><td style="font-size:12px;text-align:left">${(s.juhuWeeks || []).filter(w => w.ok).map(w => `${mdw(w.week)}주 ${w.basis === 'contract' ? '계약' : '실근무'} ${(Math.min(w.base != null ? w.base : w.minutes, 2400) / 60).toFixed(1)}h ÷ 40 × 8h × ${won(s.wage)}`).join('<br>') || '-'}</td><td>${won(s.juhu || 0)}</td></tr>
     <tr><td>공제</td><td>-</td><td>0원</td></tr>
     <tr class="tot"><th colspan="2">실 지급액</th><td>${won(totOf(s))}</td></tr></table>
     <h3>근무 내역 (${s.shifts.length}회)</h3><table class="wl"><colgroup><col style="width:21%"><col style="width:31%"><col style="width:16%"><col style="width:16%"><col style="width:16%"></colgroup><tr><th>날짜</th><th>출퇴근</th><th>휴게</th><th>계약시간</th><th>추가시간</th></tr>
-    ${s.shifts.map(x => `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td>${x.ot ? '-' : fmtH(x.paid)}</td><td>${x.ot ? fmtH(x.paid) : '-'}</td></tr>`).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
-    ${s.shifts.length ? (() => { const reg = s.shifts.filter(x => !x.ot).reduce((a, x) => a + x.paid, 0), ot = s.shifts.filter(x => x.ot).reduce((a, x) => a + x.paid, 0);
-      const ok = reg === (s.basePaid != null ? s.basePaid : s.paid) && ot === (s.otPaid || 0);
+    ${s.shifts.map(x => `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}${tagTxt(x) ? `<div style="font-size:11px;color:#8a5a00;white-space:normal">${esc(tagTxt(x))}</div>` : ''}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td>${kindOf(x) !== 'base' ? '-' : fmtH(x.paid)}</td><td>${kindOf(x) !== 'base' ? fmtH(x.paid) : '-'}</td></tr>`).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
+    ${s.shifts.length ? (() => { const reg = s.shifts.filter(x => kindOf(x) === 'base').reduce((a, x) => a + x.paid, 0), ot = s.shifts.filter(x => kindOf(x) !== 'base').reduce((a, x) => a + x.paid, 0);
+      const ok = reg === (s.basePaid != null ? s.basePaid : s.paid) && ot === (s.otPaid || 0) + (s.eduPaid || 0) + (s.evtPaid || 0);
       return `<tr class="tot"><th colspan="3">합계 (휴게 제외)</th><td><b>${fmtH(reg)}</b></td><td><b>${ot ? fmtH(ot) : '-'}</b></td></tr></table>
-      <p style="font-size:12px;margin-top:6px;color:${ok ? '#2e7d32' : '#d32f2f'}">${ok ? '✓ 지급 내역의 기본급 시간(' + (reg / 60).toFixed(2) + '시간)과 추가근무 시간(' + (ot / 60).toFixed(2) + '시간)이 이 합계와 같습니다.' : '⚠ 지급 내역의 시간과 근무 내역 합계가 다릅니다. 관리자에게 문의하세요.'}</p>`; })() : '</table>'}
+      <p style="font-size:12px;margin-top:6px;color:${ok ? '#2e7d32' : '#d32f2f'}">${ok ? '✓ 지급 내역의 기본급 시간(' + (reg / 60).toFixed(2) + '시간)과 추가·교육·행사 시간(' + (ot / 60).toFixed(2) + '시간)이 이 합계와 같습니다.' : '⚠ 지급 내역의 시간과 근무 내역 합계가 다릅니다. 관리자에게 문의하세요.'}</p>`; })() : '</table>'}
     ${s.unresolved ? `<p style="color:#d32f2f;margin-top:10px">※ 퇴근누락·근무중 기록 ${s.unresolved}건은 포함되지 않았습니다.</p>` : ''}
     <p style="margin-top:20px;text-align:right;font-size:12.5px;color:#666">발행일: ${ymd(Date.now())}</p>
     <div class="slipft">우 지 커 피 &nbsp;광양용강점</div></div>`;
@@ -2320,14 +2357,14 @@ function tabBackup() {
     if (months.length > 24) return toast('한 번에 24개월까지 받을 수 있습니다');
     toast('만드는 중...');
     let X; try { X = await needXLSX(); } catch (e) { return toast(e.message, 3500); }
-    const rec = [['날짜', '요일', '이름', '출근', '퇴근', '근무(분)', '휴게(분)', '유급(분)', '유급 시간', '퇴근 방식', '수정됨', '추가근무', '기록']];
-    const sum = [['월', '이름', '시급', '근무일수', '총 근무', '휴게', '유급 시간', '유급(분)', '기본급(원)', '추가근무(분)', '추가근무 시급', '추가근무(원)', '주휴수당(원)', '월 급여(원)', '확정']];
+    const rec = [['날짜', '요일', '이름', '출근', '퇴근', '근무(분)', '휴게(분)', '유급(분)', '유급 시간', '퇴근 방식', '수정됨', '추가근무', '구분', '기록']];
+    const sum = [['월', '이름', '시급', '근무일수', '총 근무', '휴게', '유급 시간', '유급(분)', '기본급(원)', '추가근무(분)', '추가근무 시급', '추가근무(원)', '교육(분)', '교육 시급', '교육(원)', '행사(분)', '행사 시급', '행사(원)', '주휴수당(원)', '월 급여(원)', '확정']];
     for (const mo of months) {
       const r = await run(() => api('/admin/pay?month=' + mo)); if (!r) return;
       const rows = [];
       r.staff.forEach(s => {
-        s.shifts.forEach(x => rows.push([ymd(x.start), DOW[new Date(x.start).getDay()], s.name, hhmm(x.start), hhmm(x.end), x.min, x.brk, x.paid, hm2(x.paid), END_LABEL[x.end_type] || '', x.edited ? 'O' : '', x.ot ? 'O' : '', x.memo || '']));
-        if (s.shifts.length || s.juhu) sum.push([mo, s.name, s.wage, s.days, hm2(s.total), hm2(s.brk), hm2(s.paid), s.paid, baseOf(s), s.otPaid || 0, s.otPaid ? s.otWage : '', s.otPay || 0, s.juhu || 0, totOf(s), s.confirmedAt ? '확정' : '']);
+        s.shifts.forEach(x => rows.push([ymd(x.start), DOW[new Date(x.start).getDay()], s.name, hhmm(x.start), hhmm(x.end), x.min, x.brk, x.paid, hm2(x.paid), END_LABEL[x.end_type] || '', x.edited ? 'O' : '', x.ot ? 'O' : '', tagTxt(x), x.memo || '']));
+        if (s.shifts.length || s.juhu) sum.push([mo, s.name, s.wage, s.days, hm2(s.total), hm2(s.brk), hm2(s.paid), s.paid, baseOf(s), s.otPaid || 0, s.otPaid ? s.otWage : '', s.otPay || 0, s.eduPaid || 0, s.eduPaid ? s.eduWage : '', s.eduPay || 0, s.evtPaid || 0, s.evtPaid ? s.evtWage : '', s.evtPay || 0, s.juhu || 0, totOf(s), s.confirmedAt ? '확정' : '']);
       });
       rows.sort((a, b) => (a[0] + a[3]).localeCompare(b[0] + b[3])); rec.push(...rows);
     }
