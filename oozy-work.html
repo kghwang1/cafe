@@ -2506,7 +2506,11 @@ const ctrLbl = (s, ym) => { const m = ctrMin(s, ym); return m == null ? '계약�
 const contractNow = (s, ym) => { let c = null; (s.contracts || []).forEach(x => { if (x.month <= ym) c = x; }); return c; };
 // ===== 직원별 매출 (직원 탭, 직원목록 아래) =====
 // 매출 자료는 oozy-sales.html 의 SALES(날짜별 7~22시 시간대 순매출)를 그대로 불러와 씀 — 따로 옮겨 적지 않음
-let SSDB = null, SSMON = 'all';
+let SSDB = null, SSMON = 'all', SSEXC = false, SSEXE = false;
+const SSEVENT = ['2026-10-21', '2026-10-22'];   // 행사를 진행한 날 — '행사일 제외' 버튼으로 계산에서 뺌 (날짜를 바꾸려면 여기만 고치세요)
+const SSEDU = ['2026-10-19', '2026-10-20'];     // 교육을 진행한 날 — '교육일 제외' 버튼으로 계산에서 뺌
+const ssSkip = () => (SSEXC ? SSEVENT : []).concat(SSEXE ? SSEDU : []);
+const ssBtn = (on, nm, ds) => (on ? '✓ ' : '') + nm + '(' + ds.map(d => d.slice(5).replace('-', '/')).join('·') + ') 제외';
 async function loadSalesDB() {
   if (SSDB) return SSDB;
   const js = x => JSON.parse(x.replace(/'/g, '"').replace(/,\s*([}\]])/g, '$1'));
@@ -2522,10 +2526,11 @@ async function loadSalesDB() {
 }
 // 직원별 매출 계산: 시간을 구간으로 잘라, 구간마다 (그 구간 매출 ÷ 그때 함께 근무한 인원)을 근무한 직원에게 나눠 줌
 //   총매출 = 그 직원이 근무한 시간의 매출 합 (나누기 전) / 매출 평균 = 나눈 매출 합 ÷ 근무시간(시간 단위)
-function calcStaffSales(rows, db, mon) {
+function calcStaffSales(rows, db, mon, skip) {
   const acc = {};
   Object.keys(db.sales).sort().forEach(d => {
     if (mon !== 'all' && d.slice(0, 7) !== mon) return;
+    if (skip && skip.includes(d)) return;                           // 제외한 날 (행사일)
     const d0 = new Date(d + 'T00:00:00').getTime(), part = db.part[d] || [];
     db.sales[d].forEach((S, i) => {
       const h = 7 + i, a0 = d0 + h * HOUR, a1 = a0 + HOUR;
@@ -2563,11 +2568,13 @@ async function staffSales() {
   const rows = all.filter(p => p.status === 'done' && p.end), names = {};
   all.forEach(p => names[p.staff_id] = p.name);
   const months = [...new Set(days.map(d => d.slice(0, 7)))];
-  $('#ssSel').innerHTML = `<select id="ssMon" style="width:auto;padding:6px 8px"><option value="all">전체 (${days.length}일)</option>${months.map(m => `<option value="${m}" ${m === SSMON ? 'selected' : ''}>${+m.slice(5)}월</option>`).join('')}</select>`;
+  $('#ssSel').innerHTML = `<button type="button" class="sm" id="ssEv"></button><button type="button" class="sm" id="ssEd"></button><select id="ssMon" style="width:auto;padding:6px 8px"><option value="all">전체 (${days.length}일)</option>${months.map(m => `<option value="${m}" ${m === SSMON ? 'selected' : ''}>${+m.slice(5)}월</option>`).join('')}</select>`;
   if (SSMON !== 'all' && !months.includes(SSMON)) SSMON = 'all';
   $('#ssMon').value = SSMON;
   const draw = () => {
-    const acc = calcStaffSales(rows, db, SSMON);
+    const ev = $('#ssEv'); ev.className = 'sm' + (SSEXC ? ' pri' : ''); ev.textContent = ssBtn(SSEXC, '행사일', SSEVENT);
+    const ed = $('#ssEd'); ed.className = 'sm' + (SSEXE ? ' pri' : ''); ed.textContent = ssBtn(SSEXE, '교육일', SSEDU);
+    const acc = calcStaffSales(rows, db, SSMON, ssSkip());
     const ord = id => { const i = STAFF.findIndex(s => s.id === id); return i < 0 ? 999 : i; };
     const ids = [...new Set(STAFF.filter(s => s.active).map(s => s.id).concat(Object.keys(acc).map(Number)))].sort((a, b) => ord(a) - ord(b));
     const body = ids.map(id => {
@@ -2580,7 +2587,7 @@ async function staffSales() {
         <td>${o ? won(Math.round(o.gross)) + '원' : '<span class="muted">-</span>'}</td>
         <td>${o && o.min ? '<b>' + won(Math.round(o.share / (o.min / 60))) + '원</b>' : '<span class="muted">-</span>'}</td></tr>`;
     }).join('');
-    const ds = days.filter(d => SSMON === 'all' || d.slice(0, 7) === SSMON);
+    const ds = days.filter(d => (SSMON === 'all' || d.slice(0, 7) === SSMON) && !ssSkip().includes(d));
     box.classList.remove('muted');
     box.innerHTML = `<div class="scroll-x"><table class="sum"><tr><th>직원</th><th>근무시간</th><th>총매출</th><th>매출 평균<br><small style="font-weight:400">(시간당)</small></th></tr>
       ${body || '<tr><td colspan="4" class="muted" style="text-align:left">직원이 없습니다.</td></tr>'}</table></div>
@@ -2588,6 +2595,8 @@ async function staffSales() {
       매출은 매출분석의 시간대별 순매출(${ds.length ? mdw(new Date(ds[0] + 'T00:00:00').getTime()) + ' ~ ' + mdw(new Date(ds[ds.length - 1] + 'T00:00:00').getTime()) : '-'}, 7~23시)이고, 근무시간은 출근~퇴근 기록 그대로입니다(휴게 차감 없음). 매출 자료가 없는 날, 조회가 덜 반영된 시간, 사장님 단독 근무 시간은 빠집니다.</div>`;
   };
   $('#ssMon').onchange = e => { SSMON = e.target.value; draw(); };
+  $('#ssEv').onclick = () => { SSEXC = !SSEXC; draw(); };
+  $('#ssEd').onclick = () => { SSEXE = !SSEXE; draw(); };
   draw();
 }
 async function tabStaff() {
@@ -2604,7 +2613,7 @@ async function tabStaff() {
     <div class="card"><div class="row" style="align-items:center"><b>직원 목록</b><button class="sm pri" id="nAdd" style="flex:0 0 auto">직원 추가</button></div>
     <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}${(c => c ? ` · 계약 주 ${c.min / 60}h` : ' · <span style="color:var(--warn)">계약시간 없음</span>')(contractNow(s, ymd(Date.now()).slice(0, 7)))}</span>${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
       <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm" data-se="${s.id}">수정</button><button class="sm" data-sx="${s.id}">삭제</button></span></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>
-    <div class="card" id="ssCard"><div class="row" style="align-items:center"><b style="font-size:16px">직원별 매출</b><span id="ssSel" style="flex:0 0 auto"></span></div>
+    <div class="card" id="ssCard"><div class="row" style="align-items:center;flex-wrap:wrap"><b style="font-size:16px">직원별 매출</b><span id="ssSel" style="flex:0 0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"></span></div>
     <div id="ssBody" class="muted" style="margin-top:8px">불러오는 중...</div></div>`;
   staffSales();
   const edit = async s => {
