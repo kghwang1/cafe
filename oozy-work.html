@@ -1430,25 +1430,25 @@ async function drawDaySales() {
   if (!v) { box.innerHTML = head + '<div class="dst">이 날의 매출 자료가 아직 없습니다. (매출분석에 영수증 자료가 올라가면 보입니다)</div>'; return; }
   const H = db.hours, n = H.length, part = db.P[key] || [];
   const { segs, lanes, plan } = dayStaff(ds);
-  const W = 360, L = 30, R = 4, cw = (W - L - R) / n, top = 16, ph = 96, base = top + ph, laneH = 15, ly = base + 5;
+  const W = 360, L = 30, R = 4, cw = (W - L - R) / n, top = 14, ph = 96, base = top + ph, laneH = 11, ly = base + 15;
   const mx = Math.max(...v, 1), nice = Math.max(50000, Math.ceil(mx / 50000) * 50000), by = x => base - x / nice * ph, bx = i => L + i * cw;
   let g = '';
-  [0, .5, 1].forEach(f => { const y = base - f * ph; g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#e5dfd8"/><text x="${L - 3}" y="${y + 3}" font-size="8" text-anchor="end" fill="#7a726b">${Math.round(nice * f / 1000)}</text>`; });
+  [0, .5, 1].forEach(f => { const y = base - f * ph; g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#e5dfd8"/><text x="${L - 3}" y="${y + 3}" font-size="5.6" text-anchor="end" fill="#7a726b">${Math.round(nice * f / 1000)}</text>`; });
   v.forEach((x, i) => {
     const hp = part.includes(H[i]);
-    if (x > 0) g += `<rect x="${bx(i) + 2}" y="${by(x)}" width="${cw - 4}" height="${base - by(x)}" rx="2" style="fill:var(--brand)" opacity="${hp ? .45 : 1}"/><text x="${bx(i) + cw / 2}" y="${by(x) - 2}" font-size="8" text-anchor="middle" fill="#231f1c">${Math.round(x / 1000)}${hp ? '*' : ''}</text>`;
+    if (x > 0) g += `<rect x="${bx(i) + 2.5}" y="${by(x)}" width="${cw - 5}" height="${base - by(x)}" rx="2" fill="none" stroke-width="1.3" ${hp ? 'stroke-dasharray="3 2"' : ''} style="stroke:var(--brand)"/><text x="${bx(i) + cw / 2}" y="${by(x) - 2}" font-size="5.6" text-anchor="middle" fill="#231f1c">${Math.round(x / 1000)}${hp ? '*' : ''}</text>`;
   });
   // 근무 직원 이름 — 시간(X축) 바로 위, 사람 수만큼 줄을 나눔
   const x0 = hr => L + (Math.min(Math.max(hr, H[0]), H[n - 1] + 1) - H[0]) * cw;
   segs.forEach(sg => {
     const xa = x0(sg.a), xb = x0(sg.b); if (xb - xa < 1) return;
-    g += `<svg x="${xa}" y="${ly + sg.lane * laneH}" width="${xb - xa}" height="${laneH - 2}"><rect width="100%" height="100%" rx="3" fill="${sg.color}"/><text x="${(xb - xa) / 2}" y="${laneH - 5}" font-size="9" font-weight="700" text-anchor="middle" fill="${onC(sg.color)}">${esc(sg.name)}</text></svg>`;
+    g += `<svg x="${xa}" y="${ly + sg.lane * laneH}" width="${xb - xa}" height="${laneH - 2}"><rect width="100%" height="100%" rx="3" fill="${sg.color}"/><text x="${(xb - xa) / 2}" y="${laneH - 3.2}" font-size="6.3" font-weight="700" text-anchor="middle" fill="${onC(sg.color)}">${esc(sg.name)}</text></svg>`;
   });
-  const ay = ly + Math.max(lanes, 1) * laneH + 8;
-  H.forEach((hr, i) => { g += `<text x="${bx(i) + cw / 2}" y="${ay}" font-size="9" text-anchor="middle" fill="#231f1c">${hr}</text>`; });
+  const ay = ly + Math.max(lanes, 1) * laneH;
+  H.forEach((hr, i) => { g += `<text x="${bx(i) + cw / 2}" y="${base + 10}" font-size="6.3" text-anchor="middle" fill="#231f1c">${hr}</text>`; });   // 시간 → 그 아래 직원 이름
   const tot = v.reduce((a, b) => a + b, 0);
   box.innerHTML = head + `<div class="dst">합계 ${won(tot)} · 단위 천원${plan ? ' · 근무자는 예정 스케줄 기준' : ''}${part.length ? ' · * 일부만 반영된 시간' : ''}</div>
-    <svg viewBox="0 0 ${W} ${ay + 6}" role="img" aria-label="${key} 시간대별 순매출">${g}</svg>`;
+    <svg viewBox="0 0 ${W} ${ay + 4}" role="img" aria-label="${key} 시간대별 순매출">${g}</svg>`;
 }
 function drawGrid(admin) {
   if (!DATA) return;
