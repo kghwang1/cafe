@@ -1173,6 +1173,7 @@ export default {
   },
 };
 
+
 </script>
 <script>
 // ===== 설정 =====
@@ -2082,21 +2083,22 @@ function paidMin(p) { if (p.status !== 'done' || !p.end) return 0; const min = M
 function drawDay() {
   const list = PROWS.filter(p => ymd(p.start) === PDAY).sort((a, b) => a.start - b.start);
   const d = new Date(PDAY + 'T00:00');
-  let sum = 0, cumSum = 0, paySum = 0, jhSum = 0; const seen = new Set();
+  let sum = 0, cumSum = 0, paySum = 0, jhSum = 0; const last = {};
   const body = list.map(p => {
     let work = '';
     if (p.status === 'missing') work = '<span class="badge bad">퇴근누락</span>';
     else if (p.status === 'open') work = '<span class="badge ok">근무중</span>';
     else { const min = Math.round((p.end - p.start) / MIN), b = brkOf(p, min); sum += min - b;
       work = `<b class="wk">${fmtHM(min - b)}</b>${b ? `<div class="muted" style="font-size:11.5px">휴게 ${b}분${p.brk_min == null ? '(자동)' : ''}</div>` : ''}`; }
-    const cum = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY).reduce((a, x) => a + paidMin(x), 0);   // 이달 1일~이 날
+    const upto = x => x.staff_id === p.staff_id && (ymd(x.start) < PDAY || (ymd(x.start) === PDAY && x.start <= p.start));   // 이달 1일~이 기록까지 (같은 날 여러 번이면 차례로 쌓임)
+    const cum = PROWS.filter(upto).reduce((a, x) => a + paidMin(x), 0);
     const s = STAFF.find(x => x.id === p.staff_id);
     const dayEnd = new Date(PDAY + 'T00:00').getTime() + DAY;
     const jh = (PJUHU[p.staff_id] || []).filter(w => w.ok && w.week + 7 * DAY <= dayEnd).reduce((a, w) => a + w.amount, 0);   // 이 날까지 끝난 주의 주휴수당
-    const mine = PROWS.filter(x => x.staff_id === p.staff_id && ymd(x.start) <= PDAY), wg = (s && s.wage) || 0, ww = POTW[p.staff_id] || {};
+    const mine = PROWS.filter(upto), wg = (s && s.wage) || 0, ww = POTW[p.staff_id] || {};
     const kd = x => x.ot ? 'ot' : tagHas(x, '교육') ? 'edu' : tagHas(x, '행사') ? 'evt' : 'base';
     let mpay = jh; ['base', 'ot', 'edu', 'evt'].forEach(k => { const m = mine.filter(x => kd(x) === k).reduce((a, x) => a + paidMin(x), 0); mpay += Math.floor(m * (k === 'base' ? wg : (ww[k] || wg)) / 60); });   // 월급여 = 기본급 + 추가근무수당 + 주휴수당 (이달 1일~이 날)
-    if (!seen.has(p.staff_id)) { seen.add(p.staff_id); cumSum += cum; paySum += mpay; jhSum += jh; }
+    last[p.staff_id] = { cum, mpay, jh };                                                     // 합계 줄은 그 사람의 그날 마지막 기록 값
     return `<tr${p.ot ? ' class="otrow"' : ''}><td><i class="sw" style="background:${s ? s.color : '#999'}"></i>${esc(p.name)}${p.edited ? '<div class="muted" style="font-size:11px">수정됨</div>' : ''}</td>
       <td><span class="rng">${hhmm(p.start)}~${p.end ? hhmm(p.end) : '?'}</span>${tagTxt(p) ? `<div class="tagt">${esc(tagTxt(p))}</div>` : ''}${endBadge(p) ? `<div>${endBadge(p)}</div>` : ''}${p.note && p.note !== '관리자 추가' ? `<div class="muted" style="font-size:11px">⚠ ${esc(p.note)}</div>` : ''}</td>
       <td class="wkc">${work}</td>
@@ -2106,6 +2108,7 @@ function drawDay() {
       <td class="cmemo"><textarea data-pm="${p.id}" rows="2" placeholder="기록">${esc(p.memo || '')}</textarea><div class="mst" id="mst${p.id}"></div></td>
       <td class="cact"><button class="sm" data-pe="${p.id}">수정</button><button class="sm" data-pd="${p.id}">삭제</button></td></tr>`;
   }).join('');
+  Object.values(last).forEach(v => { cumSum += v.cum; paySum += v.mpay; jhSum += v.jh; });
   $('#dayBox').innerHTML = `<div class="gridhead"><b style="font-size:17px">${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})</b>
       <button class="sm pri" id="pAdd" style="flex:0 0 auto">+ 기록 추가</button></div>
     ${list.length ? `<div class="dayscroll"><table class="dayt"><tr><th>근무자</th><th>근무구간</th><th>근무시간<br><small>(휴게 제외)</small></th><th>월누계</th><th>주휴수당</th><th>월급여<br><small>(이 날까지)</small></th><th>기록</th><th></th></tr>${body}
