@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('store')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=store');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 기기관리</title>
-<meta name="app-version" content="2026-10-27.1">
+<meta name="app-version" content="2026-10-30.1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -302,7 +302,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
 </main>
 <script>
 (function(){
-  const APP_VERSION = '2026-10-27.1';
+  const APP_VERSION = '2026-10-30.1';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -337,7 +337,7 @@ button:focus-visible,.chip:focus-visible{outline:3px solid var(--butter);outline
       ['커피 머신', [['스팀완드(스팀봉) 청소법','매일 마감','http://m.site.naver.com/1bzOT']]],
       ['참고 · 반자동 머신 기준 (우리 매장 해당 없음)', [['커피머신 마감 청소법','그룹헤드가 있는 머신용','http://m.site.naver.com/1bzPy'],['포터필터 마감 청소법','포터필터가 있는 머신용','http://m.site.naver.com/1bzOE']]],
       ['블렌더', [['블렌더볼 청소법','매일 세척','http://m.site.naver.com/1bzOZ'],['블렌더볼 칼날 분해 및 조립법','주 1회 분해 청소','https://m.site.naver.com/1Xs4X'],['블렌더 커플링 분해 및 조립법','마모 시 교체','https://m.site.naver.com/20x6j']]],
-      ['아이스크림 기계 · 제빙기', [['아이스크림 기계 사용 가이드','비터·가스켓 분해 및 장착','http://m.site.naver.com/1bzQo'],['제빙기 사용 가이드','세척 및 제빙 작동','http://m.site.naver.com/1bzOw']]],
+      ['아이스크림 기계 · 제빙기', [['아이스크림 기계 사용 가이드','비터·가스켓 분해 및 장착','http://m.site.naver.com/1bzQo'],['아이스크림 기계 사용 가이드 2편','청소 관련 영상','https://www.youtube.com/shorts/5JLWUEHjOUo'],['아이스크림 기계 사용 가이드 3편','청소 관련 영상','https://www.youtube.com/shorts/-CeX5ekgVtU'],['아이스크림 기계 사용 가이드 4편','청소 관련 영상','https://www.youtube.com/shorts/NnWURZjS5dc'],['제빙기 사용 가이드','세척 및 제빙 작동','http://m.site.naver.com/1bzOw']]],
       ['정수 필터', [['전처리 필터 교체법','1~2개월 (최대 3개월 권장)','https://m.site.naver.com/1XzeA'],['4FC 필터 교체법','3개월 권장','https://m.site.naver.com/1XrgU'],['IMF 필터 교체법','약품 소진 시 (6개월 권장)','https://m.site.naver.com/1XrMF'],['2FC 필터 교체법','3개월 권장 (제빙기용)','https://m.site.naver.com/1Xzoi']]]
     ]
   };
