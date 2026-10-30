@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-10-30.1">
+<meta name="app-version" content="2026-10-30.2">
 <title>우지커피 매출분석</title>
 <style>
 :root{
@@ -358,7 +358,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-10-30.1';
+const APP_VERSION = '2026-10-30.2';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = 'sales';
@@ -388,6 +388,9 @@ let salesMon = '', salesCharts = [], chartJsLoading = false;
    LINE_W: 선 두께(그래프1·3·4) · LINE_W2: 여러 줄이 겹치는 그래프2 두께
    CURVE : 곡선으로 쓸 때의 휨 정도 (STEP 이 false 일 때만 쓰임) */
 const STEP = 'middle', LINE_W = 3, LINE_W2 = 2.5, CURVE = 0;
+/* 그래프1 — 한 시간을 수평선 한 줄로 긋고 선 두께를 매출에 비례시킨다.
+   BASE_K(천원)일 때 LINE_W 두께가 되고, 두 배면 두 배로 굵어집니다. */
+const BASE_K = 80;
 let salesOff = {};                               // 그래프2에서 꺼 둔 날짜 (기본은 모두 켜짐)
 const sOn = d => !salesOff[d];
 const SPAL = ['#2a78d6','#eb6834','#1baf7a','#eda100','#6250d6','#e34948','#0e8fa8','#8a5a2b','#c2417a','#4b7f2f',
@@ -562,7 +565,21 @@ function drawSales(){
     tooltip:{callbacks:{label:c=> (c.dataset.label? c.dataset.label+' ':'')+(c.parsed.y==null?'-':c.parsed.y.toFixed(1)+'천원')}}},
     scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{beginAtZero:true,grid:{color:'#e6e4de'},ticks:{font:{size:11}},title:{display:!!ytitle,text:ytitle}}}});
   const mk=(id,cfg)=>salesCharts.push(new Chart(document.getElementById(id),cfg));
-  mk('slC1',{type:'line',data:{labels:lab,datasets:[{data:sHourAvg(days).map(v=>v==null?null:+(v/1000).toFixed(1)),borderColor:'#2a78d6',backgroundColor:'rgba(42,120,214,.1)',fill:true,borderWidth:LINE_W,stepped:STEP,tension:CURVE,pointRadius:4,pointBackgroundColor:'#2a78d6'}]},options:base('')});
+  /* 1번 — 7시 매출은 7~8시 사이 수평선 하나. 세로 연결선 없이 시간마다 따로 긋는다 */
+  const avg1 = sHourAvg(days), segs = [];
+  avg1.forEach((v,i)=>{ if(v==null) return;
+    const h = SALES_HOURS[i], k = +(v/1000).toFixed(1);
+    segs.push({label:h+'시~'+(h+1)+'시', data:[{x:h,y:k},{x:h+1,y:k}], borderColor:'#2a78d6',
+      borderWidth: Math.max(1, +(LINE_W*k/BASE_K).toFixed(2)), borderCapStyle:'butt',
+      pointRadius:0, pointHitRadius:14, fill:false, tension:0});
+  });
+  mk('slC1',{type:'line',data:{datasets:segs},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{displayColors:false,
+      callbacks:{title:it=>it[0].dataset.label, label:c=>c.parsed.y.toFixed(1)+'천원'}}},
+    scales:{x:{type:'linear',min:SALES_HOURS[0],max:SALES_HOURS[SALES_HOURS.length-1]+1,offset:false,
+        grid:{display:false},border:{display:true},
+        ticks:{stepSize:1,autoSkip:false,font:{size:11},callback:v=>v}},
+      y:{beginAtZero:true,grid:{color:'#e6e4de'},ticks:{font:{size:11}}}}}});
   const shown = days.filter(sOn);
   salesDayBtns(days);
   mk('slC2',{type:'line',data:{labels:lab,datasets:shown.map(d=>({label:sLab(d),borderColor:sColor(d,days),borderWidth:LINE_W2,stepped:STEP,tension:CURVE,pointRadius:0,pointHoverRadius:4,spanGaps:false,
