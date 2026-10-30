@@ -2540,7 +2540,11 @@ function calcStaffSales(rows, db, mon) {
         const ids = [...new Set(pr.filter(p => p.start <= x && p.end >= y).map(p => p.staff_id))];
         if (!ids.length) continue;
         const amt = S * (y - x) / HOUR;
-        ids.forEach(id => { const o = acc[id] || (acc[id] = { min: 0, gross: 0, share: 0 }); o.min += (y - x) / MIN; o.gross += amt; o.share += amt / ids.length; });
+        ids.forEach(id => {
+          const o = acc[id] || (acc[id] = { min: 0, gross: 0, share: 0, with: {} });
+          o.min += (y - x) / MIN; o.gross += amt; o.share += amt / ids.length;
+          ids.forEach(oid => { if (oid !== id) o.with[oid] = (o.with[oid] || 0) + (y - x) / MIN; });   // 함께 일한 사람별 시간(분)
+        });
       }
     });
   });
@@ -2568,7 +2572,10 @@ async function staffSales() {
     const ids = [...new Set(STAFF.filter(s => s.active).map(s => s.id).concat(Object.keys(acc).map(Number)))].sort((a, b) => ord(a) - ord(b));
     const body = ids.map(id => {
       const s = STAFF.find(x => x.id === id), o = acc[id], nm = s ? s.name : (names[id] || '?');
-      return `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${s ? s.color : '#999'}"></i> ${esc(nm)}</td>
+      const hh = m => +(m / 60).toFixed(1);                           // 7 또는 7.5 (시간)
+      const wt = o ? Object.entries(o.with).filter(([, m]) => hh(m) > 0).sort((a, b) => b[1] - a[1])
+        .map(([oid, m]) => { const t = STAFF.find(x => x.id === +oid); return esc(t ? t.name : (names[oid] || '?')) + hh(m); }).join(', ') : '';
+      return `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${s ? s.color : '#999'}"></i> ${esc(nm)}${wt ? `(${wt})` : ''}</td>
         <td>${o ? fmtH(Math.round(o.min)) : '<span class="muted">-</span>'}</td>
         <td>${o ? won(Math.round(o.gross)) + '원' : '<span class="muted">-</span>'}</td>
         <td>${o && o.min ? '<b>' + won(Math.round(o.share / (o.min / 60))) + '원</b>' : '<span class="muted">-</span>'}</td></tr>`;
