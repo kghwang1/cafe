@@ -130,7 +130,9 @@ button.warn{background:var(--warn);color:#fff}
 .tgrid.paint{touch-action:none}
 .tgrid .th{font-size:12px;text-align:center;padding:5px 0;background:#404040;color:#fff;border-radius:6px}
 .tgrid .tt{font-size:11px;color:var(--sub);display:flex;align-items:center;justify-content:flex-end;padding-right:3px}
-.tc{min-height:32px;background:#fff;border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;gap:1px;padding:1px;cursor:pointer}
+.tc{min-height:32px;background:#fff;border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;gap:1px;padding:1px;cursor:pointer;position:relative}
+.tc[data-k]::after{content:'';position:absolute;top:3px;bottom:3px;left:50%;border-left:1px dashed rgba(0,0,0,.18);pointer-events:none}
+.chip.half{width:50%;font-size:9px;text-align:left;padding-left:1px;box-sizing:border-box}
 .tc.alt,.tgrid .tt.alt{background:#ececec;border:1px solid #8a8a8a}
 .tgrid .th.hl{background:#fff;color:#404040;box-shadow:inset 0 0 0 2px #404040}
 .tgrid .tt.hl{background:#404040!important;color:#fff;font-weight:700;border-color:#404040}
@@ -421,7 +423,7 @@ function cleanGrid(g) {
   const out = {};
   if (!g || typeof g !== 'object') return out;
   for (const [key, val] of Object.entries(g)) {
-    if (!/^[0-6]-(\d|1\d|2[0-3])$/.test(key) || !Array.isArray(val)) continue;
+    if (!/^[0-6]-(\d|1\d|2[0-3])(\.5)?$/.test(key) || !Array.isArray(val)) continue;
     const v = val.includes('O') ? ['O'] : [...new Set(val.map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 6);
     if (v.length) out[key] = v;
   }
@@ -1000,12 +1002,13 @@ async function route(req, env) {
       const base = ws0 + w * 7 * DAY;
       stmts.push(env.DB.prepare('DELETE FROM schedule WHERE start>=? AND start<?').bind(base, base + 7 * DAY));
       for (let d = 0; d < 7; d++) for (const id of ids) {
+        // 30분 단위: "요일-시" = 그 시간 전체(1시간), "요일-시.5" = 앞 30분만
         let s = -1;
-        for (let h = 0; h <= 24; h++) {
-          const on = h < 24 && (grid[d + '-' + h] || []).includes(id);
-          if (on && s < 0) s = h;
+        for (let q = 0; q <= 48; q++) {
+          const hh = q >> 1, on = q < 48 && ((grid[d + '-' + hh] || []).includes(id) || (!(q & 1) && (grid[d + '-' + hh + '.5'] || []).includes(id)));
+          if (on && s < 0) s = q;
           if (!on && s >= 0) {
-            stmts.push(env.DB.prepare('INSERT INTO schedule(staff_id,start,end) VALUES(?,?,?)').bind(id, base + d * DAY + s * HOUR, base + d * DAY + h * HOUR));
+            stmts.push(env.DB.prepare('INSERT INTO schedule(staff_id,start,end) VALUES(?,?,?)').bind(id, base + d * DAY + s * 30 * MIN, base + d * DAY + q * 30 * MIN));
             count++; s = -1;
           }
         }
@@ -1368,10 +1371,11 @@ async function loadWeek(admin, pre) {
 }
 const clearWeekCache = () => { for (const k in weekCache) delete weekCache[k]; };
 // 근무표의 사장님 칸("요일-시") → 그날의 [시작,끝] 구간들
-function ownerRanges(keys, di) {
-  const hs = keys.filter(k => k.startsWith(di + '-')).map(k => +k.split('-')[1]).sort((a, b) => a - b);
+function ownerRanges(keys, di) {      // "요일-시" = 1시간, "요일-시.5" = 앞 30분 → 30분 칸(q)으로 펼쳐 이어 붙임
+  const sl = new Set();
+  keys.filter(k => k.startsWith(di + '-')).forEach(k => { const h = +k.split('-')[1].replace('.5', ''); sl.add(h * 2); if (!k.endsWith('.5')) sl.add(h * 2 + 1); });
   const out = [];
-  hs.forEach(h => { const last = out[out.length - 1]; if (last && last[1] === h) last[1] = h + 1; else out.push([h, h + 1]); });
+  [...sl].sort((a, b) => a - b).forEach(q => { const last = out[out.length - 1]; if (last && last[1] === q / 2) last[1] = (q + 1) / 2; else out.push([q / 2, (q + 1) / 2]); });
   return out;
 }
 // 근무 칸 아래쪽에 세로로 근무시간 (예정: 하늘색, 실제: 붉은색)
@@ -1845,6 +1849,7 @@ async function tabTpl() {
         <span class="muted" id="tStat">${TPL_DIRTY ? '<b style="color:var(--bad)">저장 안 됨</b>' : '저장됨'}</span>
         <span style="flex:1"></span>
         <button class="sm" id="tSave">저장</button><button class="sm pri" id="tApply">적용</button></div>
+      <div class="muted" style="font-size:12px;margin:6px 0 0">칸의 <b>오른쪽</b>을 칠하면 <b>1시간</b>, <b>왼쪽</b>을 칠하면 앞 <b>30분</b>(칸의 절반)이 칠해집니다.</div>
       <div class="pal" id="pal">
         ${active.map(s => `<button data-b="${s.id}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name)}</button>`).join('')}
         <button data-b="O" style="background:#cfc8e8;color:#3b315e">사장</button>
@@ -1873,25 +1878,31 @@ function markBrush() {
   $('#tg').classList.toggle('paint', !!BRUSH); // 칠하기 중엔 화면이 끌려가지 않게
 }
 function drawCell(el) {
-  const v = TPL[el.dataset.k] || [];
-  el.classList.toggle('has', v.length > 0);
-  el.innerHTML = v.map(x => {
-    if (x === 'O') return '<div class="chip own">사장</div>';
+  const k = el.dataset.k, full = TPL[k] || [], half = TPL[k + '.5'] || [];
+  el.classList.toggle('has', full.length + half.length > 0);
+  const chip = (x, hf) => {
+    const cls = hf ? ' half' : '';
+    if (x === 'O') return `<div class="chip own${cls}">사장</div>`;
     const s = STAFF.find(s => s.id === x);
-    return s ? `<div class="chip ${s.active ? '' : 'gone'}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name.slice(0, 3))}</div>` : '';
-  }).join('');
+    return s ? `<div class="chip${cls} ${s.active ? '' : 'gone'}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name.slice(0, hf ? 2 : 3))}</div>` : '';
+  };
+  el.innerHTML = full.map(x => chip(x, false)).join('') + half.map(x => chip(x, true)).join('');
 }
 function dirty() {
   TPL_DIRTY = true;
   const t = document.querySelector('[data-tab="tpl"]'); if (t) t.textContent = '주간근무표*';
   const lab = $('#tStat'); if (lab) lab.innerHTML = '<b style="color:var(--bad)">저장 안 됨</b>';
 }
-function paintCell(k, mode) {
-  let v = (TPL[k] || []).slice();
-  if (BRUSH === 'X') v = [];
-  else if (BRUSH === 'O') v = mode === 'add' ? ['O'] : [];
-  else { const id = +BRUSH; v = v.filter(x => x !== 'O' && x !== id); if (mode === 'add') v.push(id); }
-  if (v.length) TPL[k] = v; else delete TPL[k];
+// zone: 'R' = 칸 오른쪽(1시간 전체), 'L' = 칸 왼쪽(앞 30분)   ·  저장: "요일-시" = 1시간, "요일-시.5" = 앞 30분
+function paintCell(k, mode, zone) {
+  let f = (TPL[k] || []).slice(), hf = (TPL[k + '.5'] || []).slice();
+  const target = zone === 'R' ? 'f' : 'h';
+  const set = id => { f = f.filter(x => x !== id); hf = hf.filter(x => x !== id); if (mode === 'add') (target === 'f' ? f : hf).push(id); };
+  if (BRUSH === 'X') { f = []; hf = []; }
+  else if (BRUSH === 'O') { if (mode === 'add') { f = []; hf = []; } set('O'); }
+  else { f = f.filter(x => x !== 'O'); hf = hf.filter(x => x !== 'O'); set(+BRUSH); }
+  if (f.length) TPL[k] = f; else delete TPL[k];
+  if (hf.length) TPL[k + '.5'] = hf; else delete TPL[k + '.5'];
   drawCell(document.querySelector(`.tc[data-k="${k}"]`));
   dirty();
 }
@@ -1902,10 +1913,12 @@ function bindPaint() {
     if (!BRUSH) return;
     const c = cellAt(e); if (!c) return;
     e.preventDefault();
-    const v = TPL[c.dataset.k] || [];
-    const mode = BRUSH === 'X' ? 'del' : BRUSH === 'O' ? (v.includes('O') ? 'del' : 'add') : (v.includes(+BRUSH) ? 'del' : 'add');
-    PAINT = { mode, last: c.dataset.k };
-    paintCell(c.dataset.k, mode);
+    const r = c.getBoundingClientRect(), zone = e.clientX >= r.left + r.width / 2 ? 'R' : 'L';   // 오른쪽=1시간, 왼쪽=30분
+    const me = BRUSH === 'O' ? 'O' : +BRUSH, k = c.dataset.k;
+    const has = (zone === 'R' ? TPL[k] : TPL[k + '.5'] ) || [];
+    const mode = BRUSH === 'X' ? 'del' : (has.includes(me) ? 'del' : 'add');
+    PAINT = { mode, last: k, zone };               // 끌어서 칠할 때는 처음 누른 쪽(30분/1시간)으로 계속 칠함
+    paintCell(k, mode, zone);
   };
   // 마우스·손가락이 있는 칸의 요일과 시간을 반전 표시
   let hlKey = null;
@@ -1921,22 +1934,25 @@ function bindPaint() {
   tg.onpointermove = e => {
     const c = cellAt(e); hl(c);
     if (!PAINT || !c || c.dataset.k === PAINT.last) return;
-    PAINT.last = c.dataset.k; paintCell(c.dataset.k, PAINT.mode);
+    PAINT.last = c.dataset.k; paintCell(c.dataset.k, PAINT.mode, PAINT.zone);
   };
   tg.addEventListener('pointerdown', e => hl(cellAt(e)));
   const end = () => { if (PAINT) { PAINT = null; drawSummary(); } };
   tg.onpointerup = end; tg.onpointercancel = end;
   tg.onpointerleave = () => { end(); hl(null); };
 }
-// 근무표에서 사람별 요일별 연속 근무 구간 계산
+// 30분 칸(q=0..47) 단위로 보기: 그 시간 전체 칸이면 앞뒤 30분 모두, ".5" 칸이면 앞 30분만
+const slotHas = (d, q, id) => { const h = q >> 1; return (TPL[d + '-' + h] || []).includes(id) || (!(q & 1) && (TPL[d + '-' + h + '.5'] || []).includes(id)); };
+const slotAny = (d, q) => { const h = q >> 1; return (TPL[d + '-' + h] || []).length > 0 || (!(q & 1) && (TPL[d + '-' + h + '.5'] || []).length > 0); };
+// 근무표에서 사람별 요일별 연속 근무 구간 계산 (시간 단위, 30분은 .5)
 function tplShifts(id) {
   const days = [];
   for (let d = 0; d < 7; d++) {
     const runs = []; let s = -1;
-    for (let h = 0; h <= 24; h++) {
-      const on = h < 24 && (TPL[d + '-' + h] || []).includes(id);
-      if (on && s < 0) s = h;
-      if (!on && s >= 0) { runs.push([s, h]); s = -1; }
+    for (let q = 0; q <= 48; q++) {
+      const on = q < 48 && slotHas(d, q, id);
+      if (on && s < 0) s = q;
+      if (!on && s >= 0) { runs.push([s / 2, q / 2]); s = -1; }
     }
     days.push(runs);
   }
@@ -1967,8 +1983,8 @@ function drawSummary() {
       <td style="text-align:center">${won(wk)}</td><td style="text-align:center">${won(mon)}</td></tr>`;
   }
   // 요일별 빈 시간 (아무도 없는 영업시간)
-  const gaps = TDAYS.map((_, d) => { const [o, c] = openOf(d); let n = 0; for (let h = o; h < c; h++) if (!(TPL[d + '-' + h] || []).length) n++; return n; });
-  const ownerH = TDAYS.map((_, d) => Object.keys(TPL).filter(k => k.startsWith(d + '-') && TPL[k].includes('O')).length);
+  const gaps = TDAYS.map((_, d) => { const [o, c] = openOf(d); let n = 0; for (let q = o * 2; q < c * 2; q++) if (!slotAny(d, q)) n += 0.5; return n; });
+  const ownerH = TDAYS.map((_, d) => Object.keys(TPL).filter(k => k.startsWith(d + '-') && TPL[k].includes('O')).reduce((a, k) => a + (k.endsWith('.5') ? 0.5 : 1), 0));
   $('#tsum').innerHTML = `<table class="sum"><tr><th>이름</th>${TDAYS.map(d => `<th>${d}</th>`).join('')}<th style="text-align:center">합계</th><th>유급</th><th style="text-align:center">주급</th><th style="text-align:center">${mo + 1}월 예상</th></tr>
     ${rows || `<tr><td colspan="12" class="muted" style="text-align:left">아직 칠한 칸이 없습니다.</td></tr>`}
     <tr><td>사장</td>${ownerH.map(h => `<td>${h || '-'}</td>`).join('')}<td style="text-align:center">${ownerH.reduce((a, b) => a + b, 0)}</td><td colspan="3"></td></tr>
