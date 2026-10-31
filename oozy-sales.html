@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-01.1">
+<meta name="app-version" content="2026-11-01.3">
 <title>우지커피 매출분석</title>
 <style>
 :root{
@@ -358,7 +358,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-01.1';
+const APP_VERSION = '2026-11-01.3';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = 'sales';
@@ -378,7 +378,8 @@ const SALES = {
   '2026-10-27':[43450,39250,104300,12400,1650,44800,205300,57050,81400,31650,6000,26400,34800,35700,21700,0],
   '2026-10-28':[21850,34600,55200,103450,40900,92200,98950,48300,56900,40400,75500,17300,26400,56500,29500,0],
   '2026-10-29':[24600,84300,73400,30350,67600,64800,14650,86850,32100,26600,35750,155700,21400,79800,9300,0],
-  '2026-10-30':[31000,59400,67000,68550,48700,80050,53250,48350,33700,46700,38600,17200,62800,63000,42600,0]
+  '2026-10-30':[31000,59400,67000,68550,48700,80050,53250,48350,33700,46700,38600,17200,62800,63000,42600,0],
+  '2026-10-31':[0,18800,117700,85450,100700,59700,104150,161650,98500,16000,53100,9600,53500,65100,59100,0]
 };
 const SALES_PART = {'2026-10-26':[21,22]};          // 영수증을 뽑은 시각(21:48) 때문에 덜 잡힌 시간
 const SALES_NOTE = {'2026-10-26':'21:48 조회 — 21시 이후 일부 미반영'};
@@ -433,6 +434,12 @@ function sMonthStat(m){
   const ds = sDays().filter(d=>d.slice(0,7)===m), tot = ds.reduce((t,d)=>t+sTotal(d),0);
   let best=ds[0]; ds.forEach(d=>{ if(sTotal(d)>sTotal(best)) best=d });
   return {m, n:ds.length, tot, avg: ds.length? tot/ds.length : 0, best};
+}
+function sYears(){ const y=[]; sDays().forEach(d=>{ const k=d.slice(0,4); if(y.indexOf(k)<0) y.push(k) }); return y }
+function sYearStat(y){
+  const ds = sDays().filter(d=>d.slice(0,4)===y), tot = ds.reduce((t,d)=>t+sTotal(d),0);
+  const ms = []; ds.forEach(d=>{ const k=d.slice(0,7); if(ms.indexOf(k)<0) ms.push(k) });
+  return {y, n:ds.length, months:ms.length, tot, avg: ds.length? tot/ds.length : 0};
 }
 function salesText(days){
   const mon = sCurMon(), avg = sHourAvg(days);
@@ -527,6 +534,37 @@ function vSales(){
     <h3 style="font-size:14px;margin:16px 0 2px">요일별</h3><ul style="margin:0;padding-left:18px">${li(tx.w)}</ul>
     <h3 style="font-size:14px;margin:16px 0 2px">월별</h3><ul style="margin:0;padding-left:18px">${li(tx.m)}</ul>
     <p class="hint" style="margin:14px 0 0">금액은 POS 영수증의 순매출액(할인 제외) 기준입니다. 새 영수증 사진을 보내 주시면 날짜 줄이 더해지고 그래프·분석이 자동으로 바뀝니다.</p>
+  </div>
+
+  <div class="card"><h2>5. 월별 분석 <span class="hint" style="display:inline">위 기간 선택과 상관없이 전체 달을 보여 줍니다</span></h2>
+    <div id="slLg5" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:4px 0 8px;font-size:12.5px"></div>
+    <div style="position:relative;height:240px"><canvas id="slC5"></canvas></div>
+    <div class="scroll" style="margin-top:14px"><table class="ws">
+      <thead><tr><th class="nw">달</th><th class="n">영업일</th><th class="n">순매출 합계</th><th class="n">하루 평균</th>
+        <th class="n">전월 대비</th><th>최고일</th></tr></thead>
+      <tbody>${sMonths().map((m,i,all)=>{ const a=sMonthStat(m), p=i?sMonthStat(all[i-1]):null;
+        const gap = p? Math.round((a.avg/p.avg-1)*100) : null;
+        return `<tr><td class="nw">${m.slice(0,4)}년 ${sMonLabel(m)}</td><td class="n">${a.n}일</td>
+          <td class="n">${won(a.tot)}</td><td class="n">${won(a.avg)}</td>
+          <td class="n ${gap!=null&&gap<0?'out':gap!=null?'in':''}">${gap==null?'-':(gap>0?'+':'')+gap+'%'}</td>
+          <td class="nw">${sLab(a.best)} ${won(sTotal(a.best))}</td></tr>` }).join('')}
+      </tbody></table></div>
+    <p class="swipe">← 표를 옆으로 밀어 보세요 →</p>
+  </div>
+
+  <div class="card"><h2>연도별 총액</h2>
+    <table class="ws"><thead><tr><th>연도</th><th class="n">영업 달</th><th class="n">영업일</th>
+      <th class="n">순매출 합계</th><th class="n">하루 평균</th></tr></thead>
+      <tbody>${sYears().map(y=>{ const a=sYearStat(y);
+        return `<tr><td>${y}년</td><td class="n">${a.months}개월</td><td class="n">${a.n}일</td>
+          <td class="n"><b>${won(a.tot)}</b></td><td class="n">${won(a.avg)}</td></tr>` }).join('')}
+      ${sYears().length>1 ? `<tr class="tot"><td>전체</td><td class="n">${sMonths().length}개월</td><td class="n">${sDays().length}일</td>
+        <td class="n">${won(sDays().reduce((t,d)=>t+sTotal(d),0))}</td>
+        <td class="n">${won(sDays().reduce((t,d)=>t+sTotal(d),0)/sDays().length)}</td></tr>` : ''}
+      </tbody></table>
+    <p class="hint" style="margin:12px 0 0">${(()=>{ const y=sYears(); if(y.length<2) return `${y[0]||''}년 개업 이후 누적 금액입니다. 해가 바뀌면 줄이 하나 더 생깁니다.`;
+      const a=sYearStat(y[y.length-1]), b=sYearStat(y[y.length-2]);
+      return `${a.y}년 하루 평균은 ${b.y}년(${won(b.avg)}원) 대비 ${Math.round((a.avg/b.avg-1)*100)}% ${a.avg>=b.avg?'높습니다':'낮습니다'}.` })()}</p>
   </div>`;
 }
 function bindSales(){
@@ -602,6 +640,20 @@ function drawSales(){
     data:WD_LAB.map((_,j)=>{ const d=dayOfWeek(k,j); return (SALES[d] && days.indexOf(d)>=0) ? +(sTotal(d)/1000).toFixed(1) : null })}))},
     options:Object.assign(base(''),{interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},
       tooltip:{callbacks:{label:c=>c.dataset.label+' '+(c.parsed.y==null?'-':c.parsed.y.toFixed(1)+'천원')}}}})});
+  /* 5번 — 월별 합계·하루 평균 (전체 달) */
+  if(document.getElementById('slC5')){
+    const ms = sMonths(), st = ms.map(sMonthStat);
+    const lg5 = document.getElementById('slLg5');
+    if(lg5) lg5.innerHTML = [['순매출 합계','#2f5d50'],['하루 평균','#eda100']]
+      .map(x=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${x[1]}"></span>${x[0]}</span>`).join('');
+    mk('slC5',{type:'line',data:{labels:ms.map(m=>m.slice(0,4)+'년 '+sMonLabel(m)),datasets:[
+      {label:'순매출 합계',data:st.map(x=>+(x.tot/1000).toFixed(1)),borderColor:'#2f5d50',borderWidth:LINE_W,
+        tension:CURVE,pointRadius:5,pointBackgroundColor:'#2f5d50'},
+      {label:'하루 평균',data:st.map(x=>+(x.avg/1000).toFixed(1)),borderColor:'#eda100',borderWidth:LINE_W,
+        borderDash:[5,4],tension:CURVE,pointRadius:4,pointBackgroundColor:'#eda100'}]},
+      options:Object.assign(base(''),{plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.dataset.label+' '+c.parsed.y.toFixed(1)+'천원'}}}})});
+  }
   mk('slC3',{type:'line',data:{labels:days.map(sLab),datasets:[{data:days.map(d=>+(sTotal(d)/1000).toFixed(1)),borderColor:'#eb6834',borderWidth:LINE_W,stepped:STEP,tension:CURVE,pointRadius:5,pointBackgroundColor:'#eb6834'}]},options:base('')});
 }
 
