@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-10-26.4">
+<meta name="app-version" content="2026-11-01.1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,12 +93,12 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .chip.all{border-color:var(--etc);color:var(--etc)}
 .chip.all.on{background:var(--etc);color:#fff;border-color:var(--etc)}
 @media (max-width:360px){.chip{font-size:14px;padding:6px 10px}}
-/* 적은 것 전체에서 분류 이름 띠 */
+/* [기록품목]·구매량·발주 보기에서 분류 이름 띠 */
 .tgrp{background:var(--green);color:var(--butter);font-size:14px;font-weight:700;padding:6px 10px}
 
-/* 재고 표: 품목 · 기준 · 재고 · 구매량 · 비고 */
+/* 재고 표: 품목 · 기준 · 재고 · 구매량 · 발주 · 비고 */
 .tb{background:var(--card);border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
-.tr{display:grid;grid-template-columns:minmax(74px,1.05fr) 42px 46px 46px minmax(58px,.95fr);gap:3px;align-items:center;
+.tr{display:grid;grid-template-columns:minmax(66px,1.05fr) 40px 44px 44px 44px minmax(52px,.9fr);gap:3px;align-items:center;
   padding:7px 6px 7px 8px;border-top:1px dashed var(--line);border-left:5px solid transparent}
 .tr.th{border-top:0;background:var(--less-bg);font-size:12.5px;font-weight:700;color:var(--etc);padding:7px 6px 7px 8px}
 .tr.th span{text-align:center}
@@ -112,11 +112,13 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .tr input.qty{font-weight:700}
 .tr input.buy{font-weight:700;color:var(--act)}
 .tr input.buy.need{background:var(--amt-bg);border-color:var(--act)}
+.tr input.ord{font-weight:700;color:var(--ice)}
+.tr input.ord.has{background:var(--less-bg);border-color:var(--ice)}
 .tr input.note{text-align:left;padding:6px 6px;font-size:14px}
 .tr input:focus{outline:none;border-color:var(--green);background:var(--card);color:var(--ink)}
 .delx{border:0;background:var(--hot);color:#fff;border-radius:8px;min-height:42px;font-size:16px;font-weight:700;width:100%}
 .tr.edit{grid-template-columns:minmax(92px,1fr) 58px 48px;border-left:0}
-@media (max-width:340px){.tr{grid-template-columns:minmax(64px,1fr) 38px 42px 42px minmax(50px,.9fr);gap:2px}
+@media (max-width:340px){.tr{grid-template-columns:minmax(56px,1fr) 36px 40px 40px 40px minmax(44px,.9fr);gap:2px}
   .tr input{font-size:14px;padding:6px 1px}.tr.th{font-size:11.5px}}
 .empty{color:var(--muted);font-size:17px;padding:22px 6px;line-height:1.7}
 
@@ -176,6 +178,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .rli .rq{font-weight:700;white-space:nowrap;text-align:right}
 .rli .rq small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
 .rli .rq small.rbuy{color:var(--act);font-weight:700}
+.rli .rq small.rord{color:var(--ice);font-weight:700}
 .rli .rw{font-size:13px;font-weight:700;border-radius:6px;padding:2px 8px;white-space:nowrap}
 .rempty{color:var(--muted);font-size:15px;padding:14px 2px;line-height:1.6}
 
@@ -203,10 +206,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   .sub-t,.empty{font-size:9pt;color:#333;margin:4pt 0 0}
   .tb{border:0;border-radius:0;overflow:visible}
   .tb.p2{columns:2;column-gap:5mm;column-rule:0.5pt solid #ccc}
-  .tb.p2 .tr{grid-template-columns:1.35fr 19pt 19pt 21pt .5fr;gap:2pt;padding:.7pt 0}
+  .tb.p2 .tr{grid-template-columns:1.3fr 18pt 18pt 20pt 20pt .5fr;gap:2pt;padding:.7pt 0}
   .tb.p2 .c1,.tb.p2 .tr input{font-size:8pt}
   .tgrp{background:none;color:#000;border-bottom:1pt solid #000;font-size:8.5pt;padding:2.5pt 0 .5pt;margin-top:1.5pt;break-after:avoid;break-inside:avoid}
-  .tr{grid-template-columns:1.25fr 26pt 26pt 28pt .75fr;gap:3pt;padding:1pt 0;border-top:0.4pt solid #ccc;break-inside:avoid;
+  .tr{grid-template-columns:1.2fr 24pt 24pt 26pt 26pt .75fr;gap:3pt;padding:1pt 0;border-top:0.4pt solid #ccc;break-inside:avoid;
     align-items:baseline;border-left:0!important}
   .tr.th{background:none;border-bottom:0.8pt solid #000;font-size:8pt;color:#000;padding:1pt 0}
   .tr.done{background:none}
@@ -215,7 +218,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 
   .tr input{border:0!important;background:none!important;padding:0;min-height:0;font-size:9pt;line-height:1.2;color:#000;
     -webkit-appearance:none;appearance:none}
-  .tr input.qty,.tr input.buy{font-weight:700}
+  .tr input.qty,.tr input.buy,.tr input.ord{font-weight:700}
   .tr input.base{color:#555;font-weight:400}
   .tr input.buy.need{background:none!important;text-decoration:underline}
   .tr input.note{text-align:left}
@@ -246,7 +249,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 <div class="savebar" id="saveBar" hidden><span id="saveTx">저장하지 않은 내용이 있습니다</span><button id="saveBtn">저장</button></div>
 <script>
 (function () {
-  const APP_VERSION = '2026-10-26.4';
+  const APP_VERSION = '2026-11-01.1';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -298,18 +301,24 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   const cycCls = s => s.startsWith('매일') ? 'd' : s.startsWith('주') ? 'w' : s.startsWith('월') ? 'm' : '';
 
   // ---------- 상태 ----------
-  // DAY: { date, items:[{id,cat,name,spec}], rec:{ id:{qty,note,name,color,at} }, staff, me }
+  // DAY: { date, items:[{id,cat,name,spec}], rec:{ id:{qty,buy,note,name,color,at} }, staff, me }
   let DAY = null, DAYERR = '', LOADING = false;
   let SDATE = today();                      // 보고 있는 날짜
   let CAT = null;                           // 고른 분류
   let EDIT = false, ADD = false;            // 품목 관리 / 품목 추가 열림
-  const DIRTY = new Map();                  // 저장 대기 (날짜별): 품목id -> {qty,buy,note}
+  const DIRTY = new Map();                  // 저장 대기 (날짜별): 품목id -> {qty,buy,ord,note}
   const BDIRTY = new Map();                 // 저장 대기 (기준량): 품목id -> base
   let SAVET = null, SAVING = false, STAT = '';
   // 숫자로 읽기 (빈칸·글자는 null). '1박스' 처럼 적어도 앞의 숫자만 본다
   const num = v => { const m = /-?\d+(\.\d+)?/.exec(String(v == null ? '' : v)); return m ? parseFloat(m[0]) : null; };
   // 구매량 = 기준 − 재고 (음수면 0). 둘 중 하나라도 숫자가 아니면 계산하지 않음
   const calcBuy = (base, qty) => { const b = num(base), q = num(qty); return b == null || q == null ? null : Math.max(0, Math.round((b - q) * 100) / 100); };
+
+  // 발주 수량은 서버(worker)를 고치지 않고도 저장되도록 비고 칸 맨 앞에 표시를 붙여 함께 보관한다
+  //   저장된 비고:  ⟦발주:5⟧물 부족   →   발주 = 5, 비고 = 물 부족
+  const ORD_RE = /^⟦발주:([^⟧]*)⟧/;
+  const splitNote = s => { s = s == null ? '' : String(s); const m = ORD_RE.exec(s); return m ? { ord: m[1], note: s.slice(m[0].length) } : { ord: '', note: s }; };
+  const joinNote = (ord, note) => { const o = String(ord == null ? '' : ord).replace(/[⟦⟧]/g, '').trim(); return (o ? '⟦발주:' + o + '⟧' : '') + (note == null ? '' : note); };
 
   try { const c = localStorage.getItem('oozy-stock-cat'); if (c) CAT = c; } catch (e) { }
 
@@ -322,15 +331,20 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     LOADING = false;
     if (DAY) {
       const cats = catsOf();
-      if (CAT !== ALL && (!CAT || !cats.includes(CAT))) CAT = cats[0] || null;
+      if (!isVirt(CAT) && (!CAT || !cats.includes(CAT))) CAT = cats[0] || null;
     }
     if (mode === 'stock') draw();
   }
-  const ALL = '__all';                      // 「적은 것 전체」 — 그날 수량을 적은 품목을 분류 상관없이 모두 보여 줌
+  // 모아보기 3가지: [기록품목] — 그날 수량을 적은 품목 전체 / 구매량 — 구매할 품목 / 발주 — 발주할(한) 품목
+  const ALL = '__all', BUY = '__buy', ORD = '__ord';
+  const isVirt = c => c === ALL || c === BUY || c === ORD;
   const catsOf = () => { const o = []; ((DAY && DAY.items) || []).forEach(i => { if (!o.includes(i.cat)) o.push(i.cat); }); return o; };
-  const itemsOfCat = c => c === ALL ? doneItems() : ((DAY && DAY.items) || []).filter(i => i.cat === c);
-  const doneItems = () => ((DAY && DAY.items) || []).filter(i => recOf(i.id));
   const recOf = id => (DAY && DAY.rec && DAY.rec[id]) || null;
+  const doneItems = () => ((DAY && DAY.items) || []).filter(i => recOf(i.id));
+  const buyItems = () => doneItems().filter(i => num(recOf(i.id).buy) > 0);
+  const ordItems = () => doneItems().filter(i => { const r = recOf(i.id); return splitNote(r.note).ord.trim() !== '' || num(r.buy) > 0; });
+  const itemsOfCat = c => c === ALL ? doneItems() : c === BUY ? buyItems() : c === ORD ? ordItems()
+    : ((DAY && DAY.items) || []).filter(i => i.cat === c);
 
   // ---------- 재고관리 화면 ----------
   function headBar() {
@@ -351,15 +365,24 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       `<button class="tdy" id="dToday">오늘</button></div>` +
       `<div class="stat${/실패|못/.test(STAT) ? ' bad' : /저장됨/.test(STAT) ? ' ok' : ''}" id="stat">${esc(STAT)}</div>`;
     if (!DAY) return h + `<div class="empty">${DAYERR ? esc(DAYERR) : '불러오는 중...'}</div>`;
-    const cats = catsOf(), nAll = doneItems().length;
+    const cats = catsOf(), nAll = doneItems().length, nBuy = buyItems().length, nOrd = ordItems().length;
+    const cn = n => n ? `<span class="cn">${n}</span>` : '';
     h += `<div class="chips" id="chips">` +
-      `<button class="chip all${CAT === ALL ? ' on' : ''}" data-cat="${ALL}">✔ 적은 것 전체${nAll ? `<span class="cn">${nAll}</span>` : ''}</button>` +
+      `<button class="chip all${CAT === ALL ? ' on' : ''}" data-cat="${ALL}">[기록품목]${cn(nAll)}</button>` +
+      `<button class="chip all${CAT === BUY ? ' on' : ''}" data-cat="${BUY}">구매량${cn(nBuy)}</button>` +
+      `<button class="chip all${CAT === ORD ? ' on' : ''}" data-cat="${ORD}">발주${cn(nOrd)}</button>` +
       cats.map(c => {
         const n = itemsOfCat(c).filter(i => recOf(i.id)).length;
-        return `<button class="chip${c === CAT ? ' on' : ''}" data-cat="${esc(c)}">${esc(c)}${n ? `<span class="cn">${n}</span>` : ''}</button>`;
+        return `<button class="chip${c === CAT ? ' on' : ''}" data-cat="${esc(c)}">${esc(c)}${cn(n)}</button>`;
       }).join('') + `</div>`;
     const items = itemsOfCat(CAT);
-    if (CAT === ALL && !items.length) h += `<div class="empty">이 날은 아직 적은 품목이 없습니다.<br>위에서 분류를 골라 수량을 적어주세요.</div>`;
+    if (isVirt(CAT) && !items.length) {
+      h += `<div class="empty">` + (CAT === BUY
+        ? '이 날은 구매할 품목이 없습니다.<br>기준과 재고를 적으면 모자란 만큼 구매량이 자동으로 채워집니다.'
+        : CAT === ORD
+          ? '이 날은 발주할 품목이 없습니다.<br>구매량이 있거나 발주 수량을 적은 품목이 여기에 모입니다.'
+          : '이 날은 아직 적은 품목이 없습니다.<br>위에서 분류를 골라 수량을 적어주세요.') + `</div>`;
+    }
     else if (!items.length) h += `<div class="empty">이 분류에 품목이 없습니다.<br><b>+ 품목 추가</b>를 눌러 넣어주세요.</div>`;
     else if (EDIT) {
       h += `<div class="tb"><div class="tr th edit"><span class="c1">품목</span><span>기록</span><span>삭제</span></div>` +
@@ -372,34 +395,40 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         `<div class="sub-t" style="margin-top:8px">품목을 지워도 지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.</div>`;
     } else {
       let grp = null;
-      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>구매량</span><span>비고</span></div>` +
+      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>구매량</span><span>발주</span><span>비고</span></div>` +
         items.map(i => {
           const r = recOf(i.id), d = DIRTY.get(i.id), bd = BDIRTY.get(i.id);
+          const sn = splitNote(r ? r.note : '');
           const base = bd != null ? bd : (i.base || '');
           const qty = d ? d.qty : (r ? (r.qty || '') : '');
           const buy = d ? d.buy : (r ? (r.buy || '') : '');
-          const note = d ? d.note : (r ? (r.note || '') : '');
+          const ord = d ? d.ord : sn.ord;
+          const note = d ? d.note : sn.note;
           let pre = '';
-          if (CAT === ALL && i.cat !== grp) { grp = i.cat; pre = `<div class="tgrp">${esc(i.cat)}</div>`; }
+          if (isVirt(CAT) && i.cat !== grp) { grp = i.cat; pre = `<div class="tgrp">${esc(i.cat)}</div>`; }
           return pre + `<div class="tr${r ? ' done' : ''}" data-row="${i.id}"` +
             (r ? ` style="border-left-color:${esc(r.color)}" title="${esc(r.name)} · ${hhmm(r.at)}"` : '') + `>` +
             `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
             `<input class="base" data-b="${i.id}" value="${esc(base)}" inputmode="decimal" placeholder="-" aria-label="${esc(i.name)} 기준량">` +
             `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 재고">` +
             `<input class="buy${num(buy) > 0 ? ' need' : ''}" data-y="${i.id}" value="${esc(buy)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 구매량">` +
+            `<input class="ord${String(ord).trim() ? ' has' : ''}" data-o="${i.id}" value="${esc(ord)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 발주">` +
             `<input class="note" data-n="${i.id}" value="${esc(note)}" placeholder="비고" aria-label="${esc(i.name)} 비고"></div>`;
         }).join('') + `</div>`;
     }
-    if (CAT === ALL && items.length) {
-      const need = items.filter(i => { const r = recOf(i.id); return r && num(r.buy) > 0; }).length;
-      h += `<div class="sub-t" style="margin:10px 2px 0">${dlabel(SDATE)} · 적은 품목 모두 <b>${items.length}개</b>` +
+    if (isVirt(CAT) && items.length) {
+      const needBuy = items.filter(i => num(recOf(i.id).buy) > 0).length;
+      const nOrdV = items.filter(i => splitNote(recOf(i.id).note).ord.trim() !== '').length;
+      const lab = CAT === ALL ? '적은 품목 모두' : CAT === BUY ? '구매할 품목' : '발주 대상 품목';
+      h += `<div class="sub-t" style="margin:10px 2px 0">${dlabel(SDATE)} · ${lab} <b>${items.length}개</b>` +
         ` (분류 ${[...new Set(items.map(i => i.cat))].length}가지)` +
-        (need ? ` · 구매할 품목 <b>${need}개</b>` : '') + `</div>`;
+        (CAT !== BUY && needBuy ? ` · 구매할 품목 <b>${needBuy}개</b>` : '') +
+        (CAT !== ORD && nOrdV ? ` · 발주한 품목 <b>${nOrdV}개</b>` : '') + `</div>`;
     }
     h += `<div class="mgbar"><button id="addBtn"${ADD ? ' class="on"' : ''}>+ 품목 추가</button>` +
-      (CAT === ALL ? '' : `<button id="editBtn"${EDIT ? ' class="on"' : ''}>${EDIT ? '✓ 품목 관리 끝내기' : '✎ 품목 관리'}</button>`) + `</div>`;
+      (isVirt(CAT) ? '' : `<button id="editBtn"${EDIT ? ' class="on"' : ''}>${EDIT ? '✓ 품목 관리 끝내기' : '✎ 품목 관리'}</button>`) + `</div>`;
     if (ADD) {
-      const dcat = CAT === ALL ? (cats[0] || '') : CAT;
+      const dcat = isVirt(CAT) ? (cats[0] || '') : CAT;
       h += `<div class="addbox"><b>품목 추가</b>` +
         `<label>분류</label><select id="aCat">` +
         cats.map(c => `<option value="${esc(c)}"${c === dcat ? ' selected' : ''}>${esc(c)}</option>`).join('') +
@@ -436,8 +465,9 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     y.classList.toggle('need', num(nv) > 0);
   }
   function markDirty(id) {
-    const q = document.querySelector(`[data-q="${id}"]`), y = document.querySelector(`[data-y="${id}"]`), n = document.querySelector(`[data-n="${id}"]`);
-    DIRTY.set(id, { qty: q ? q.value : '', buy: y ? y.value : '', note: n ? n.value : '' });
+    const q = document.querySelector(`[data-q="${id}"]`), y = document.querySelector(`[data-y="${id}"]`),
+      o = document.querySelector(`[data-o="${id}"]`), n = document.querySelector(`[data-n="${id}"]`);
+    DIRTY.set(id, { qty: q ? q.value : '', buy: y ? y.value : '', ord: o ? o.value : '', note: n ? n.value : '' });
     showBar(); clearTimeout(SAVET); SAVET = setTimeout(flush, 900);
   }
   function markBase(id) {
@@ -449,7 +479,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     clearTimeout(SAVET);
     if (SAVING || (!DIRTY.size && !BDIRTY.size)) return;
     const date = SDATE;
-    const rows = [...DIRTY.entries()].map(([item, v]) => ({ item: +item, qty: v.qty, buy: v.buy, note: v.note }));
+    const rows = [...DIRTY.entries()].map(([item, v]) => ({ item: +item, qty: v.qty, buy: v.buy, ord: v.ord, note: v.note }));
     const bases = [...BDIRTY.entries()].map(([id, base]) => ({ id: +id, base }));
     DIRTY.clear(); BDIRTY.clear(); showBar(); SAVING = true; setStat('저장 중...');
     try {
@@ -459,11 +489,12 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       }
       let j = null;
       if (rows.length) {
-        j = await api('/stock/day', { date, rows });
+        const wire = rows.map(r => ({ item: r.item, qty: r.qty, buy: r.buy, note: joinNote(r.ord, r.note) }));
+        j = await api('/stock/day', { date, rows: wire });
         if (DAY && DAY.date === date) {
           rows.forEach(r => {
-            if (String(r.qty).trim() || String(r.buy).trim() || String(r.note).trim())
-              DAY.rec[r.item] = { qty: r.qty, buy: r.buy, note: r.note, name: j.by.name, color: j.by.color, at: j.at };
+            if (String(r.qty).trim() || String(r.buy).trim() || String(r.ord).trim() || String(r.note).trim())
+              DAY.rec[r.item] = { qty: r.qty, buy: r.buy, note: joinNote(r.ord, r.note), name: j.by.name, color: j.by.color, at: j.at };
             else delete DAY.rec[r.item];
           });
           rows.forEach(r => paintRow(r.item));
@@ -472,7 +503,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       }
       setStat(j ? `저장됨 · ${hhmm(j.at)} · ${j.by.name}` : '기준량 저장됨');
     } catch (e) {
-      rows.forEach(r => { if (!DIRTY.has(r.item)) DIRTY.set(r.item, { qty: r.qty, buy: r.buy, note: r.note }); });
+      rows.forEach(r => { if (!DIRTY.has(r.item)) DIRTY.set(r.item, { qty: r.qty, buy: r.buy, ord: r.ord, note: r.note }); });
       bases.forEach(x => { if (!BDIRTY.has(x.id)) BDIRTY.set(x.id, x.base); });
       showBar(); setStat('저장 실패: ' + msgOf(e));
     }
@@ -489,7 +520,8 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   }
   function paintChips() {
     document.querySelectorAll('#chips .chip').forEach(b => {
-      const n = b.dataset.cat === ALL ? doneItems().length : itemsOfCat(b.dataset.cat).filter(i => recOf(i.id)).length;
+      const c = b.dataset.cat;
+      const n = isVirt(c) ? itemsOfCat(c).length : itemsOfCat(c).filter(i => recOf(i.id)).length;
       const s = b.querySelector('.cn');
       if (n && s) s.textContent = n;
       else if (n) b.insertAdjacentHTML('beforeend', `<span class="cn">${n}</span>`);
@@ -533,7 +565,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   $list.addEventListener('click', async e => {
     if (e.target.closest('#recBtn')) { openRecords(); return; }
     if (e.target.closest('#prnBtn')) { doPrint(); return; }
-    const c = e.target.closest('[data-cat]'); if (c) { CAT = c.dataset.cat; if (CAT === ALL) EDIT = false; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (x) { } draw(); return; }
+    const c = e.target.closest('[data-cat]'); if (c) { CAT = c.dataset.cat; if (isVirt(CAT)) EDIT = false; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (x) { } draw(); return; }
     if (e.target.closest('#dPrev')) { shiftDay(-1); return; }
     if (e.target.closest('#dNext')) { shiftDay(1); return; }
     if (e.target.closest('#dToday')) { gotoDate(today()); return; }
@@ -548,6 +580,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     if (d.b) { const id = +d.b; autoBuy(id); markBase(id); markDirty(id); return true; }     // 기준이 바뀌면 구매량도 다시 계산
     if (d.q) { const id = +d.q; autoBuy(id); markDirty(id); return true; }
     if (d.y) { const id = +d.y; t.dataset.manual = '1'; t.classList.toggle('need', num(t.value) > 0); markDirty(id); return true; }
+    if (d.o) { const id = +d.o; t.classList.toggle('has', !!String(t.value).trim()); markDirty(id); return true; }
     if (d.n) { markDirty(+d.n); return true; }
     return false;
   }
@@ -558,9 +591,9 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   $list.addEventListener('input', e => { onEdit(e.target); });
   $list.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
-    const d = e.target.dataset, id = d.b || d.q || d.y || d.n; if (!id) return;
+    const d = e.target.dataset, id = d.b || d.q || d.y || d.o || d.n; if (!id) return;
     e.preventDefault();
-    const order = ['b', 'q', 'y', 'n'], at = order.findIndex(k => d[k]);
+    const order = ['b', 'q', 'y', 'o', 'n'], at = order.findIndex(k => d[k]);
     for (let k = at + 1; k < order.length; k++) {                       // 같은 줄의 다음 칸으로
       const nx = document.querySelector(`[data-${order[k]}="${id}"]`);
       if (nx) { nx.focus(); nx.select && nx.select(); return; }
@@ -571,11 +604,12 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   });
   document.getElementById('saveBtn').onclick = () => flush();
 
-  // 인쇄 · PDF 저장 — 적은 것 전체를 보여 주고, 줄이 많으면 두 칸으로 찍어 A4 한 장에 담는다
+  // 인쇄 · PDF 저장 — 지금 보는 모아보기([기록품목]·구매량·발주)를 찍고, 분류를 보고 있었다면 [기록품목]으로 바꿔 찍는다
+  // 줄이 많으면 두 칸으로 찍어 A4 한 장에 담는다
   async function doPrint() {
     await flush();
-    if (CAT !== ALL) { CAT = ALL; EDIT = false; ADD = false; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (e) { } draw(); }
-    if (!doneItems().length) { toastMsg('이 날은 적은 품목이 없습니다.'); return; }
+    if (!isVirt(CAT)) { CAT = ALL; EDIT = false; ADD = false; try { localStorage.setItem('oozy-stock-cat', CAT); } catch (e) { } draw(); }
+    if (!itemsOfCat(CAT).length) { toastMsg('인쇄할 품목이 없습니다.'); return; }
     setTimeout(() => window.print(), 120);
   }
   function fitPrint() {
@@ -667,7 +701,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     let j; try { j = await api('/stock/day?date=' + RDAY); } catch (e) { if (document.getElementById('rList') === box) box.innerHTML = `<div class="rempty">${esc(msgOf(e))}</div>`; return; }
     if (document.getElementById('rList') !== box) return;
     const byId = {}; (j.items || []).forEach(i => byId[i.id] = i);
-    const rows = Object.entries(j.rec || {}).map(([id, v]) => ({ id: +id, it: byId[id], ...v })).sort((a, b) => a.at - b.at);
+    const rows = Object.entries(j.rec || {}).map(([id, v]) => ({ id: +id, it: byId[id], ...v, ...(() => { const s = splitNote(v.note); return { ord: s.ord, note: s.note }; })() })).sort((a, b) => a.at - b.at);
     let h = `<div class="rtop" style="margin:0 0 6px"><b>${dlabel(RDAY)}</b>` +
       `<button data-go="${RDAY}">이 날짜로 보기</button></div>`;
     if (!rows.length) h += '<div class="rempty">이 날은 적어둔 수량이 없습니다.</div>';
@@ -680,11 +714,12 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
           (r.note ? `<small>비고 · ${esc(r.note)}</small>` : '') + `</span>` +
           `<span class="rq">재고 ${esc(r.qty || '-')}` +
           (r.it && r.it.base ? `<small>기준 ${esc(r.it.base)}</small>` : '') +
-          (num(r.buy) > 0 ? `<small class="rbuy">구매 ${esc(r.buy)}</small>` : '') + `</span>` +
+          (num(r.buy) > 0 ? `<small class="rbuy">구매 ${esc(r.buy)}</small>` : '') +
+          (String(r.ord).trim() ? `<small class="rord">발주 ${esc(r.ord)}</small>` : '') + `</span>` +
           `<span class="rw" style="background:${esc(r.color)};color:${onC(r.color)}">${esc(r.name)}</span></div>`).join('');
       });
-      const nb = rows.filter(r => num(r.buy) > 0).length;
-      h += `<div class="rempty">모두 ${rows.length}개 품목${nb ? ` · 구매할 품목 ${nb}개` : ''} · 마지막 기록 ${hhmm(rows[rows.length - 1].at)}</div>`;
+      const nb = rows.filter(r => num(r.buy) > 0).length, no = rows.filter(r => String(r.ord).trim()).length;
+      h += `<div class="rempty">모두 ${rows.length}개 품목${nb ? ` · 구매할 품목 ${nb}개` : ''}${no ? ` · 발주 ${no}개` : ''} · 마지막 기록 ${hhmm(rows[rows.length - 1].at)}</div>`;
     }
     box.innerHTML = h;
     const go = box.querySelector('[data-go]');
