@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-11-01.1">
+<meta name="app-version" content="2026-11-01.2">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,10 +93,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .chip.all{border-color:var(--etc);color:var(--etc)}
 .chip.all.on{background:var(--etc);color:#fff;border-color:var(--etc)}
 @media (max-width:360px){.chip{font-size:14px;padding:6px 10px}}
-/* [기록품목]·구매량·발주 보기에서 분류 이름 띠 */
+/* [기록품목]·필요량·발주 보기에서 분류 이름 띠 */
 .tgrp{background:var(--green);color:var(--butter);font-size:14px;font-weight:700;padding:6px 10px}
 
-/* 재고 표: 품목 · 기준 · 재고 · 구매량 · 발주 · 비고 */
+/* 재고 표: 품목 · 기준 · 재고 · 필요량 · 발주 · 비고 */
 .tb{background:var(--card);border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
 .tr{display:grid;grid-template-columns:minmax(66px,1.05fr) 40px 44px 44px 44px minmax(52px,.9fr);gap:3px;align-items:center;
   padding:7px 6px 7px 8px;border-top:1px dashed var(--line);border-left:5px solid transparent}
@@ -249,7 +249,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 <div class="savebar" id="saveBar" hidden><span id="saveTx">저장하지 않은 내용이 있습니다</span><button id="saveBtn">저장</button></div>
 <script>
 (function () {
-  const APP_VERSION = '2026-11-01.1';
+  const APP_VERSION = '2026-11-01.2';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -311,7 +311,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   let SAVET = null, SAVING = false, STAT = '';
   // 숫자로 읽기 (빈칸·글자는 null). '1박스' 처럼 적어도 앞의 숫자만 본다
   const num = v => { const m = /-?\d+(\.\d+)?/.exec(String(v == null ? '' : v)); return m ? parseFloat(m[0]) : null; };
-  // 구매량 = 기준 − 재고 (음수면 0). 둘 중 하나라도 숫자가 아니면 계산하지 않음
+  // 필요량 = 기준 − 재고 (음수면 0). 둘 중 하나라도 숫자가 아니면 계산하지 않음
   const calcBuy = (base, qty) => { const b = num(base), q = num(qty); return b == null || q == null ? null : Math.max(0, Math.round((b - q) * 100) / 100); };
 
   // 발주 수량은 서버(worker)를 고치지 않고도 저장되도록 비고 칸 맨 앞에 표시를 붙여 함께 보관한다
@@ -335,7 +335,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     }
     if (mode === 'stock') draw();
   }
-  // 모아보기 3가지: [기록품목] — 그날 수량을 적은 품목 전체 / 구매량 — 구매할 품목 / 발주 — 발주할(한) 품목
+  // 모아보기 3가지: [기록품목] — 그날 수량을 적은 품목 전체 / 필요량 — 필요한 품목 / 발주 — 발주할(한) 품목
   const ALL = '__all', BUY = '__buy', ORD = '__ord';
   const isVirt = c => c === ALL || c === BUY || c === ORD;
   const catsOf = () => { const o = []; ((DAY && DAY.items) || []).forEach(i => { if (!o.includes(i.cat)) o.push(i.cat); }); return o; };
@@ -369,7 +369,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     const cn = n => n ? `<span class="cn">${n}</span>` : '';
     h += `<div class="chips" id="chips">` +
       `<button class="chip all${CAT === ALL ? ' on' : ''}" data-cat="${ALL}">[기록품목]${cn(nAll)}</button>` +
-      `<button class="chip all${CAT === BUY ? ' on' : ''}" data-cat="${BUY}">구매량${cn(nBuy)}</button>` +
+      `<button class="chip all${CAT === BUY ? ' on' : ''}" data-cat="${BUY}">필요량${cn(nBuy)}</button>` +
       `<button class="chip all${CAT === ORD ? ' on' : ''}" data-cat="${ORD}">발주${cn(nOrd)}</button>` +
       cats.map(c => {
         const n = itemsOfCat(c).filter(i => recOf(i.id)).length;
@@ -378,9 +378,9 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     const items = itemsOfCat(CAT);
     if (isVirt(CAT) && !items.length) {
       h += `<div class="empty">` + (CAT === BUY
-        ? '이 날은 구매할 품목이 없습니다.<br>기준과 재고를 적으면 모자란 만큼 구매량이 자동으로 채워집니다.'
+        ? '이 날은 필요한 품목이 없습니다.<br>기준과 재고를 적으면 모자란 만큼 필요량이 자동으로 채워집니다.'
         : CAT === ORD
-          ? '이 날은 발주할 품목이 없습니다.<br>구매량이 있거나 발주 수량을 적은 품목이 여기에 모입니다.'
+          ? '이 날은 발주할 품목이 없습니다.<br>필요량이 있거나 발주 수량을 적은 품목이 여기에 모입니다.'
           : '이 날은 아직 적은 품목이 없습니다.<br>위에서 분류를 골라 수량을 적어주세요.') + `</div>`;
     }
     else if (!items.length) h += `<div class="empty">이 분류에 품목이 없습니다.<br><b>+ 품목 추가</b>를 눌러 넣어주세요.</div>`;
@@ -395,7 +395,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         `<div class="sub-t" style="margin-top:8px">품목을 지워도 지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.</div>`;
     } else {
       let grp = null;
-      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>구매량</span><span>발주</span><span>비고</span></div>` +
+      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>필요량</span><span>발주</span><span>비고</span></div>` +
         items.map(i => {
           const r = recOf(i.id), d = DIRTY.get(i.id), bd = BDIRTY.get(i.id);
           const sn = splitNote(r ? r.note : '');
@@ -411,7 +411,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
             `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
             `<input class="base" data-b="${i.id}" value="${esc(base)}" inputmode="decimal" placeholder="-" aria-label="${esc(i.name)} 기준량">` +
             `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 재고">` +
-            `<input class="buy${num(buy) > 0 ? ' need' : ''}" data-y="${i.id}" value="${esc(buy)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 구매량">` +
+            `<input class="buy${num(buy) > 0 ? ' need' : ''}" data-y="${i.id}" value="${esc(buy)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 필요량">` +
             `<input class="ord${String(ord).trim() ? ' has' : ''}" data-o="${i.id}" value="${esc(ord)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 발주">` +
             `<input class="note" data-n="${i.id}" value="${esc(note)}" placeholder="비고" aria-label="${esc(i.name)} 비고"></div>`;
         }).join('') + `</div>`;
@@ -419,10 +419,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     if (isVirt(CAT) && items.length) {
       const needBuy = items.filter(i => num(recOf(i.id).buy) > 0).length;
       const nOrdV = items.filter(i => splitNote(recOf(i.id).note).ord.trim() !== '').length;
-      const lab = CAT === ALL ? '적은 품목 모두' : CAT === BUY ? '구매할 품목' : '발주 대상 품목';
+      const lab = CAT === ALL ? '적은 품목 모두' : CAT === BUY ? '필요한 품목' : '발주 대상 품목';
       h += `<div class="sub-t" style="margin:10px 2px 0">${dlabel(SDATE)} · ${lab} <b>${items.length}개</b>` +
         ` (분류 ${[...new Set(items.map(i => i.cat))].length}가지)` +
-        (CAT !== BUY && needBuy ? ` · 구매할 품목 <b>${needBuy}개</b>` : '') +
+        (CAT !== BUY && needBuy ? ` · 필요한 품목 <b>${needBuy}개</b>` : '') +
         (CAT !== ORD && nOrdV ? ` · 발주한 품목 <b>${nOrdV}개</b>` : '') + `</div>`;
     }
     h += `<div class="mgbar"><button id="addBtn"${ADD ? ' class="on"' : ''}>+ 품목 추가</button>` +
@@ -455,7 +455,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     el.textContent = t; el.className = 'stat' + (/실패|못/.test(t) ? ' bad' : /저장됨/.test(t) ? ' ok' : ''); }
   function showBar() { const n = DIRTY.size + BDIRTY.size, b = document.getElementById('saveBar'); b.hidden = !n;
     document.getElementById('saveTx').textContent = n ? `저장하지 않은 ${n}개가 있습니다` : ''; }
-  // 기준이나 재고를 고치면 구매량을 자동으로 채운다 (구매량을 직접 고친 줄은 건드리지 않음)
+  // 기준이나 재고를 고치면 필요량을 자동으로 채운다 (필요량을 직접 고친 줄은 건드리지 않음)
   function autoBuy(id) {
     const b = document.querySelector(`[data-b="${id}"]`), q = document.querySelector(`[data-q="${id}"]`), y = document.querySelector(`[data-y="${id}"]`);
     if (!y || y.dataset.manual === '1') return;
@@ -577,7 +577,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   });
   function onEdit(t) {
     const d = t.dataset;
-    if (d.b) { const id = +d.b; autoBuy(id); markBase(id); markDirty(id); return true; }     // 기준이 바뀌면 구매량도 다시 계산
+    if (d.b) { const id = +d.b; autoBuy(id); markBase(id); markDirty(id); return true; }     // 기준이 바뀌면 필요량도 다시 계산
     if (d.q) { const id = +d.q; autoBuy(id); markDirty(id); return true; }
     if (d.y) { const id = +d.y; t.dataset.manual = '1'; t.classList.toggle('need', num(t.value) > 0); markDirty(id); return true; }
     if (d.o) { const id = +d.o; t.classList.toggle('has', !!String(t.value).trim()); markDirty(id); return true; }
@@ -604,7 +604,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   });
   document.getElementById('saveBtn').onclick = () => flush();
 
-  // 인쇄 · PDF 저장 — 지금 보는 모아보기([기록품목]·구매량·발주)를 찍고, 분류를 보고 있었다면 [기록품목]으로 바꿔 찍는다
+  // 인쇄 · PDF 저장 — 지금 보는 모아보기([기록품목]·필요량·발주)를 찍고, 분류를 보고 있었다면 [기록품목]으로 바꿔 찍는다
   // 줄이 많으면 두 칸으로 찍어 A4 한 장에 담는다
   async function doPrint() {
     await flush();
@@ -714,12 +714,12 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
           (r.note ? `<small>비고 · ${esc(r.note)}</small>` : '') + `</span>` +
           `<span class="rq">재고 ${esc(r.qty || '-')}` +
           (r.it && r.it.base ? `<small>기준 ${esc(r.it.base)}</small>` : '') +
-          (num(r.buy) > 0 ? `<small class="rbuy">구매 ${esc(r.buy)}</small>` : '') +
+          (num(r.buy) > 0 ? `<small class="rbuy">필요 ${esc(r.buy)}</small>` : '') +
           (String(r.ord).trim() ? `<small class="rord">발주 ${esc(r.ord)}</small>` : '') + `</span>` +
           `<span class="rw" style="background:${esc(r.color)};color:${onC(r.color)}">${esc(r.name)}</span></div>`).join('');
       });
       const nb = rows.filter(r => num(r.buy) > 0).length, no = rows.filter(r => String(r.ord).trim()).length;
-      h += `<div class="rempty">모두 ${rows.length}개 품목${nb ? ` · 구매할 품목 ${nb}개` : ''}${no ? ` · 발주 ${no}개` : ''} · 마지막 기록 ${hhmm(rows[rows.length - 1].at)}</div>`;
+      h += `<div class="rempty">모두 ${rows.length}개 품목${nb ? ` · 필요한 품목 ${nb}개` : ''}${no ? ` · 발주 ${no}개` : ''} · 마지막 기록 ${hhmm(rows[rows.length - 1].at)}</div>`;
     }
     box.innerHTML = h;
     const go = box.querySelector('[data-go]');
