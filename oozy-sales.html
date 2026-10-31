@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-10-30.3">
+<meta name="app-version" content="2026-11-01.1">
 <title>우지커피 매출분석</title>
 <style>
 :root{
@@ -358,7 +358,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-10-31.1';
+const APP_VERSION = '2026-11-01.1';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = 'sales';
