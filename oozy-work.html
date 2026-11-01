@@ -242,6 +242,7 @@ body.practice{background:#fff4e0}
 // 2026-10-22 : 매장관리 오픈·마감 확인 기록(/store/*) 추가
 // 2026-10-27 : 주휴수당·계약시간·휴게 정리·연습 가져오기·추가근무(시급/체크) 합침
 // 2026-10-29 : 근무 구분(교육·행사·기타) 저장 — punch.tag, 교육·행사 시급 따로
+// 2026-11-02 : 재고관리 기준량(/stock/item/base)·필요량(buy) 저장
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -670,7 +671,7 @@ async function route(req, env) {
       ? { id: null, name: adminName(env), color: OWNER_COLOR }
       : { id: me.staff.id, name: me.staff.name, color: me.staff.color || '#4f7cff' };
     const itemsOf = async () => (await env.DB.prepare(
-      'SELECT id,cat,name,spec,sort FROM stock_item WHERE deleted=0 ORDER BY sort, id').all()).results;
+      'SELECT id,cat,name,spec,base,sort FROM stock_item WHERE deleted=0 ORDER BY sort, id').all()).results;
     // 처음 한 번만: 기본 품목 넣기 (레시피 기준 · 앱에서 추가·삭제할 수 있음)
     const seedStock = async () => {
       if (globalThis.__stockSeeded) return;
@@ -723,13 +724,25 @@ async function route(req, env) {
     // 품목 추가
     if (p === '/stock/item' && m === 'POST') {
       const cat = String(b.cat || '').trim().slice(0, 30), name = String(b.name || '').trim().slice(0, 40);
-      const spec = String(b.spec || '').trim().slice(0, 60);
+      const spec = String(b.spec || '').trim().slice(0, 60), base = String(b.base == null ? '' : b.base).trim().slice(0, 20);
       if (!cat || !name) return err('분류와 품목 이름을 넣어주세요.');
       const dup = await env.DB.prepare('SELECT id FROM stock_item WHERE deleted=0 AND cat=? AND name=?').bind(cat, name).first();
       if (dup) return err('같은 분류에 같은 이름의 품목이 이미 있습니다.');
       const mx = (await env.DB.prepare('SELECT COALESCE(MAX(sort),0) s FROM stock_item WHERE cat=?').bind(cat).first()).s;
-      const r = await env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(cat, name, spec, mx + 1).run();
+      const r = await env.DB.prepare('INSERT INTO stock_item(cat,name,spec,base,sort) VALUES(?,?,?,?,?)').bind(cat, name, spec, base || null, mx + 1).run();
       return json({ ok: true, id: r.meta.last_row_id, items: await itemsOf() });
+    }
+
+    // 품목별 기준량 저장 (여러 줄을 한 번에)
+    if (p === '/stock/item/base' && m === 'POST') {
+      const list = (Array.isArray(b.rows) ? b.rows : []).slice(0, 300);
+      const st = list.filter(r => Number(r.id) > 0).map(r => {
+        const v = String(r.base == null ? '' : r.base).trim().slice(0, 20);
+        return env.DB.prepare('UPDATE stock_item SET base=? WHERE id=?').bind(v || null, Number(r.id));
+      });
+      if (!st.length) return err('저장할 내용이 없습니다.');
+      for (let i = 0; i < st.length; i += 40) await env.DB.batch(st.slice(i, i + 40));
+      return json({ ok: true, n: st.length });
     }
 
     // 품목 삭제 (지난 기록은 그대로 남음)
@@ -746,11 +759,11 @@ async function route(req, env) {
       const date = url.searchParams.get('date') || ymdK(now);
       if (!okDate(date)) return err('날짜 형식(YYYY-MM-DD)이 올바르지 않습니다.');
       const [rows, st] = await env.DB.batch([
-        env.DB.prepare('SELECT item,qty,note,name,color,at FROM stock_log WHERE date=?').bind(date),
+        env.DB.prepare('SELECT item,qty,buy,note,name,color,at FROM stock_log WHERE date=?').bind(date),
         env.DB.prepare('SELECT id,name,color,apps FROM staff WHERE active=1 AND deleted=0 ORDER BY id'),
       ]);
       const rec = {};
-      for (const r of rows.results) rec[r.item] = { qty: r.qty, note: r.note, name: r.name, color: r.color, at: r.at };
+      for (const r of rows.results) rec[r.item] = { qty: r.qty, buy: r.buy, note: r.note, name: r.name, color: r.color, at: r.at };
       const staff = [{ id: null, name: adminName(env), color: OWNER_COLOR, owner: 1 }]
         .concat(st.results.filter(s => appsOf(s).includes('stock')).map(s => ({ id: s.id, name: s.name, color: s.color })));
       return json({ date, today: ymdK(now), items: await itemsOf(), rec, staff, me: who });
@@ -766,12 +779,13 @@ async function route(req, env) {
         const id = Number(r.item || 0);
         if (!id) continue;
         const qty = String(r.qty == null ? '' : r.qty).trim().slice(0, 20);
+        const buy = String(r.buy == null ? '' : r.buy).trim().slice(0, 20);   // 필요량(구매량)
         const note = String(r.note == null ? '' : r.note).trim().slice(0, 80);
-        if (!qty && !note) st.push(env.DB.prepare('DELETE FROM stock_log WHERE date=? AND item=?').bind(date, id));
-        else st.push(env.DB.prepare(`INSERT INTO stock_log(date,item,qty,note,staff_id,name,color,at) VALUES(?,?,?,?,?,?,?,?)
-          ON CONFLICT(date,item) DO UPDATE SET qty=excluded.qty, note=excluded.note, staff_id=excluded.staff_id,
+        if (!qty && !buy && !note) st.push(env.DB.prepare('DELETE FROM stock_log WHERE date=? AND item=?').bind(date, id));
+        else st.push(env.DB.prepare(`INSERT INTO stock_log(date,item,qty,buy,note,staff_id,name,color,at) VALUES(?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(date,item) DO UPDATE SET qty=excluded.qty, buy=excluded.buy, note=excluded.note, staff_id=excluded.staff_id,
             name=excluded.name, color=excluded.color, at=excluded.at`)
-          .bind(date, id, qty, note, who.id, who.name, who.color, now));
+          .bind(date, id, qty, buy || null, note, who.id, who.name, who.color, now));
       }
       if (!st.length) return err('저장할 내용이 없습니다.');
       for (let i = 0; i < st.length; i += 40) await env.DB.batch(st.slice(i, i + 40));
@@ -1200,7 +1214,6 @@ export default {
     catch (e) { return err('서버 오류: ' + (e && e.message || e), 500); }
   },
 };
-
 
 </script>
 <script>
