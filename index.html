@@ -130,7 +130,7 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '11.2.-v.32',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
+  VERSION: '11.2.-v.33',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
@@ -173,7 +173,9 @@ function card(a) {
 // ===== 로그인 (이름 + 비밀번호) — 한 번 로그인한 기기는 바로 들어감 =====
 const TK = 'oozyToken', AK = 'oozyAuth';
 const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { } } };
-let AUTH = null; try { AUTH = JSON.parse(ls.get(AK) || 'null'); } catch (e) { }
+// 관리자는 서버 목록과 상관없이 모든 메뉴 권한을 갖는다 (서버가 예전 버전이라 목록에 빠져도 메뉴가 안 사라지게)
+const fixAuth = a => { if (a && a.role === 'admin') a.apps = [...new Set([].concat(a.apps || [], ['work', 'store', 'recipe', 'ledger', 'coffee', 'stock']))]; return a; };
+let AUTH = null; try { AUTH = fixAuth(JSON.parse(ls.get(AK) || 'null')); } catch (e) { }
 const TOKEN = () => ls.get(TK);
 async function call(path, body) {
   const r = await fetch(CFG.API + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'X-Token': TOKEN() || '' }, body: body ? JSON.stringify(body) : undefined });
@@ -287,7 +289,7 @@ function renderLogin() {
       const r = await fetch(CFG.API + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, pin }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { e.textContent = j.error || '로그인하지 못했습니다'; $('#lgB').disabled = false; return; }
-      ls.set(TK, j.token); AUTH = { role: j.role, name: j.name, apps: j.apps }; ls.set(AK, JSON.stringify(AUTH)); render();
+      ls.set(TK, j.token); AUTH = fixAuth({ role: j.role, name: j.name, apps: j.apps }); ls.set(AK, JSON.stringify(AUTH)); render();
       const back = need && AUTH.apps.includes(need) && CFG.APPS.find(x => [].concat(x.perm || x.key).includes(need)); if (back) location.replace(back.url);   // 가려던 메뉴로
     } catch (err) { e.textContent = '서버에 연결하지 못했습니다. 인터넷을 확인하세요'; $('#lgB').disabled = false; }
   };
@@ -325,7 +327,7 @@ function confirmBox(t, m, ok) {
 }
 render();
 // 서버에서 권한을 다시 확인 (관리자가 바꾼 권한 반영, 삭제된 직원은 로그아웃)
-if (TOKEN()) call('/auth/me').then(j => { AUTH = { role: j.role, name: j.name, apps: j.apps }; ls.set(AK, JSON.stringify(AUTH)); render(); }).catch(() => { });
+if (TOKEN()) call('/auth/me').then(j => { AUTH = fixAuth({ role: j.role, name: j.name, apps: j.apps }); ls.set(AK, JSON.stringify(AUTH)); render(); }).catch(() => { });
 else if (AUTH) signOut();
 </script>
 <script>
