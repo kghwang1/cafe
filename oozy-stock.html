@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-11-01.2">
+<meta name="app-version" content="2026-11-01.4">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -63,6 +63,9 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 :root[data-theme="dark"] .wsec{color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wsec{color:var(--butter)}}
 .wsec .wdate{font-size:.7em;font-weight:600;color:var(--muted)}
+.wsec .pdate{display:none}   /* 화면에서는 숨기고 인쇄할 때만 날짜를 보여 줌 */
+.vchips{display:flex;gap:6px;flex-wrap:nowrap}
+.vchips .chip{font-size:14px;padding:4px 11px;min-height:36px}
 .whos{margin-left:auto;display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .who{font-size:13px;font-weight:700;border-radius:8px;padding:3px 9px;line-height:1.35;white-space:nowrap}
 .who.me{box-shadow:0 0 0 2px var(--ink)}
@@ -76,6 +79,9 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .dbar input[type=date]{flex:1;min-width:150px;background:var(--card);color:var(--ink);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;font-size:16px;min-height:44px}
 .dbar button{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font-size:15px;font-weight:600;padding:6px 12px;min-height:44px}
 .dbar .tdy{border-color:var(--green);color:var(--green);font-weight:700}
+.dbar .dow{flex:none;font-weight:700;font-size:16px}
+.dbar .dow.sun{color:var(--hot)}
+.dbar .dow.sat{color:var(--ice)}
 :root[data-theme="dark"] .dbar .tdy{color:var(--butter);border-color:var(--butter)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .dbar .tdy{color:var(--butter);border-color:var(--butter)}}
 .stat{font-size:14px;color:var(--muted);margin:0 2px 8px}
@@ -106,6 +112,8 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .tr.done{background:var(--less-bg)}
 .c1{min-width:0;font-weight:600;font-size:.7em;line-height:1.25;word-break:break-word}
 .c1 small{display:block;font-weight:400;font-size:.8em;color:var(--muted);line-height:1.25}
+.c1 small.by{display:flex;align-items:center;gap:4px}
+.c1 small.by i{width:8px;height:8px;border-radius:50%;flex:none}
 .tr input{width:100%;min-width:0;background:var(--paper);color:var(--ink);border:1.5px solid var(--line);border-radius:7px;
   padding:6px 2px;font-size:15px;min-height:40px;text-align:center}
 .tr input.base{background:transparent;border-style:dashed;color:var(--muted);font-weight:600}
@@ -194,13 +202,14 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 /* ===== 인쇄 · PDF 저장 (A4 한 장에 들어가도록) ===== */
 @media print{
   @page{size:A4 portrait;margin:11mm 10mm}
-  header,.dbar,.chips,.mgbar,.addbox,.savebar,.upd,.stat,.ver,.recbtn,.prnbtn,.rbg,#skToast{display:none!important}
+  header,.dbar,.chips,.vchips,.mgbar,.addbox,.savebar,.upd,.stat,.ver,.recbtn,.prnbtn,.rbg,#skToast{display:none!important}
   html,body{background:#fff!important;color:#000!important;font-size:11pt}
   body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
   main{max-width:none;margin:0;padding:0}
   .wsec{display:flex;align-items:baseline;gap:8pt;margin:0 0 5pt;padding-bottom:3pt;font-size:15pt;color:#000!important;
     border-bottom:1.5pt solid #000;break-after:avoid}
   .wsec .wdate{font-size:11pt;color:#000!important}
+  .wsec .pdate{display:inline}
   .whos{margin-left:auto;gap:3pt}
   .who{font-size:8.5pt;padding:0 5pt;color:#000!important;background:none!important;border:0.8pt solid #666;border-radius:3pt;box-shadow:none!important}
   .sub-t,.empty{font-size:9pt;color:#333;margin:4pt 0 0}
@@ -214,7 +223,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   .tr.th{background:none;border-bottom:0.8pt solid #000;font-size:8pt;color:#000;padding:1pt 0}
   .tr.done{background:none}
   .c1{font-size:9pt;line-height:1.15}
-  .c1 small{display:none}
+  .c1 small,.c1 small.by{display:none}
 
   .tr input{border:0!important;background:none!important;padding:0;min-height:0;font-size:9pt;line-height:1.2;color:#000;
     -webkit-appearance:none;appearance:none}
@@ -249,7 +258,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 <div class="savebar" id="saveBar" hidden><span id="saveTx">저장하지 않은 내용이 있습니다</span><button id="saveBtn">저장</button></div>
 <script>
 (function () {
-  const APP_VERSION = '2026-11-01.2';
+  const APP_VERSION = '2026-11-01.4';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -347,12 +356,24 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     : ((DAY && DAY.items) || []).filter(i => i.cat === c);
 
   // ---------- 재고관리 화면 ----------
+  const cn = n => n ? `<span class="cn">${n}</span>` : '';
+  // 저장한 줄에 적은 사람 이름·시각 (색 점 + 이름)
+  const byHTML = r => r ? `<small class="by"><i style="background:${esc(r.color)}"></i>${esc(r.name)} ${hhmm(r.at)}</small>` : '';
+  // 위쪽 모아보기 단추 3개: [기록품목] · 필요량 · 발주
+  const vchipsHTML = () =>
+    `<button class="chip all${CAT === ALL ? ' on' : ''}" data-cat="${ALL}">[기록품목]${cn(doneItems().length)}</button>` +
+    `<button class="chip all${CAT === BUY ? ' on' : ''}" data-cat="${BUY}">필요량${cn(buyItems().length)}</button>` +
+    `<button class="chip all${CAT === ORD ? ' on' : ''}" data-cat="${ORD}">발주${cn(ordItems().length)}</button>`;
+  // 날짜 옆 요일 (일요일 빨강, 토요일 파랑)
+  const dowHTML = () => { const d = new Date(SDATE + 'T00:00').getDay(); return `<span class="dow${d === 0 ? ' sun' : d === 6 ? ' sat' : ''}">(${DOW[d]})</span>`; };
   function headBar() {
     const list = (DAY && DAY.staff) || [];
     const meName = DAY && DAY.me ? DAY.me.name : '';
-    return `<div class="wsec">재고 확인<span class="wdate">${dlabel(SDATE)}</span>` +
+    const isStaff = !!(DAY && DAY.me && DAY.me.id != null);   // 직원으로 로그인했으면 직원 이름 줄을 보이지 않음 (사장은 그대로)
+    return `<div class="wsec">재고 확인<span class="wdate pdate">${dlabel(SDATE)}</span>` +
+      (DAY ? `<span class="vchips" id="vchips">${vchipsHTML()}</span>` : '') +
       `<span class="whos">` +
-      (list.length ? list.map(s => `<span class="who${s.name === meName ? ' me' : ''}" style="background:${esc(s.color)};color:${onC(s.color)}">${esc(s.name)}</span>`).join('')
+      (isStaff ? '' : list.length ? list.map(s => `<span class="who${s.name === meName ? ' me' : ''}" style="background:${esc(s.color)};color:${onC(s.color)}">${esc(s.name)}</span>`).join('')
         : `<span class="sub-t" style="margin:0">${DAYERR ? '연결 안 됨' : '불러오는 중...'}</span>`) +
       `<button class="prnbtn" id="prnBtn">🖨 인쇄</button>` +
       `<button class="recbtn" id="recBtn">기록</button></span></div>` +
@@ -360,17 +381,13 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   }
   function stockHTML() {
     let h = headBar() +
-      `<div class="dbar"><input type="date" id="dPick" value="${SDATE}" max="${today()}">` +
+      `<div class="dbar"><input type="date" id="dPick" value="${SDATE}" max="${today()}">${dowHTML()}` +
       `<button id="dPrev">◀ 전날</button><button id="dNext">다음날 ▶</button>` +
       `<button class="tdy" id="dToday">오늘</button></div>` +
       `<div class="stat${/실패|못/.test(STAT) ? ' bad' : /저장됨/.test(STAT) ? ' ok' : ''}" id="stat">${esc(STAT)}</div>`;
     if (!DAY) return h + `<div class="empty">${DAYERR ? esc(DAYERR) : '불러오는 중...'}</div>`;
-    const cats = catsOf(), nAll = doneItems().length, nBuy = buyItems().length, nOrd = ordItems().length;
-    const cn = n => n ? `<span class="cn">${n}</span>` : '';
+    const cats = catsOf();
     h += `<div class="chips" id="chips">` +
-      `<button class="chip all${CAT === ALL ? ' on' : ''}" data-cat="${ALL}">[기록품목]${cn(nAll)}</button>` +
-      `<button class="chip all${CAT === BUY ? ' on' : ''}" data-cat="${BUY}">필요량${cn(nBuy)}</button>` +
-      `<button class="chip all${CAT === ORD ? ' on' : ''}" data-cat="${ORD}">발주${cn(nOrd)}</button>` +
       cats.map(c => {
         const n = itemsOfCat(c).filter(i => recOf(i.id)).length;
         return `<button class="chip${c === CAT ? ' on' : ''}" data-cat="${esc(c)}">${esc(c)}${cn(n)}</button>`;
@@ -408,7 +425,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
           if (isVirt(CAT) && i.cat !== grp) { grp = i.cat; pre = `<div class="tgrp">${esc(i.cat)}</div>`; }
           return pre + `<div class="tr${r ? ' done' : ''}" data-row="${i.id}"` +
             (r ? ` style="border-left-color:${esc(r.color)}" title="${esc(r.name)} · ${hhmm(r.at)}"` : '') + `>` +
-            `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
+            `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}${byHTML(r)}</span>` +
             `<input class="base" data-b="${i.id}" value="${esc(base)}" inputmode="decimal" placeholder="-" aria-label="${esc(i.name)} 기준량">` +
             `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 재고">` +
             `<input class="buy${num(buy) > 0 ? ' need' : ''}" data-y="${i.id}" value="${esc(buy)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 필요량">` +
@@ -517,9 +534,11 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     row.classList.toggle('done', !!r);
     row.style.borderLeftColor = r ? r.color : 'transparent';
     if (r) row.title = `${r.name} · ${hhmm(r.at)}`; else row.removeAttribute('title');
+    const c1 = row.querySelector('.c1');
+    if (c1) { const o = c1.querySelector('.by'); if (o) o.remove(); if (r) c1.insertAdjacentHTML('beforeend', byHTML(r)); }
   }
   function paintChips() {
-    document.querySelectorAll('#chips .chip').forEach(b => {
+    document.querySelectorAll('.chip[data-cat]').forEach(b => {
       const c = b.dataset.cat;
       const n = isVirt(c) ? itemsOfCat(c).length : itemsOfCat(c).filter(i => recOf(i.id)).length;
       const s = b.querySelector('.cn');
@@ -585,6 +604,11 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     return false;
   }
   $list.addEventListener('change', e => {
+    if (e.target.id === 'dPick') {
+      const v = e.target.value; if (!v) return;
+      if (v > today()) { toastMsg('앞날은 고를 수 없습니다.'); e.target.value = SDATE; return; }
+      gotoDate(v); return;
+    }
     if (e.target.id === 'aCat') { const w = document.getElementById('aNewWrap'); if (w) { w.hidden = e.target.value !== '__new'; if (!w.hidden) document.getElementById('aNew').focus(); } return; }
     onEdit(e.target);
   });
