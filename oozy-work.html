@@ -1819,7 +1819,7 @@ function bindPlanModal() {
   box.querySelectorAll('[data-pl]').forEach(b => b.onclick = async () => {
     if (TPL_DIRTY && !confirm('저장하지 않은 연습 근무표 변경이 있습니다. 그래도 불러올까요?')) return;
     const n = b.dataset.pl; close();
-    try { toast('계획을 불러오는 중...'); await practiceImport(await realApi('/admin/plan?name=' + encodeURIComponent(n))); } catch (e) { return toast(e.message, 3500); }
+    try { toast('계획을 불러오는 중...'); await practiceImport(await withRealStaff(await realApi('/admin/plan?name=' + encodeURIComponent(n)))); } catch (e) { return toast(e.message, 3500); }
     PLAN = n; TPL = null; TPL_DIRTY = false; TAB = 'tpl'; renderAdmin(); toast(`「${n}」 계획을 불러왔습니다`);
   });
   box.querySelectorAll('[data-pd]').forEach(b => b.onclick = async () => {
@@ -1833,6 +1833,15 @@ function bindPlanModal() {
     try { await practiceImport(d); } catch (e) { return toast(e.message, 3500); }
     PLAN = ''; TPL = null; TPL_DIRTY = false; TAB = 'tpl'; renderAdmin(); toast('실제 자료로 새로 시작했습니다');
   };
+}
+// 저장해 둔 계획을 불러올 때마다 직원은 실제 서버의 최신 직원으로 다시 맞춤 (새로 들어온 직원·바뀐 이름/시급이 반영됨).
+// 연습에서만 만든 직원(실제에 없는 번호)은 그대로 둠
+async function withRealStaff(d) {
+  try {
+    const rs = (await realBackup()).staff || [], ids = new Set(rs.map(s => s.id));
+    d.staff = rs.concat((d.staff || []).filter(s => !ids.has(s.id)));
+  } catch (e) { toast('실제 직원 목록을 받지 못해 저장된 직원으로 시작합니다', 3500); }
+  return d;
 }
 // 연습 중에 실제 서버 자료 받기 (토큰으로 실제 서버에 물음)
 async function realBackup() {
@@ -1856,7 +1865,7 @@ async function startAdminPractice() {
     if (!ch) return;
     if (ch.plan) {
       toast('저장된 연습 내용을 불러오는 중...');
-      let d; try { d = await realApi('/admin/plan?name=' + encodeURIComponent(ch.plan)); } catch (e) { return toast(e.message, 3500); }
+      let d; try { d = await withRealStaff(await realApi('/admin/plan?name=' + encodeURIComponent(ch.plan))); } catch (e) { return toast(e.message, 3500); }
       setPractice(true); ADMPRAC = true; PIN = '0000';
       try { await practiceImport(d); PLAN = ch.plan; ME = await api('/login'); }
       catch (e) { ADMPRAC = false; setPractice(false); PIN = ''; return toast(e.message, 3500); }
