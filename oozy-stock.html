@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-11-01.4">
+<meta name="app-version" content="2026-11-01.5">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -112,8 +112,6 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .tr.done{background:var(--less-bg)}
 .c1{min-width:0;font-weight:600;font-size:.7em;line-height:1.25;word-break:break-word}
 .c1 small{display:block;font-weight:400;font-size:.8em;color:var(--muted);line-height:1.25}
-.c1 small.by{display:flex;align-items:center;gap:4px}
-.c1 small.by i{width:8px;height:8px;border-radius:50%;flex:none}
 .tr input{width:100%;min-width:0;background:var(--paper);color:var(--ink);border:1.5px solid var(--line);border-radius:7px;
   padding:6px 2px;font-size:15px;min-height:40px;text-align:center}
 .tr input.base{background:transparent;border-style:dashed;color:var(--muted);font-weight:600}
@@ -223,7 +221,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   .tr.th{background:none;border-bottom:0.8pt solid #000;font-size:8pt;color:#000;padding:1pt 0}
   .tr.done{background:none}
   .c1{font-size:9pt;line-height:1.15}
-  .c1 small,.c1 small.by{display:none}
+  .c1 small{display:none}
 
   .tr input{border:0!important;background:none!important;padding:0;min-height:0;font-size:9pt;line-height:1.2;color:#000;
     -webkit-appearance:none;appearance:none}
@@ -258,7 +256,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 <div class="savebar" id="saveBar" hidden><span id="saveTx">저장하지 않은 내용이 있습니다</span><button id="saveBtn">저장</button></div>
 <script>
 (function () {
-  const APP_VERSION = '2026-11-01.4';
+  const APP_VERSION = '2026-11-01.5';
   let latest = null;
   async function checkUpdate() {
     if (!/^https?:/.test(location.protocol)) return;
@@ -357,8 +355,6 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 
   // ---------- 재고관리 화면 ----------
   const cn = n => n ? `<span class="cn">${n}</span>` : '';
-  // 저장한 줄에 적은 사람 이름·시각 (색 점 + 이름)
-  const byHTML = r => r ? `<small class="by"><i style="background:${esc(r.color)}"></i>${esc(r.name)} ${hhmm(r.at)}</small>` : '';
   // 위쪽 모아보기 단추 3개: [기록품목] · 필요량 · 발주
   const vchipsHTML = () =>
     `<button class="chip all${CAT === ALL ? ' on' : ''}" data-cat="${ALL}">[기록품목]${cn(doneItems().length)}</button>` +
@@ -425,7 +421,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
           if (isVirt(CAT) && i.cat !== grp) { grp = i.cat; pre = `<div class="tgrp">${esc(i.cat)}</div>`; }
           return pre + `<div class="tr${r ? ' done' : ''}" data-row="${i.id}"` +
             (r ? ` style="border-left-color:${esc(r.color)}" title="${esc(r.name)} · ${hhmm(r.at)}"` : '') + `>` +
-            `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}${byHTML(r)}</span>` +
+            `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
             `<input class="base" data-b="${i.id}" value="${esc(base)}" inputmode="decimal" placeholder="-" aria-label="${esc(i.name)} 기준량">` +
             `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 재고">` +
             `<input class="buy${num(buy) > 0 ? ' need' : ''}" data-y="${i.id}" value="${esc(buy)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 필요량">` +
@@ -534,8 +530,6 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     row.classList.toggle('done', !!r);
     row.style.borderLeftColor = r ? r.color : 'transparent';
     if (r) row.title = `${r.name} · ${hhmm(r.at)}`; else row.removeAttribute('title');
-    const c1 = row.querySelector('.c1');
-    if (c1) { const o = c1.querySelector('.by'); if (o) o.remove(); if (r) c1.insertAdjacentHTML('beforeend', byHTML(r)); }
   }
   function paintChips() {
     document.querySelectorAll('.chip[data-cat]').forEach(b => {
