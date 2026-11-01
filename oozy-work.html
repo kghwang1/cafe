@@ -1998,7 +1998,7 @@ async function tabTpl() {
         <b style="font-size:16px">주간 근무표</b>
         <span class="muted" id="tStat">${TPL_DIRTY ? '<b style="color:var(--bad)">저장 안 됨</b>' : '저장됨'}</span>
         <span style="flex:1"></span>
-        <button class="sm" id="tSave">저장</button><button class="sm pri" id="tApply">적용</button></div>
+        ${ADMPRAC ? '' : '<button class="sm" id="tLoad">불러오기</button><button class="sm" id="tSave">저장</button><button class="sm pri" id="tApply">적용</button>'}</div>
       <div class="muted hs" style="font-size:12px;margin:6px 0 0">30분 위치:<button data-s="F">앞 30분</button><button data-s="B">뒤 30분</button><br>
         <span id="hsHint"></span></div>
       <div class="pal" id="pal">
@@ -2017,8 +2017,9 @@ async function tabTpl() {
   markBrush();
   $('#pal').onclick = e => { const b = e.target.closest('[data-b]'); if (!b) return; BRUSH = b.dataset.b === BRUSH ? null : b.dataset.b; markBrush(); };
   bindPaint();
-  $('#tSave').onclick = saveTpl;
-  $('#tApply').onclick = applyTpl;
+  if ($('#tLoad')) $('#tLoad').onclick = loadTplFromPlan;
+  if ($('#tSave')) $('#tSave').onclick = saveTpl;
+  if ($('#tApply')) $('#tApply').onclick = applyTpl;
   $('#tClear').onclick = async () => {
     if (!await modal('<h3>근무표 지우기</h3>사장님 표시는 두고 직원 근무만 지웁니다.', '지우기')) return;
     for (const k in TPL) { const v = TPL[k].filter(x => x === 'O'); if (v.length) TPL[k] = v; else delete TPL[k]; }
@@ -2158,6 +2159,27 @@ function drawSummary() {
     + line('휴게시간', brk.length ? brk.join(', ') : '해당자 없음', brk.length ? '#b26a00' : '#2f6fd6')
     + '<div style="margin-top:6px">합계 숫자: <span class="hcirc sm">파랑</span> 15시간 미만 · <span class="hcirc sm over">빨강</span> 15시간 이상.<br>'
     + '휴게시간: 4시간 이상 일하면 30분, 8시간 이상 일하면 1시간을 근무 중에 줘야 합니다 (출근~퇴근 8시간 30분 이상이면 1시간 차감). 주휴수당은 휴게를 뺀 <b>유급 시간</b>이 주 15시간 이상일 때 발생합니다.</div>';
+}
+// 연습으로 만들어 서버에 저장해 둔 계획들 중에서 주간근무표만 골라 실제 근무표 편집판으로 불러옴 (저장을 눌러야 실제에 반영)
+async function loadTplFromPlan() {
+  let list; try { list = await plansList(); } catch (e) { return toast(e.message, 3500); }
+  if (!list.length) return toast('저장된 연습 근무표가 없습니다. 연습에서 [저장]한 계획이 여기에 나옵니다', 3500);
+  let CHOICE = null;
+  const mp = modal(`<h3>연습 근무표 불러오기</h3>불러올 연습 계획을 고르세요. 그 계획의 <b>주간근무표</b>만 가져오며, [저장]을 눌러야 실제에 반영됩니다.
+    <div class="list" style="margin-top:8px">${list.map(x => `<div><span><b>${esc(x.name)}</b><br><span class="muted" style="font-size:12px">저장 ${mdw(x.at)} ${hhmm(x.at)}</span></span>
+      <span style="flex:0 0 auto"><button class="sm pri" data-tp="${esc(x.name)}">불러오기</button></span></div>`).join('')}</div>`, '닫기', () => CHOICE, null);
+  const box = [...document.querySelectorAll('.mbg')].pop();
+  box.querySelectorAll('[data-tp]').forEach(b => b.onclick = () => { CHOICE = b.dataset.tp; box.querySelector('[data-ok]').click(); });
+  const name = await mp; if (!name) return;
+  if (Object.keys(TPL || {}).length && !confirm(`지금 편집 중인 근무표를 「${name}」 의 근무표로 바꿀까요?\n(저장하기 전에는 실제 근무표가 바뀌지 않습니다)`)) return;
+  let d; try { toast('불러오는 중...'); d = await realApi('/admin/plan?name=' + encodeURIComponent(name)); } catch (e) { return toast(e.message, 3500); }
+  let grid = {}; try { const r = (d.settings || []).find(x => x.k === 'template'); grid = r ? (JSON.parse(r.v).grid || {}) : {}; } catch (e) { }
+  // 연습에서만 만든 직원(실제에 없는 번호)은 뺌
+  const ok = new Set(STAFF.map(s => s.id)); let miss = 0; const out = {};
+  for (const k in grid) { const v = (grid[k] || []).filter(x => x === 'O' || ok.has(x)); miss += grid[k].length - v.length; if (v.length) out[k] = v; }
+  if (!Object.keys(out).length) return toast('그 계획에는 주간근무표가 비어 있습니다', 3500);
+  TPL = out; dirty(); tabTpl();
+  toast(`「${name}」 근무표를 불러왔습니다. 확인 후 [저장]을 누르세요${miss ? ` (실제에 없는 연습 직원 ${miss}칸 제외)` : ''}`, 4500);
 }
 async function saveTpl() {
   const r = await run(() => api('/admin/template', { grid: TPL }));
