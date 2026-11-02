@@ -1858,10 +1858,17 @@ function bindPlanModal() {
 }
 // 저장해 둔 계획을 불러올 때마다 직원은 실제 서버의 최신 직원으로 다시 맞춤 (새로 들어온 직원·바뀐 이름/시급이 반영됨).
 // 연습에서만 만든 직원(실제에 없는 번호)은 그대로 둠
+// 계획수립의 직원은 관리자 직원 페이지(실제 직원 목록)를 그대로 씀 — 이름·시급·색·휴게·계약시간이 실제와 같고, 실제에 없는 직원(예전 연습용)은 뺌
 async function withRealStaff(d) {
   try {
-    const rs = (await realBackup()).staff || [], ids = new Set(rs.map(s => s.id));
-    d.staff = rs.concat((d.staff || []).filter(s => !ids.has(s.id)));
+    const real = await realBackup(), rs = real.staff || [], ids = new Set(rs.map(s => s.id));
+    d.staff = rs; d.contract = real.contract || [];
+    for (const t of ['schedule', 'punch', 'edit_request', 'payslip']) if (d[t]) d[t] = d[t].filter(r => ids.has(r.staff_id));   // 없는 직원의 기록은 정리
+    for (const r of (d.settings || [])) if (r.k === 'template') {                                                              // 근무표 칸에서도 없는 직원 제거
+      try { const o = JSON.parse(r.v), g = o.grid || {};
+        for (const k in g) { g[k] = (g[k] || []).filter(x => x === 'O' || ids.has(x)); if (!g[k].length) delete g[k]; }
+        r.v = JSON.stringify(o); } catch (e) { }
+    }
   } catch (e) { toast('실제 직원 목록을 받지 못해 저장된 직원으로 시작합니다', 3500); }
   return d;
 }
@@ -1909,7 +1916,7 @@ async function startAdminPractice() {
   TAB = 'tpl'; renderAdmin(); toast('연습을 시작합니다. 실제 운영에는 반영되지 않습니다', 3000);
 }
 async function endAdminPractice() {
-  if (TPL_DIRTY && !confirm('연습 근무표에 저장하지 않은 변경이 있습니다. 그래도 끝낼까요?')) return;
+  if (TPL_DIRTY && !confirm('연습 근무표에 저장하지 않은 변경이 있습니다. 그래도 홈으로 갈까요?')) return;
   ADMPRAC = false; PLAN = ''; setPractice(false); PIN = ''; TPL_DIRTY = false; TAB = 'tpl';
   if (PLANPAGE) { location.href = './'; return; }                         // 계획수립 화면: 끝내면 홈으로
   try { ME = await api('/login'); } catch (e) { location.href = './'; return; }
@@ -1920,11 +1927,11 @@ async function renderAdmin() {
   const [sf, rq] = await Promise.all([run(() => api('/admin/staff')), run(() => api('/admin/requests'))]);
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
-  const tabs = ADMPRAC ? [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['pay', '급여'], ['staff', '직원']]
+  const tabs = ADMPRAC ? [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`]]            // 계획수립: 주간근무표만 (직원은 관리자 직원 페이지 내용을 그대로 사용)
     : [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '근무기록'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
   if (!tabs.some(([k]) => k === TAB)) TAB = tabs[0][0];
   $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>${ADMPRAC ? '계획수립' : '관리자'}</h1><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ADMPRAC
-      ? '<button class="sm" id="plSave" style="background:#1f4d34;color:#fff">저장</button><button class="sm" id="plLoad">불러오기</button><button class="sm pri" id="pracEnd">연습 끝내기</button>'
+      ? '<button class="sm" id="plSave" style="background:#1f4d34;color:#fff">저장</button><button class="sm" id="plLoad">불러오기</button><button class="sm pri" id="pracEnd">홈</button>'
       : `<a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button>`}</span></div>
     ${ADMPRAC ? `<div class="card" style="background:#fff3e0;font-size:13px;color:#7a4a00">${PLAN ? `지금 계획: <b style="font-size:15px">「${esc(PLAN)}」</b><br>` : '<b>실제 자료를 복사한 연습장</b>입니다.<br>'}여기서 바꾼 내용은 실제 운영에 반영되지 않습니다. [저장]으로 이름을 붙여 여러 계획을 이 기기에 보관할 수 있습니다.</div>` : ''}
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
@@ -2027,7 +2034,7 @@ async function tabTpl() {
         ${active.map(s => `<button data-b="${s.id}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name)}</button>`).join('')}
         <button data-b="O" style="background:#cfc8e8;color:#3b315e">사장</button>
       </div>
-      ${active.length ? '' : '<div class="warnlist">직원 탭에서 직원을 먼저 등록하세요.</div>'}
+      ${active.length ? '' : '<div class="warnlist">' + (ADMPRAC ? '근무 · 급여의 관리자 화면 → 직원 탭에서 직원을 먼저 등록하세요.' : '직원 탭에서 직원을 먼저 등록하세요.') + '</div>'}
       <div class="tgrid" id="tg">${g}</div>
       <div style="text-align:right;margin-top:8px"><button class="sm" id="tClear">직원 근무 모두 지우기 (사장 표시는 유지)</button></div>
     </div>
