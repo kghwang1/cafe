@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-03.1">
+<meta name="app-version" content="2026-11-03.2">
 <title>우지커피 매출분석</title>
 <style>
 :root{
@@ -358,7 +358,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-03.1';
+const APP_VERSION = '2026-11-03.2';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = 'sales';
@@ -487,7 +487,7 @@ function salesText(days){
     const few = wd.filter(x=>x.n<2).map(x=>x.w);
     if(few.length===wd.length) out.w.push('아직 요일마다 한 번씩뿐이라 위 평균은 그날 매출 그대로입니다. 주가 쌓이면 요일 차이가 또렷해집니다.');
     else if(few.length) out.w.push(`${few.join('·')}요일은 아직 한 번뿐이라 평균으로 보기 이릅니다.`);
-    out.w.push(`지금까지 ${wks.length}주 치가 쌓였습니다. 위 평균은 전체 기간이고, 그래프는 이번 주만 보여 줍니다.`);
+    out.w.push(`지금까지 ${wks.length}주 치가 쌓였습니다. 위 평균은 전체 기간이고, 그래프는 이번 주(막대)와 지난주(선)를 보여 줍니다.`);
   }
   /* 월별 */
   const ms = mon==='ALL' ? sMonths() : [mon];
@@ -520,18 +520,19 @@ function vSales(){
     </select>
     <span class="hint" style="margin:0">${days.length}일 · 순매출 합계 ${won(sum)}원 · 하루 평균 ${won(days.length?sum/days.length:0)}원</span>
   </div>
-  <div class="card"><h2>1. 시간대별 평균 순매출 <span class="hint" style="display:inline">천원</span></h2>
+  <div class="card"><h2>1. ${sMonLabel(mon)} 시간대별 평균 순매출 <span class="hint" style="display:inline">천원</span></h2>
     <div style="position:relative;height:240px"><canvas id="slC1"></canvas></div></div>
-  <div class="card"><h2>2. 일자별 시간대 순매출 <span class="hint" style="display:inline">천원${days.length>10?' · 최근 10일':''}</span></h2>
+  <div class="card"><h2>2. ${sMonLabel(mon)} 일자별 시간대 순매출 <span class="hint" style="display:inline">천원${days.length>10?' · 최근 10일':''}</span></h2>
     <div class="tools no-print" style="margin:4px 0 8px;gap:6px">
       <button class="btn g sm" data-free id="slAll">모두 선택</button>
       <button class="btn g sm" data-free id="slNone">모두 해제</button>
       <span class="hint" style="margin:0" id="slCnt"></span></div>
     <div id="slLg" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px"></div>
     <div style="position:relative;height:280px"><canvas id="slC2"></canvas></div></div>
-  <div class="card"><h2>3. 요일별 순매출 <span class="hint" style="display:inline">천원 · 이번 주${curWeek(days)?' ('+weekSpan(curWeek(days))+')':''}</span></h2>
+  <div class="card"><h2>3. ${sMonLabel(mon)} 요일별 순매출 <span class="hint" style="display:inline">천원</span></h2>
+    <div id="slLg4" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:4px 0 8px;font-size:12.5px"></div>
     <div style="position:relative;height:260px"><canvas id="slC4"></canvas></div>
-    <p class="hint" style="margin:8px 0 0">월요일을 한 주의 시작으로 봅니다. 아직 지나지 않았거나 자료가 없는 요일은 막대가 없습니다.</p></div>
+    <p class="hint" style="margin:8px 0 0">월요일을 한 주의 시작으로 봅니다. 이번 주는 막대, 지난주는 선으로 보여 주며, 아직 지나지 않았거나 자료가 없는 요일은 비어 있습니다.</p></div>
   <div class="card"><h2>분석</h2>
     <h3 style="font-size:14px;margin:12px 0 2px">시간대별</h3><ul style="margin:0;padding-left:18px">${li(tx.h)}</ul>
     <h3 style="font-size:14px;margin:16px 0 2px">일별</h3><ul style="margin:0;padding-left:18px">${li(tx.d)}</ul>
@@ -540,7 +541,7 @@ function vSales(){
     <p class="hint" style="margin:14px 0 0">금액은 POS 영수증의 순매출액(할인 제외) 기준입니다. 새 영수증 사진을 보내 주시면 날짜 줄이 더해지고 그래프·분석이 자동으로 바뀝니다.</p>
   </div>
 
-  <div class="card"><h2>4. 월별 분석 <span class="hint" style="display:inline">위 기간 선택과 상관없이 전체 달을 보여 줍니다</span></h2>
+  <div class="card"><h2>4. ${(()=>{ const y=sYears(); return y.length===1 ? y[0].slice(2)+'년 ' : '' })()}월별 매출 <span class="hint" style="display:inline">위 기간 선택과 상관없이 전체 달을 보여 줍니다</span></h2>
     <div id="slLg5" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:4px 0 8px;font-size:12.5px"></div>
     <div style="position:relative;height:240px"><canvas id="slC5"></canvas></div>
     <div class="scroll" style="margin-top:14px"><table class="ws">
@@ -637,15 +638,21 @@ function drawSales(){
   });
   mk('slC2',{type:'line',data:{datasets:segs2},options:hourOpts({displayColors:true,
       callbacks:{title:it=>it[0].dataset.label, label:c=>c.parsed.y.toFixed(1)+'천원'}})});
-  /* 3번 — 이번 주만 막대그래프로 */
-  const cw = curWeek(days);
-  if(cw) mk('slC4',{type:'bar',data:{labels:WD_LAB,datasets:[{label:weekSpan(cw),
-    data:WD_LAB.map((_,j)=>{ const d=dayOfWeek(cw,j); return (SALES[d] && days.indexOf(d)>=0) ? +(sTotal(d)/1000).toFixed(1) : null }),
-    backgroundColor:WD_LAB.map((_,j)=>{ const d=dayOfWeek(cw,j); return (SALES[d] && days.indexOf(d)>=0) ? sColor(d,days) : '#e2e5ec' }),
-    borderRadius:5, maxBarThickness:52}]},
-    options:Object.assign(base(''),{plugins:{legend:{display:false},tooltip:{displayColors:false,
-      callbacks:{title:it=>{ const d=dayOfWeek(cw,it[0].dataIndex); return SALES[d]? sLab(d) : WD_LAB[it[0].dataIndex]+'요일' },
-        label:c=>c.parsed.y==null?'자료 없음':c.parsed.y.toFixed(1)+'천원'}}}})});
+  /* 3번 — 이번 주는 막대, 지난주는 선 (선택한 달과 상관없이 전체 자료에서) */
+  const cw = curWeek(sDays()), pw = cw ? dayOfWeek(cw,-7) : '';
+  const wv = (mon0,j)=>{ const d=dayOfWeek(mon0,j); return SALES[d] ? +(sTotal(d)/1000).toFixed(1) : null };
+  if(cw){
+    const lg4 = document.getElementById('slLg4');
+    if(lg4) lg4.innerHTML = [['이번 주 '+weekSpan(cw),'#2a78d6'],['지난주 '+weekSpan(pw),'#eb6834']]
+      .map(x=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${x[1]}"></span>${x[0]}</span>`).join('');
+    mk('slC4',{data:{labels:WD_LAB,datasets:[
+      {type:'bar',label:'이번 주',data:WD_LAB.map((_,j)=>wv(cw,j)),backgroundColor:'#2a78d6',borderRadius:5,maxBarThickness:52,order:2},
+      {type:'line',label:'지난주',data:WD_LAB.map((_,j)=>wv(pw,j)),borderColor:'#eb6834',backgroundColor:'#eb6834',borderWidth:LINE_W,
+        tension:CURVE,pointRadius:4,spanGaps:false,order:1}]},
+      options:Object.assign(base(''),{plugins:{legend:{display:false},tooltip:{displayColors:true,
+        callbacks:{title:it=>WD_LAB[it[0].dataIndex]+'요일',
+          label:c=>{ const d=dayOfWeek(c.datasetIndex===0?cw:pw,c.dataIndex); return c.dataset.label+' '+sLab(d)+' '+(c.parsed.y==null?'자료 없음':c.parsed.y.toFixed(1)+'천원') }}}}})});
+  }
   /* 5번 — 월별 합계·하루 평균 (전체 달) */
   if(document.getElementById('slC5')){
     const ms = sMonths(), st = ms.map(sMonthStat);
