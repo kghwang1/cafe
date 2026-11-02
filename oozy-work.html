@@ -2004,6 +2004,10 @@ document.addEventListener('click', async e => {
 // TPL: { "요일-시": [직원id..] | ["O"] }  요일 0=월…6=일
 let TPL = null, TPL_DIRTY = false, BRUSH = null, PAINT = null;
 const TDAYS = ['월', '화', '수', '목', '금', '토', '일'];
+// 주간근무표에서 이름이 나오는 순서 (팔레트 · 칸 안 이름 · 근무시간 표가 모두 같은 순서). 목록에 없는 직원은 그 뒤에 직원 번호 순.
+const TPL_ORDER = ['OWNER', '윤서영', '신혜라', '이서연', '한지윤', '조주미', 'AA', 'BB'];
+const tplRank = x => { if (x === 'O') return 0; const s = STAFF.find(s => s.id === x), i = s ? TPL_ORDER.indexOf(String(s.name).trim().toUpperCase()) : -1; return i >= 0 ? i : 100 + (+x || 0); };
+const byRank = (a, b) => tplRank(a) - tplRank(b);
 const openOf = d => CFG.OPEN[d];
 const TPL_END = 23;   // 주간근무표에 기록할 수 있는 마지막 시각 (영업시간 뒤 정리까지). 빈 시간 계산은 영업시간(OPEN)까지만
 const isOff = (d, h) => { const [o, c] = openOf(d); return h < o || h >= Math.max(c, TPL_END); };
@@ -2031,12 +2035,12 @@ async function tabTpl() {
       <div class="muted hs" style="font-size:12px;margin:6px 0 0">30분 위치:<button data-s="F">앞 30분</button><button data-s="B">뒤 30분</button><br>
         <span id="hsHint"></span></div>
       <div class="pal" id="pal">
-        ${active.map(s => `<button data-b="${s.id}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name)}</button>`).join('')}
-        <button data-b="O" style="background:#cfc8e8;color:#3b315e">사장</button>
+        ${['O'].concat(active.map(s => s.id)).sort(byRank).map(x => { const s = STAFF.find(s => s.id === x);
+          return x === 'O' ? '<button data-b="O" style="background:#cfc8e8;color:#3b315e">Owner</button>' : `<button data-b="${s.id}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name)}</button>`; }).join('')}
       </div>
       ${active.length ? '' : '<div class="warnlist">' + (ADMPRAC ? '근무 · 급여의 관리자 화면 → 직원 탭에서 직원을 먼저 등록하세요.' : '직원 탭에서 직원을 먼저 등록하세요.') + '</div>'}
       <div class="tgrid" id="tg">${g}</div>
-      <div style="text-align:right;margin-top:8px"><button class="sm" id="tClear">직원 근무 모두 지우기 (사장 표시는 유지)</button></div>
+      <div style="text-align:right;margin-top:8px"><button class="sm" id="tClear">직원 근무 모두 지우기 (Owner 표시는 유지)</button></div>
     </div>
     <div class="card"><b>근무자별 주간 근무시간</b><div class="scroll-x" id="tsum"></div>
       <div class="muted" style="margin-top:8px" id="tnote"></div></div>`;
@@ -2050,7 +2054,7 @@ async function tabTpl() {
   if ($('#tSave')) $('#tSave').onclick = saveTpl;
   if ($('#tApply')) $('#tApply').onclick = applyTpl;
   $('#tClear').onclick = async () => {
-    if (!await modal('<h3>근무표 지우기</h3>사장님 표시는 두고 직원 근무만 지웁니다.', '지우기')) return;
+    if (!await modal('<h3>근무표 지우기</h3>Owner 표시는 두고 직원 근무만 지웁니다.', '지우기')) return;
     for (const k in TPL) { const v = TPL[k].filter(x => x === 'O'); if (v.length) TPL[k] = v; else delete TPL[k]; }
     dirty(); tabTpl();
   };
@@ -2070,11 +2074,13 @@ function drawCell(el) {
   el.classList.toggle('has', full.length + half.length + back.length > 0);
   const chip = (x, hf, bk) => {
     const cls = hf ? (bk ? ' half b' : ' half') : '';
-    if (x === 'O') return `<div class="chip own${cls}">사장</div>`;
+    if (x === 'O') return `<div class="chip own${cls}">${hf ? 'Ow' : 'Owner'}</div>`;
     const s = STAFF.find(s => s.id === x);
     return s ? `<div class="chip${cls} ${s.active ? '' : 'gone'}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name.slice(0, hf ? 2 : 3))}</div>` : '';
   };
-  el.innerHTML = full.map(x => chip(x, false)).join('') + half.map(x => chip(x, true)).join('') + back.map(x => chip(x, true, true)).join('');
+  // 1시간·앞 30분·뒤 30분 칠한 것을 한데 모아 정해진 이름 순서대로 위에서부터 배치
+  const items = [].concat(full.map(x => [x, 0]), half.map(x => [x, 1]), back.map(x => [x, 2])).sort((a, b) => byRank(a[0], b[0]));
+  el.innerHTML = items.map(([x, t]) => chip(x, t > 0, t === 2)).join('');
 }
 function dirty() {
   TPL_DIRTY = true;
@@ -2150,7 +2156,7 @@ function tplShifts(id) {
 }
 function drawSummary() {
   const ids = [...new Set(Object.values(TPL).flat().filter(x => x !== 'O'))];
-  const list = STAFF.filter(s => s.active || ids.includes(s.id));
+  const list = STAFF.filter(s => s.active || ids.includes(s.id)).sort((a, b) => byRank(a.id, b.id));
   const now = new Date(), y = now.getFullYear(), mo = now.getMonth();
   const dim = new Date(y, mo + 1, 0).getDate();
   const dayCount = [0, 0, 0, 0, 0, 0, 0];
@@ -2176,8 +2182,8 @@ function drawSummary() {
   const gaps = TDAYS.map((_, d) => { const [o, c] = openOf(d); let n = 0; for (let q = o * 2; q < c * 2; q++) if (!slotAny(d, q)) n += 0.5; return n; });
   const ownerH = TDAYS.map((_, d) => Object.keys(TPL).filter(k => k.startsWith(d + '-') && TPL[k].includes('O')).reduce((a, k) => a + (/\.(5|b)$/.test(k) ? 0.5 : 1), 0));
   $('#tsum').innerHTML = `<table class="sum"><tr><th>이름</th>${TDAYS.map(d => `<th>${d}</th>`).join('')}<th style="text-align:center">합계</th><th>유급</th><th style="text-align:center">주급</th><th style="text-align:center">${mo + 1}월 예상</th></tr>
+    <tr><td>Owner</td>${ownerH.map(h => `<td>${h || '-'}</td>`).join('')}<td style="text-align:center">${ownerH.reduce((a, b) => a + b, 0)}</td><td colspan="3"></td></tr>
     ${rows || `<tr><td colspan="12" class="muted" style="text-align:left">아직 칠한 칸이 없습니다.</td></tr>`}
-    <tr><td>사장</td>${ownerH.map(h => `<td>${h || '-'}</td>`).join('')}<td style="text-align:center">${ownerH.reduce((a, b) => a + b, 0)}</td><td colspan="3"></td></tr>
     <tr><td><b>빈 시간</b></td>${gaps.map(n => `<td>${n ? `<b style="color:var(--bad)">${n}</b>` : '<span style="color:var(--ok)">0</span>'}</td>`).join('')}<td style="text-align:center">${gaps.reduce((a, b) => a + b, 0)}</td><td colspan="3"></td></tr>
     <tr><td><b>알바비 합계</b></td><td colspan="9"></td><td style="text-align:center"><b>${won(totPay)}</b></td><td style="text-align:center"><b>${won(totMon)}</b></td></tr></table>`;
   const juhu = over.filter(o => o.paid >= 900), near = over.filter(o => o.paid < 900);
@@ -2218,7 +2224,7 @@ async function applyTpl() {
   const v = await modal(`<h3>주간표에 적용</h3>
     <label>시작 주 (그 주 월요일부터)</label><input type="date" id="aD" value="${ymd(monday(Date.now()))}">
     <label>기간</label><select id="aW"><option value="1">1주</option><option value="2">2주</option><option value="4" selected>4주</option><option value="8">8주</option></select>
-    <div class="warnlist">선택한 주의 <b>기존 예정 스케줄은 모두 지워지고</b> 근무표대로 다시 만들어집니다.<br><span class="muted">실제 출퇴근 기록과 급여는 바뀌지 않습니다. 사장 칸은 스케줄로 만들지 않습니다.</span></div>`, '적용', () => {
+    <div class="warnlist">선택한 주의 <b>기존 예정 스케줄은 모두 지워지고</b> 근무표대로 다시 만들어집니다.<br><span class="muted">실제 출퇴근 기록과 급여는 바뀌지 않습니다. Owner 칸은 스케줄로 만들지 않습니다.</span></div>`, '적용', () => {
       const d = $('#aD').value; if (!d) { toast('시작 주를 고르세요'); return false; }
       return { from: monday(new Date(d + 'T00:00')), weeks: +$('#aW').value };
     });
