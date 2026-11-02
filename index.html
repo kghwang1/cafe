@@ -130,12 +130,13 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '11.2.-v.35',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
+  VERSION: '11.2.-v.36',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
   APPS: [   // key/perm: 서버(worker.js)의 APP_KEYS 와 같아야 함. perm 은 문자열 또는 배열(하나라도 있으면 보임)
     { key: 'work', name: '근무 · 급여', ic: '🕐', bg: '#e3f1e8', url: 'https://kghwang1.github.io/cafe/oozy-work.html' },
+    { key: 'plan', perm: 'admin', name: '계획수립', ic: '🗓', bg: '#fff3e0', url: 'https://kghwang1.github.io/cafe/oozy-work.html?plan=1' },   // 관리자 전용: 근무표·급여·직원 연습 (예전 근무·급여의 '연습')
     { key: 'store', name: '오픈 마감', ic: '🧽', bg: '#e6f3f5', url: 'https://kghwang1.github.io/cafe/oozy-store.html' },
     { key: 'stock', name: '재고관리', ic: '📦', bg: '#f1ecd2', url: 'https://kghwang1.github.io/cafe/oozy-stock.html' },
     { key: 'device', perm: 'store', name: '기기관리', ic: '🔧', bg: '#e9e6f3', url: 'https://kghwang1.github.io/cafe/oozy-device.html',
@@ -174,7 +175,7 @@ function card(a) {
 const TK = 'oozyToken', AK = 'oozyAuth';
 const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { } } };
 // 관리자는 서버 목록과 상관없이 모든 메뉴 권한을 갖는다 (서버가 예전 버전이라 목록에 빠져도 메뉴가 안 사라지게)
-const fixAuth = a => { if (a && a.role === 'admin') a.apps = [...new Set([].concat(a.apps || [], ['work', 'store', 'recipe', 'ledger', 'coffee', 'stock']))]; return a; };
+const fixAuth = a => { if (a && a.role === 'admin') a.apps = [...new Set([].concat(a.apps || [], ['work', 'store', 'recipe', 'ledger', 'coffee', 'stock', 'admin']))]; return a; };
 let AUTH = null; try { AUTH = fixAuth(JSON.parse(ls.get(AK) || 'null')); } catch (e) { }
 const TOKEN = () => ls.get(TK);
 async function call(path, body) {
