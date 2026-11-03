@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-03.2">
+<meta name="app-version" content="2026-11-03.3">
 <title>우지커피 매출분석</title>
 <style>
 :root{
@@ -358,7 +358,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-03.2';
+const APP_VERSION = '2026-11-03.3';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = 'sales';
@@ -643,15 +643,16 @@ function drawSales(){
   const wv = (mon0,j)=>{ const d=dayOfWeek(mon0,j); return SALES[d] ? +(sTotal(d)/1000).toFixed(1) : null };
   if(cw){
     const lg4 = document.getElementById('slLg4');
-    if(lg4) lg4.innerHTML = [['이번 주 '+weekSpan(cw),'#2a78d6'],['지난주 '+weekSpan(pw),'#eb6834']]
-      .map(x=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${x[1]}"></span>${x[0]}</span>`).join('');
+    if(lg4) lg4.innerHTML = [['이번 주 '+weekSpan(cw),'#2a78d6',1],['지난주 '+weekSpan(pw),'#eb6834',0]]
+      .map(x=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;box-sizing:border-box;${x[2]?'border:2px solid '+x[1]:'background:'+x[1]}"></span>${x[0]}</span>`).join('');
     mk('slC4',{data:{labels:WD_LAB,datasets:[
-      {type:'bar',label:'이번 주',data:WD_LAB.map((_,j)=>wv(cw,j)),backgroundColor:'#2a78d6',borderRadius:5,maxBarThickness:52,order:2},
+      {type:'bar',label:'이번 주',data:WD_LAB.map((_,j)=>wv(cw,j)),backgroundColor:'rgba(42,120,214,0)',borderColor:'#2a78d6',borderWidth:2,borderSkipped:false,borderRadius:5,maxBarThickness:52,order:2},
       {type:'line',label:'지난주',data:WD_LAB.map((_,j)=>wv(pw,j)),borderColor:'#eb6834',backgroundColor:'#eb6834',borderWidth:LINE_W,
         tension:CURVE,pointRadius:4,spanGaps:false,order:1}]},
       options:Object.assign(base(''),{plugins:{legend:{display:false},tooltip:{displayColors:true,
-        callbacks:{title:it=>WD_LAB[it[0].dataIndex]+'요일',
-          label:c=>{ const d=dayOfWeek(c.datasetIndex===0?cw:pw,c.dataIndex); return c.dataset.label+' '+sLab(d)+' '+(c.parsed.y==null?'자료 없음':c.parsed.y.toFixed(1)+'천원') }}}}})});
+        callbacks:{title:()=>'',
+          label:c=>{ const d=dayOfWeek(c.datasetIndex===0?cw:pw,c.dataIndex);       // 예: 10. 27. (화), 745
+            return (+d.slice(5,7))+'. '+(+d.slice(8,10))+'. ('+sDow(d)+'), '+(c.parsed.y==null?'자료 없음':Math.floor(c.parsed.y)) }}}}})});
   }
   /* 5번 — 월별 합계·하루 평균 (전체 달) */
   if(document.getElementById('slC5')){
