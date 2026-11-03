@@ -1409,6 +1409,7 @@ const weekCache = {};
 let weekReq = 0;
 async function loadWeek(admin, pre) {
   const w = WEEK, my = ++weekReq;
+  if (admin) drawWeekPay();                          // 근무기록 아래 직원별 근무시간·급여도 같이 새로 그림
   $('#wk').innerHTML = `${weekLabel(w)}<div class="muted" style="font-size:11.5px;font-weight:400">${mdw(w).replace(/\(.\)/, '')}~${mdw(addDays(w, 6)).replace(/\(.\)/, '')}</div>`;
   if (weekCache[w]) { DATA = weekCache[w]; drawGrid(admin); }       // 캐시 먼저 보여주고
   else if ($('#grid')) $('#grid').innerHTML = '<div class="muted" style="padding:30px 0;text-align:center">불러오는 중...</div>';
@@ -1953,7 +1954,10 @@ function tabGrid() {
     <label>직원</label><select id="sS">${staffOpts()}</select>
     <label>날짜</label><input type="date" id="sD" value="${ymd(Math.max(WEEK, Date.now()))}">
     <div class="row"><div><label>시작</label><input type="time" id="sA" value="07:00"></div><div><label>종료</label><input type="time" id="sB" value="11:00"></div></div>
-    <div class="row" style="margin-top:12px"><button class="pri" id="sAdd">추가</button><button id="sCopy">이 주 → 다음 주로 복사</button></div></div>`;
+    <div class="row" style="margin-top:12px"><button class="pri" id="sAdd">추가</button><button id="sCopy">이 주 → 다음 주로 복사</button></div></div>
+    <div class="card"><b>직원별 근무시간 · 급여</b> <span class="muted" id="wkPayHint" style="font-size:12px"></span><div class="scroll-x" id="wkPay"><div class="muted" style="padding:10px 0">불러오는 중...</div></div>
+      <div class="muted" style="font-size:12px;margin-top:8px;line-height:1.6">위 달력에서 보고 있는 주의 실제 출퇴근 기록(휴게 제외)을 오늘까지 계산합니다. 주급은 그 주 근무 급여, 주휴는 그 주의 주휴수당(주가 끝나고 조건을 채우면 표시),
+        누적급여는 그 주 월요일이 속한 달의 1일부터 오늘까지의 급여이고 괄호는 그중 주휴수당입니다.</div></div>`;
   bindGrid(true, PREWEEK); PREWEEK = null;
   $('#sAdd').onclick = async () => {
     if (!STAFF.length) return toast('직원 탭에서 직원을 먼저 등록하세요');
@@ -1966,6 +1970,44 @@ function tabGrid() {
     const r = await run(() => api('/admin/schedule/copy', { from: WEEK }));
     if (r) { toast(`${r.copied}건 복사${r.skipped ? `, ${r.skipped}건 겹쳐서 건너뜀` : ''}`); WEEK = addDays(WEEK, 7); loadWeek(true); }
   };
+}
+// 근무기록 아래 '직원별 근무시간 · 급여': 보고 있는 주의 요일별 시간·주급·주휴와 그 달 누적급여 (실제 출퇴근 기록, 오늘까지)
+let WPAY_REQ = 0;
+async function drawWeekPay() {
+  const box = $('#wkPay'); if (!box) return;
+  const w = WEEK, my = ++WPAY_REQ, mMon = ymd(w).slice(0, 7), mSun = ymd(addDays(w, 6)).slice(0, 7);
+  const months = [...new Set([mMon, mSun])];
+  const res = await Promise.all(months.map(m => api('/admin/pay?month=' + m).catch(() => null)));
+  if (my !== WPAY_REQ || !$('#wkPay')) return;
+  if (res.some(r => !r)) { box.innerHTML = '<div class="muted" style="padding:10px 0">급여를 불러오지 못했습니다.</div>'; return; }
+  const dat = {}; months.forEach((m, i) => dat[m] = res[i]);
+  const ids = new Set(); res.forEach(r => r.staff.forEach(x => ids.add(x.id)));
+  const days = [0, 1, 2, 3, 4, 5, 6].map(j => addDays(w, j)), now = Date.now();
+  const sget = (m, id) => (dat[m].staff.find(x => x.id === id) || null);
+  let rows = '', T = { d: [0, 0, 0, 0, 0, 0, 0], tot: 0, wk: 0, ju: 0, cum: 0, cj: 0 };
+  [...ids].sort(byRank).forEach(id => {
+    const a = sget(mMon, id), b = sget(mSun, id), base = a || b, st = STAFF.find(x => x.id === id) || base;
+    const shifts = [].concat(a ? a.shifts : [], b && mSun !== mMon ? b.shifts : []).filter(x => x.start >= w && x.start < addDays(w, 7));
+    const mins = days.map(d => shifts.filter(x => ymd(x.start) === ymd(d)).reduce((t, x) => t + x.paid, 0));
+    const tot = mins.reduce((t, x) => t + x, 0);
+    const wageOf = { base: base.wage, ot: base.otWage, edu: base.eduWage, evt: base.evtWage };
+    const wk = ['base', 'ot', 'edu', 'evt'].reduce((t, k) => t + Math.floor(shifts.filter(x => x.kind === k).reduce((q, x) => q + x.paid, 0) * wageOf[k] / 60), 0);
+    const jw = ((b || a || { juhuWeeks: [] }).juhuWeeks || []).find(x => Math.abs(x.week - w) < 12 * 3600000);
+    const ju = jw && jw.ok ? jw.amount : 0;
+    const ma = a || { payTotal: 0, juhu: 0 }, cum = ma.payTotal || 0, cj = ma.juhu || 0;
+    if (!tot && !cum && !(st && st.active)) return;
+    mins.forEach((m, i) => T.d[i] += m); T.tot += tot; T.wk += wk; T.ju += ju; T.cum += cum; T.cj += cj;
+    rows += `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${esc(base.color || '#999')}"></i> ${esc(base.name)}</td>
+      ${mins.map((m, i) => `<td>${m ? +(m / 60).toFixed(1) : days[i] > now ? '' : '<span class="muted">-</span>'}</td>`).join('')}
+      <td style="text-align:center"><b>${tot ? +(tot / 60).toFixed(1) : '-'}</b></td><td style="text-align:center">${wk ? won(wk) : '-'}</td>
+      <td style="text-align:center" ${jw && !jw.ok && jw.reason ? `title="${esc(jw.reason)}"` : ''}>${ju ? won(ju) : '<span class="muted">-</span>'}</td>
+      <td style="text-align:center">${won(cum)}${cj ? ` <span class="muted">(${won(cj)})</span>` : ''}</td></tr>`;
+  });
+  $('#wkPayHint').textContent = `${mdw(w)} ~ ${mdw(addDays(w, 6))} · 오늘까지`;
+  box.innerHTML = `<table class="sum"><tr><th>이름</th>${TDAYS.map(d => `<th>${d}</th>`).join('')}<th style="text-align:center">합계</th><th style="text-align:center">주급</th><th style="text-align:center">주휴</th><th style="text-align:center">${+mMon.slice(5)}월 누적급여</th></tr>
+    ${rows || '<tr><td colspan="12" class="muted" style="text-align:left">이 주에는 기록이 없습니다.</td></tr>'}
+    <tr><td><b>합계</b></td>${T.d.map(m => `<td><b>${m ? +(m / 60).toFixed(1) : '-'}</b></td>`).join('')}<td style="text-align:center"><b>${T.tot ? +(T.tot / 60).toFixed(1) : '-'}</b></td>
+      <td style="text-align:center"><b>${won(T.wk)}</b></td><td style="text-align:center"><b>${won(T.ju)}</b></td><td style="text-align:center"><b>${won(T.cum)}</b>${T.cj ? ` <span class="muted">(${won(T.cj)})</span>` : ''}</td></tr></table>`;
 }
 let EDIT_SID = null, ADD_MODE = false;
 async function editSchedule(s) {
