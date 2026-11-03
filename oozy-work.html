@@ -2508,7 +2508,7 @@ async function tabPay() {
       </div>
       <div class="muted" style="margin-top:6px">확정하면 알바가 자기 PIN으로 로그인해 <b>확정급여</b>에서 본인 명세서만 볼 수 있습니다.</div></div>` +
     PAY.staff.map(s => `<div class="card" style="border-left:5px solid ${s.color}">
-      <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">${ctrLbl(s, PAY.month)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><button class="sm" data-slip="${s.id}" style="flex:0 0 auto">명세서</button></div>
+      <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">${ctrLbl(s, PAY.month)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><span style="display:flex;gap:6px;flex:0 0 auto"><button class="sm" data-slip="${s.id}">명세서</button><button class="sm pri" data-send="${s.id}">보내기</button></span></div>
       <table class="pay t6" style="margin-top:6px"><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
       <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
       <table class="pay bx" style="margin-top:8px"><tr>${payItems(s).map(x => `<th>${x.n}</th>`).join('')}<th>주휴</th><th>월급여</th></tr>
@@ -2543,6 +2543,7 @@ async function tabPay() {
     box.innerHTML = workListHTML(s); box.hidden = false; b.textContent = '📋 근무내역 닫기';
   });
   document.querySelectorAll('[data-slip]').forEach(b => b.onclick = () => { const s = PAY.staff.find(x => x.id === +b.dataset.slip); showSlip(s, PAY.month, s.confirmedAt ? `<span class="stamp ok">확정 ${ymd(s.confirmedAt)}</span>` : '<span class="stamp wip">확정 전</span>'); });
+  document.querySelectorAll('[data-send]').forEach(b => b.onclick = () => sendSlip(PAY.staff.find(x => x.id === +b.dataset.send), PAY.month));
   $('#pConfirm').onclick = async () => {
     const ok = await modal(`<h3>${PAY.month} 급여 확정</h3>지금 계산된 금액으로 명세서를 확정합니다. 알바는 자기 화면의 <b>확정급여</b>에서 본인 것만 볼 수 있습니다.
       ${unres ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${unres}건이 빠져 있습니다. 먼저 정리하는 것이 좋습니다.</div>` : ''}
@@ -2611,13 +2612,63 @@ function slipHTML(s, month, label) {
     <p style="margin-top:20px;text-align:right;font-size:12.5px;color:#666">발행일: ${ymd(Date.now())}</p>
     <div class="slipft">우 지 커 피 &nbsp;광양용강점</div></div>`;
 }
+// ===== 명세서 보내기: 직원에게 문자 · 메일 · 카톡(공유)으로. 사장님 휴대폰의 앱을 열어 주고, 전송은 앱에서 직접 누름 =====
+const CONTACT_KEY = 'oozyStaffContacts';             // 직원 연락처 (이 기기에만 저장: { 직원번호: {phone, email} })
+const loadContacts = () => { try { return JSON.parse(localStorage.getItem(CONTACT_KEY) || '{}') || {}; } catch (e) { return {}; } };
+const saveContact = (id, c) => { try { const all = loadContacts(); all[id] = c; localStorage.setItem(CONTACT_KEY, JSON.stringify(all)); } catch (e) { } };
+function slipText(s, month, full) {
+  const mo = +month.slice(5, 7), url = location.href.split('#')[0].split('?')[0], head = `[우지커피] ${mo}월 급여명세서 - ${s.name}님`;
+  if (!full) return `${head}\n급여명세서가 ${s.confirmedAt ? '확정되었습니다' : '준비되었습니다'}.\n아래 링크에서 본인 PIN으로 로그인 → 맨 아래 '확정급여'를 눌러 확인해 주세요.\n(본인 명세서만 보입니다)\n${url}`;
+  const L = [head, '', `근로일수 ${s.days}일 · 총 근로 ${fmtH(s.total)} · 휴게 ${fmtH(s.brk)} · 유급 ${fmtH(s.paid)} · 시급 ${won(s.wage)}원`];
+  const m = ctrMin(s, month); if (m != null) L.push(`계약시간 주 ${fmtH(m)}`);
+  L.push('');
+  payItems(s).filter(x => x.amt || x.min).forEach(x => L.push(`${x.n}: ${hrsTxt(x.min)} × ${won(x.w)}원 = ${won(x.amt)}원`));
+  if (s.juhu) L.push(`주휴수당: ${won(s.juhu)}원`);
+  L.push('공제: 0원', `지급액: ${won(totOf(s))}원`);
+  if (s.unresolved) L.push('', `※ 퇴근누락·근무중 기록 ${s.unresolved}건은 포함되지 않았습니다.`);
+  if (!s.confirmedAt) L.push('', '※ 아직 확정 전 금액입니다. 확정되면 달라질 수 있습니다.');
+  return L.join('\n');
+}
+async function sendSlip(s, month) {
+  if (!s) return;
+  const c = loadContacts()[s.id] || {}, mo = +month.slice(5, 7);
+  modal(`<h3>${esc(s.name)} 님 명세서 보내기</h3>
+    <label>전화번호 (문자)</label><input id="sdPh" type="tel" inputmode="tel" placeholder="010-0000-0000" value="${esc(c.phone || '')}">
+    <label>이메일 (메일)</label><input id="sdEm" type="email" inputmode="email" placeholder="name@example.com" value="${esc(c.email || '')}">
+    <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="sdAmt" style="width:auto" checked> 금액·근무내역 포함 <span class="muted" style="font-size:12px">(끄면 앱에서 확인하라는 안내만)</span></label>
+    <textarea id="sdTx" style="width:100%;height:190px;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;margin-top:8px">${esc(slipText(s, month, true))}</textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm pri" id="sdSms">문자</button><button class="sm pri" id="sdMail">메일</button><button class="sm" id="sdShare">카톡 등 공유</button><button class="sm" id="sdCopy">복사</button></div>
+    <div class="muted" style="font-size:12px;margin-top:8px;line-height:1.6">연락처는 이 기기에만 저장됩니다. 버튼을 누르면 휴대폰의 문자·메일·카톡 앱이 열리고, 전송은 그 앱에서 직접 누릅니다. 금액이 담긴 글은 잘못 보내지 않도록 받는 사람을 꼭 확인하세요.</div>`, '닫기', undefined, null);
+  const box = [...document.querySelectorAll('.mbg')].pop(), q = id => box.querySelector('#' + id);
+  const keep = () => saveContact(s.id, { phone: q('sdPh').value.trim(), email: q('sdEm').value.trim() });
+  q('sdPh').oninput = keep; q('sdEm').oninput = keep;
+  q('sdAmt').onchange = () => { q('sdTx').value = slipText(s, month, q('sdAmt').checked); };
+  const text = () => q('sdTx').value, subj = `[우지커피] ${mo}월 급여명세서`;
+  q('sdSms').onclick = () => {
+    const ph = q('sdPh').value.replace(/[^\d+]/g, ''); if (!ph) return toast('전화번호를 입력하세요');
+    keep(); location.href = `sms:${ph}${/iPhone|iPad|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(text())}`;
+  };
+  q('sdMail').onclick = () => {
+    const em = q('sdEm').value.trim(); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('이메일 주소를 확인하세요');
+    keep(); location.href = `mailto:${em}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(text())}`;
+  };
+  q('sdShare').onclick = async () => {
+    if (!navigator.share) return toast('이 기기에서는 공유를 쓸 수 없습니다. [복사]를 눌러 붙여넣으세요', 3500);
+    try { await navigator.share({ title: subj, text: text() }); } catch (e) { }
+  };
+  q('sdCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(text()); toast('복사했습니다'); }
+    catch (e) { q('sdTx').select(); toast('글을 길게 눌러 직접 복사해 주세요', 3500); }
+  };
+}
 // 명세서를 화면에 띄우고, 필요하면 인쇄·PDF 저장
 function showSlip(s, month, label) {
   const bg = document.createElement('div'); bg.className = 'slipbg';
-  bg.innerHTML = `<div class="slipbar"><button class="sm" id="slPrint">인쇄 / PDF 저장</button><button class="sm pri" id="slClose">닫기</button></div>${slipHTML(s, month, label)}`;
+  bg.innerHTML = `<div class="slipbar"><button class="sm pri" id="slSend">보내기</button><button class="sm" id="slPrint">인쇄 / PDF 저장</button><button class="sm pri" id="slClose">닫기</button></div>${slipHTML(s, month, label)}`;
   document.body.appendChild(bg);
   const close = () => bg.remove();
   bg.querySelector('#slClose').onclick = close;
+  bg.querySelector('#slSend').onclick = () => sendSlip(s, month);
   bg.onclick = e => { if (e.target === bg) close(); };
   bg.querySelector('#slPrint').onclick = () => { $('#print').innerHTML = slipHTML(s, month, label); window.print(); };
 }
