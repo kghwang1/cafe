@@ -2164,7 +2164,7 @@ function drawSummary() {
   const dim = new Date(y, mo + 1, 0).getDate();
   const dayCount = [0, 0, 0, 0, 0, 0, 0];
   for (let i = 1; i <= dim; i++) dayCount[(new Date(y, mo, i).getDay() + 6) % 7]++;
-  let rows = '', totPay = 0, totMon = 0; const over = [], brk = [];
+  let rows = '', totPay = 0, totJu = 0, totMon = 0; const over = [], brk = [];
   for (const s of list) {
     const days = tplShifts(s.id);
     const hrs = days.map(r => r.reduce((a, [x, z]) => a + z - x, 0));
@@ -2173,30 +2173,33 @@ function drawSummary() {
     const tot = hrs.reduce((a, b) => a + b, 0), paid = paidDay.reduce((a, b) => a + b, 0);
     if (!tot && !s.active) continue;
     const wk = Math.floor(paid * s.wage / 60), mon = Math.floor(paidDay.reduce((a, m, d) => a + m * dayCount[d], 0) * s.wage / 60);
-    totPay += wk; totMon += mon; if (tot >= 15) over.push({ name: esc(s.name), tot, paid });
+    // 주휴수당(주): 직원의 이번 달 주 계약시간(없으면 표의 유급시간)이 15시간 이상이면 발생, 금액 = 기준시간(최대 40시간)/40 × 8시간 × 시급 (급여 탭과 같은 식). 월 예상에는 그 달 일요일 수만큼 더함
+    const ct = contractNow(s, y + '-' + String(mo + 1).padStart(2, '0')), jc = !!(ct && ct.min > 0), jb = jc ? ct.min : paid;
+    const ju = jb >= 900 ? Math.floor(Math.min(jb, 40 * 60) / (40 * 60) * 8 * s.wage) : 0, monAll = mon + ju * dayCount[6];
+    totPay += wk; totJu += ju; totMon += monAll; if (tot >= 15 || jb >= 900) over.push({ name: esc(s.name), tot, paid, jb, jc });
     const bd = days.map((r, d) => r.some(([x, z]) => z - x >= 4) ? TDAYS[d] : '').filter(Boolean);
     if (bd.length) brk.push(`${esc(s.name)}(${bd.join('·')})${ub ? '' : ' <span style="color:var(--sub);font-weight:400">휴게 없음·전부 유급</span>'}`);
     rows += `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${s.color}"></i> ${esc(s.name)}</td>
       ${hrs.map(h => `<td>${h || '<span class="muted">-</span>'}</td>`).join('')}
       <td style="text-align:center"><span class="hcirc ${tot >= 15 ? 'over' : ''}">${tot}</span></td><td>${fmtH(paid)}</td>
-      <td style="text-align:center">${won(wk)}</td><td style="text-align:center">${won(mon)}</td></tr>`;
+      <td style="text-align:center">${won(wk)}</td><td style="text-align:center">${ju ? won(ju) + `<br><small class="muted">${jc ? '계약' : '유급'} ${+(jb / 60).toFixed(1)}시간</small>` : '<span class="muted">-</span>'}</td><td style="text-align:center">${won(monAll)}</td></tr>`;
   }
   // 요일별 빈 시간 (아무도 없는 영업시간)
   const gaps = TDAYS.map((_, d) => { const [o, c] = openOf(d); let n = 0; for (let q = o * 2; q < c * 2; q++) if (!slotAny(d, q)) n += 0.5; return n; });
   const ownerH = TDAYS.map((_, d) => Object.keys(TPL).filter(k => k.startsWith(d + '-') && TPL[k].includes('O')).reduce((a, k) => a + (/\.(5|b)$/.test(k) ? 0.5 : 1), 0));
-  $('#tsum').innerHTML = `<table class="sum"><tr><th>이름</th>${TDAYS.map(d => `<th>${d}</th>`).join('')}<th style="text-align:center">합계</th><th>유급</th><th style="text-align:center">주급</th><th style="text-align:center">${mo + 1}월 예상</th></tr>
-    <tr><td>Owner</td>${ownerH.map(h => `<td>${h || '-'}</td>`).join('')}<td style="text-align:center">${ownerH.reduce((a, b) => a + b, 0)}</td><td colspan="3"></td></tr>
-    ${rows || `<tr><td colspan="12" class="muted" style="text-align:left">아직 칠한 칸이 없습니다.</td></tr>`}
-    <tr><td><b>빈 시간</b></td>${gaps.map(n => `<td>${n ? `<b style="color:var(--bad)">${n}</b>` : '<span style="color:var(--ok)">0</span>'}</td>`).join('')}<td style="text-align:center">${gaps.reduce((a, b) => a + b, 0)}</td><td colspan="3"></td></tr>
-    <tr><td><b>알바비 합계</b></td><td colspan="9"></td><td style="text-align:center"><b>${won(totPay)}</b></td><td style="text-align:center"><b>${won(totMon)}</b></td></tr></table>`;
-  const juhu = over.filter(o => o.paid >= 900), near = over.filter(o => o.paid < 900);
+  $('#tsum').innerHTML = `<table class="sum"><tr><th>이름</th>${TDAYS.map(d => `<th>${d}</th>`).join('')}<th style="text-align:center">합계</th><th>유급</th><th style="text-align:center">주급</th><th style="text-align:center">주휴</th><th style="text-align:center">${mo + 1}월 예상</th></tr>
+    <tr><td>Owner</td>${ownerH.map(h => `<td>${h || '-'}</td>`).join('')}<td style="text-align:center">${ownerH.reduce((a, b) => a + b, 0)}</td><td colspan="4"></td></tr>
+    ${rows || `<tr><td colspan="13" class="muted" style="text-align:left">아직 칠한 칸이 없습니다.</td></tr>`}
+    <tr><td><b>빈 시간</b></td>${gaps.map(n => `<td>${n ? `<b style="color:var(--bad)">${n}</b>` : '<span style="color:var(--ok)">0</span>'}</td>`).join('')}<td style="text-align:center">${gaps.reduce((a, b) => a + b, 0)}</td><td colspan="4"></td></tr>
+    <tr><td><b>알바비 합계</b></td><td colspan="9"></td><td style="text-align:center"><b>${won(totPay)}</b></td><td style="text-align:center"><b>${won(totJu)}</b></td><td style="text-align:center"><b>${won(totMon)}</b></td></tr></table>`;
+  const juhu = over.filter(o => o.jb >= 900), near = over.filter(o => o.jb < 900);
   const line = (label, body, color) => `<div style="margin-top:3px"><b>${label}:</b> <b style="color:${color}">${body}</b></div>`;
   $('#tnote').innerHTML =
-      line('주휴수당', juhu.length ? juhu.map(o => `${o.name}(유급 ${fmtH(o.paid)})`).join(', ') : '해당자 없음', juhu.length ? 'var(--bad)' : '#2f6fd6')
-    + (near.length ? `<div class="muted" style="margin-left:4px">└ ${near.map(o => `${o.name}: 합계 ${o.tot}시간이지만 유급 ${fmtH(o.paid)}`).join(', ')} → 15시간 미만이라 해당 없음</div>` : '')
+      line('주휴수당', juhu.length ? juhu.map(o => `${o.name}(${o.jc ? '계약' : '유급'} ${fmtH(o.jb)})`).join(', ') : '해당자 없음', juhu.length ? 'var(--bad)' : '#2f6fd6')
+    + (near.length ? `<div class="muted" style="margin-left:4px">└ ${near.map(o => `${o.name}: 합계 ${o.tot}시간이지만 ${o.jc ? '계약' : '유급'} ${fmtH(o.jb)}`).join(', ')} → 15시간 미만이라 해당 없음</div>` : '')
     + line('휴게시간', brk.length ? brk.join(', ') : '해당자 없음', brk.length ? '#b26a00' : '#2f6fd6')
     + '<div style="margin-top:6px">합계 숫자: <span class="hcirc sm">파랑</span> 15시간 미만 · <span class="hcirc sm over">빨강</span> 15시간 이상.<br>'
-    + '휴게시간: 4시간 이상 일하면 30분, 8시간 이상 일하면 1시간을 근무 중에 줘야 합니다 (출근~퇴근 8시간 30분 이상이면 1시간 차감). 주휴수당은 휴게를 뺀 <b>유급 시간</b>이 주 15시간 이상일 때 발생합니다.</div>';
+    + '휴게시간: 4시간 이상 일하면 30분, 8시간 이상 일하면 1시간을 근무 중에 줘야 합니다 (출근~퇴근 8시간 30분 이상이면 1시간 차감). 주휴수당은 직원의 <b>주 계약시간</b>이 15시간 이상일 때 발생하며 금액도 계약시간 기준입니다 (계약시간이 없는 직원은 표의 유급 시간 기준).</div>';
 }
 // 연습으로 만들어 서버에 저장해 둔 계획들 중에서 주간근무표만 골라 실제 근무표 편집판으로 불러옴 (저장을 눌러야 실제에 반영)
 async function loadTplFromPlan() {
