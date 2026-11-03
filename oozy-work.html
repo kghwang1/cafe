@@ -2164,7 +2164,7 @@ function drawSummary() {
   const dim = new Date(y, mo + 1, 0).getDate();
   const dayCount = [0, 0, 0, 0, 0, 0, 0];
   for (let i = 1; i <= dim; i++) dayCount[(new Date(y, mo, i).getDay() + 6) % 7]++;
-  let rows = '', totPay = 0, totJu = 0, totMon = 0; const over = [], brk = [];
+  let rows = '', totPay = 0, totJu = 0, totJuMon = 0, totMon = 0; const over = [], brk = [];
   for (const s of list) {
     const days = tplShifts(s.id);
     const hrs = days.map(r => r.reduce((a, [x, z]) => a + z - x, 0));
@@ -2173,16 +2173,16 @@ function drawSummary() {
     const tot = hrs.reduce((a, b) => a + b, 0), paid = paidDay.reduce((a, b) => a + b, 0);
     if (!tot && !s.active) continue;
     const wk = Math.floor(paid * s.wage / 60), mon = Math.floor(paidDay.reduce((a, m, d) => a + m * dayCount[d], 0) * s.wage / 60);
-    // 주휴수당(주): 직원의 이번 달 주 계약시간(없으면 표의 유급시간)이 15시간 이상이면 발생, 금액 = 기준시간(최대 40시간)/40 × 8시간 × 시급 (급여 탭과 같은 식). 월 예상에는 그 달 일요일 수만큼 더함
+    // 주휴수당(주): 직원의 이번 달 주 계약시간(없으면 표의 유급시간)이 15시간 이상이면 발생, 금액 = 기준시간(최대 40시간)/40 × 8시간 × 시급 (급여 탭과 같은 식). 월 예상에는 그 달 일요일 수만큼 더하고, 괄호에 그 주휴수당 합계를 표시
     const ct = contractNow(s, y + '-' + String(mo + 1).padStart(2, '0')), jc = !!(ct && ct.min > 0), jb = jc ? ct.min : paid;
-    const ju = jb >= 900 ? Math.floor(Math.min(jb, 40 * 60) / (40 * 60) * 8 * s.wage) : 0, monAll = mon + ju * dayCount[6];
-    totPay += wk; totJu += ju; totMon += monAll; if (tot >= 15 || jb >= 900) over.push({ name: esc(s.name), tot, paid, jb, jc });
+    const ju = jb >= 900 ? Math.floor(Math.min(jb, 40 * 60) / (40 * 60) * 8 * s.wage) : 0, juMon = ju * dayCount[6], monAll = mon + juMon;
+    totPay += wk; totJu += ju; totJuMon += juMon; totMon += monAll; if (tot >= 15 || jb >= 900) over.push({ name: esc(s.name), tot, paid, jb, jc });
     const bd = days.map((r, d) => r.some(([x, z]) => z - x >= 4) ? TDAYS[d] : '').filter(Boolean);
     if (bd.length) brk.push(`${esc(s.name)}(${bd.join('·')})${ub ? '' : ' <span style="color:var(--sub);font-weight:400">휴게 없음·전부 유급</span>'}`);
     rows += `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${s.color}"></i> ${esc(s.name)}</td>
       ${hrs.map(h => `<td>${h || '<span class="muted">-</span>'}</td>`).join('')}
       <td style="text-align:center"><span class="hcirc ${tot >= 15 ? 'over' : ''}">${tot}</span></td><td>${fmtH(paid)}</td>
-      <td style="text-align:center">${won(wk)}</td><td style="text-align:center">${ju ? won(ju) + `<br><small class="muted">${jc ? '계약' : '유급'} ${+(jb / 60).toFixed(1)}시간</small>` : '<span class="muted">-</span>'}</td><td style="text-align:center">${won(monAll)}</td></tr>`;
+      <td style="text-align:center">${won(wk)}</td><td style="text-align:center">${ju ? won(ju) + `<br><small class="muted">${jc ? '계약' : '유급'} ${+(jb / 60).toFixed(1)}시간</small>` : '<span class="muted">-</span>'}</td><td style="text-align:center">${won(monAll)}${juMon ? ` <span class="muted">(${won(juMon)})</span>` : ''}</td></tr>`;
   }
   // 요일별 빈 시간 (아무도 없는 영업시간)
   const gaps = TDAYS.map((_, d) => { const [o, c] = openOf(d); let n = 0; for (let q = o * 2; q < c * 2; q++) if (!slotAny(d, q)) n += 0.5; return n; });
@@ -2191,7 +2191,7 @@ function drawSummary() {
     <tr><td>Owner</td>${ownerH.map(h => `<td>${h || '-'}</td>`).join('')}<td style="text-align:center">${ownerH.reduce((a, b) => a + b, 0)}</td><td colspan="4"></td></tr>
     ${rows || `<tr><td colspan="13" class="muted" style="text-align:left">아직 칠한 칸이 없습니다.</td></tr>`}
     <tr><td><b>빈 시간</b></td>${gaps.map(n => `<td>${n ? `<b style="color:var(--bad)">${n}</b>` : '<span style="color:var(--ok)">0</span>'}</td>`).join('')}<td style="text-align:center">${gaps.reduce((a, b) => a + b, 0)}</td><td colspan="4"></td></tr>
-    <tr><td><b>알바비 합계</b></td><td colspan="9"></td><td style="text-align:center"><b>${won(totPay)}</b></td><td style="text-align:center"><b>${won(totJu)}</b></td><td style="text-align:center"><b>${won(totMon)}</b></td></tr></table>`;
+    <tr><td><b>알바비 합계</b></td><td colspan="9"></td><td style="text-align:center"><b>${won(totPay)}</b></td><td style="text-align:center"><b>${won(totJu)}</b></td><td style="text-align:center"><b>${won(totMon)}</b>${totJuMon ? ` <span class="muted">(${won(totJuMon)})</span>` : ''}</td></tr></table>`;
   const juhu = over.filter(o => o.jb >= 900), near = over.filter(o => o.jb < 900);
   const line = (label, body, color) => `<div style="margin-top:3px"><b>${label}:</b> <b style="color:${color}">${body}</b></div>`;
   $('#tnote').innerHTML =
