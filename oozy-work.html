@@ -244,6 +244,7 @@ body.practice{background:#fff4e0}
 // 2026-10-27 : 주휴수당·계약시간·휴게 정리·연습 가져오기·추가근무(시급/체크) 합침
 // 2026-10-29 : 근무 구분(교육·행사·기타) 저장 — punch.tag, 교육·행사 시급 따로
 // 2026-11-02 : 재고관리 기준량(/stock/item/base)·필요량(buy) 저장
+// 2026-11-04 : 직원 연락처(staff.phone, staff.email) 저장
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -360,6 +361,8 @@ async function ensureSettings(env) {
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN use_break INTEGER NOT NULL DEFAULT 1').run(); } catch (e) { } // 휴게시간 사용 여부
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0').run(); } catch (e) { } // 삭제한 직원 (지난 기록만 남김)
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN apps TEXT').run(); } catch (e) { }   // 쓸 수 있는 앱 (비어 있으면 기본)
+  try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN phone TEXT').run(); } catch (e) { }   // 직원 연락처 (명세서 보내기용)
+  try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN email TEXT').run(); } catch (e) { }
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS contract (staff_id INTEGER NOT NULL, month TEXT NOT NULL, weekly_min INTEGER NOT NULL, PRIMARY KEY(staff_id, month))').run();   // 주 계약시간 (그 달부터 적용)
   // 매장관리: 오픈·마감 확인 기록
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS store_check (date TEXT NOT NULL, kind TEXT NOT NULL, item TEXT NOT NULL, title TEXT,
@@ -959,9 +962,12 @@ async function route(req, env) {
     const color = /^#[0-9a-fA-F]{6}$/.test(b.color || '') ? b.color : '#4f7cff';
     const active = b.active === false || b.active === 0 ? 0 : 1;
     const ub = b.use_break === false || b.use_break === 0 ? 0 : 1;
+    const ph = String(b.phone == null ? '' : b.phone).replace(/[^\d+\- ]/g, '').trim().slice(0, 20), em = String(b.email == null ? '' : b.email).trim().slice(0, 80);   // 연락처 (비워도 됨)
+    if (em && !/^\S+@\S+\.\S+$/.test(em)) return err('이메일 주소를 확인하세요.');
     if (b.id) await env.DB.prepare('UPDATE staff SET name=?,pin=?,wage=?,color=?,active=?,use_break=? WHERE id=?').bind(name, pin, wage, color, active, ub, +b.id).run();
     let sid = +b.id;
     if (!sid) sid = (await env.DB.prepare('INSERT INTO staff(name,pin,wage,color,active,use_break) VALUES(?,?,?,?,?,?)').bind(name, pin, wage, color, active, ub).run()).meta.last_row_id;
+    if (b.phone !== undefined || b.email !== undefined) await env.DB.prepare('UPDATE staff SET phone=?,email=? WHERE id=?').bind(ph || null, em || null, sid).run();
     // 주 계약시간: 적용 월부터 (빈칸이면 그 달 기록 지움)
     if (b.contract && /^\d{4}-\d{2}$/.test(b.contract.month || '')) {
       const hrs = b.contract.hours;
@@ -2629,28 +2635,86 @@ function slipText(s, month, full) {
   if (!s.confirmedAt) L.push('', '※ 아직 확정 전 금액입니다. 확정되면 달라질 수 있습니다.');
   return L.join('\n');
 }
+// 명세서를 PDF 파일로 만들기 (화면 그림 → PDF, 한글 글꼴 문제 없음)
+const PDF_SRC = { h2c: ['https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'],
+                  pdf: ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'] };
+async function needPdfLibs() {
+  for (const [key, test] of [['h2c', () => window.html2canvas], ['pdf', () => window.jspdf]]) {
+    if (test()) continue;
+    for (const u of PDF_SRC[key]) { try { await loadScript(u); if (test()) break; } catch (e) { } }
+    if (!test()) throw new Error('PDF 도구를 불러오지 못했습니다. 인터넷을 확인하세요.');
+  }
+}
+async function slipPdf(s, month) {
+  await needPdfLibs();
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:-10000px;top:0;width:720px;background:#fff;z-index:-1';
+  box.innerHTML = slipHTML(s, month, `${+month.slice(5, 7)}월`);
+  const el = box.firstElementChild; if (el) el.style.cssText += ';box-shadow:none;border-radius:0;max-width:none;margin:0';
+  document.body.appendChild(box);
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const cv = await window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const { jsPDF } = window.jspdf, pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), m = 24;
+    const iw = W - m * 2, ph = Math.floor((H - m * 2) * cv.width / iw);       // 한 쪽에 들어가는 원본 높이(px)
+    for (let y = 0, pg = 0; y < cv.height; y += ph, pg++) {
+      const part = document.createElement('canvas'); part.width = cv.width; part.height = Math.min(ph, cv.height - y);
+      part.getContext('2d').drawImage(cv, 0, y, cv.width, part.height, 0, 0, cv.width, part.height);
+      if (pg) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', m, m, iw, part.height * iw / cv.width);
+    }
+    return pdf.output('blob');
+  } finally { box.remove(); }
+}
 async function sendSlip(s, month) {
   if (!s) return;
-  const c = loadContacts()[s.id] || {}, mo = +month.slice(5, 7);
+  const st = STAFF.find(x => x.id === s.id) || {}, c0 = loadContacts()[s.id] || {}, mo = +month.slice(5, 7);
+  const c = { phone: st.phone || c0.phone || '', email: st.email || c0.email || '' };
+  const fname = `${mo}월_급여명세서_${s.name}.pdf`;
   modal(`<h3>${esc(s.name)} 님 명세서 보내기</h3>
-    <label>전화번호 (문자)</label><input id="sdPh" type="tel" inputmode="tel" placeholder="010-0000-0000" value="${esc(c.phone || '')}">
-    <label>이메일 (메일)</label><input id="sdEm" type="email" inputmode="email" placeholder="name@example.com" value="${esc(c.email || '')}">
-    <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="sdAmt" style="width:auto" checked> 금액·근무내역 포함 <span class="muted" style="font-size:12px">(끄면 앱에서 확인하라는 안내만)</span></label>
-    <textarea id="sdTx" style="width:100%;height:190px;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;margin-top:8px">${esc(slipText(s, month, true))}</textarea>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm pri" id="sdSms">문자</button><button class="sm pri" id="sdMail">메일</button><button class="sm" id="sdShare">카톡 등 공유</button><button class="sm" id="sdCopy">복사</button></div>
-    <div class="muted" style="font-size:12px;margin-top:8px;line-height:1.6">연락처는 이 기기에만 저장됩니다. 버튼을 누르면 휴대폰의 문자·메일·카톡 앱이 열리고, 전송은 그 앱에서 직접 누릅니다. 금액이 담긴 글은 잘못 보내지 않도록 받는 사람을 꼭 확인하세요.</div>`, '닫기', undefined, null);
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><button class="sm pri" id="sdPdfShare" disabled>PDF 만드는 중...</button><button class="sm" id="sdPdfSave" disabled>PDF 저장</button></div>
+    <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px"><b>PDF 보내기</b>를 누르면 공유 창이 뜹니다 → <b>카카오톡</b> → ${esc(s.name)} 님 대화방을 고르고 전송하세요. (카톡이 안 보이면 [PDF 저장] 후 카톡에서 파일 첨부)</div>
+    <label>전화번호 (문자)</label><input id="sdPh" type="tel" inputmode="tel" placeholder="010-0000-0000" value="${esc(c.phone)}">
+    <label>이메일 (메일)</label><input id="sdEm" type="email" inputmode="email" placeholder="name@example.com" value="${esc(c.email)}">
+    <div class="muted" style="font-size:12px;margin-top:2px">입력하면 직원 정보에 저장됩니다 (직원 탭 → 수정에서도 고칠 수 있음).</div>
+    <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="sdAmt" style="width:auto" checked> 글에 금액·근무내역 포함 <span class="muted" style="font-size:12px">(문자·메일·글 공유용)</span></label>
+    <textarea id="sdTx" style="width:100%;height:150px;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;margin-top:8px">${esc(slipText(s, month, true))}</textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm pri" id="sdSms">문자</button><button class="sm pri" id="sdMail">메일</button><button class="sm" id="sdShare">글만 공유</button><button class="sm" id="sdCopy">복사</button></div>
+    <div class="muted" style="font-size:12px;margin-top:8px;line-height:1.6">카톡 메시지를 앱이 대신 자동으로 보내는 것은 불가능해서, 사장님 폰의 공유 창에서 받는 사람을 직접 고르는 방식입니다. 금액이 담긴 파일은 받는 사람을 꼭 확인하세요.</div>`, '닫기', undefined, '');
   const box = [...document.querySelectorAll('.mbg')].pop(), q = id => box.querySelector('#' + id);
+  let file = null, savedPh = c.phone, savedEm = c.email;
   const keep = () => saveContact(s.id, { phone: q('sdPh').value.trim(), email: q('sdEm').value.trim() });
-  q('sdPh').oninput = keep; q('sdEm').oninput = keep;
+  const saveSrv = async () => {                                   // 직원 정보(서버)에 연락처 저장
+    keep();
+    const ph = q('sdPh').value.trim(), em = q('sdEm').value.trim();
+    if (!st.id || (ph === savedPh && em === savedEm)) return;
+    if (em && !/^\S+@\S+\.\S+$/.test(em)) return toast('이메일 주소를 확인하세요');
+    try {
+      await api('/admin/staff', { id: st.id, name: st.name, pin: st.pin, wage: st.wage, color: st.color, active: !!st.active, use_break: st.use_break !== 0, phone: ph, email: em });
+      st.phone = ph; st.email = em; savedPh = ph; savedEm = em; toast('연락처를 직원 정보에 저장했습니다');
+    } catch (e) { /* 서버가 아직 연락처를 모르면 이 기기에만 저장됨 */ }
+  };
+  q('sdPh').oninput = keep; q('sdEm').oninput = keep; q('sdPh').onchange = saveSrv; q('sdEm').onchange = saveSrv;
   q('sdAmt').onchange = () => { q('sdTx').value = slipText(s, month, q('sdAmt').checked); };
   const text = () => q('sdTx').value, subj = `[우지커피] ${mo}월 급여명세서`;
+  slipPdf(s, month).then(blob => {
+    file = new File([blob], fname, { type: 'application/pdf' });
+    q('sdPdfShare').disabled = false; q('sdPdfShare').textContent = 'PDF 보내기 (카톡 등)'; q('sdPdfSave').disabled = false;
+  }).catch(e => { q('sdPdfShare').textContent = 'PDF 만들기 실패'; toast(e.message || 'PDF를 만들지 못했습니다', 3500); });
+  q('sdPdfShare').onclick = async () => {
+    if (!file) return;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: subj }); } catch (e) { } }
+    else { saveBlob(file, fname); toast('이 기기는 파일 공유를 지원하지 않아 PDF를 저장했습니다. 카톡에서 파일로 보내세요', 4500); }
+  };
+  q('sdPdfSave').onclick = () => { if (file) { saveBlob(file, fname); toast('PDF를 저장했습니다'); } };
   q('sdSms').onclick = () => {
     const ph = q('sdPh').value.replace(/[^\d+]/g, ''); if (!ph) return toast('전화번호를 입력하세요');
-    keep(); location.href = `sms:${ph}${/iPhone|iPad|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(text())}`;
+    saveSrv(); location.href = `sms:${ph}${/iPhone|iPad|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(text())}`;
   };
   q('sdMail').onclick = () => {
     const em = q('sdEm').value.trim(); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('이메일 주소를 확인하세요');
-    keep(); location.href = `mailto:${em}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(text())}`;
+    saveSrv(); location.href = `mailto:${em}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(text())}`;
   };
   q('sdShare').onclick = async () => {
     if (!navigator.share) return toast('이 기기에서는 공유를 쓸 수 없습니다. [복사]를 눌러 붙여넣으세요', 3500);
@@ -2848,7 +2912,7 @@ async function tabStaff() {
   const PALETTE = [['빨강', '#e4572e'], ['초록', '#1d8a4b'], ['진한녹색', '#0b5d2a'], ['청록', '#00897b'], ['파랑', '#3a6ea5'], ['남색', '#283593'], ['보라', '#9c27b0'], ['분홍', '#c2185b'], ['주황', '#d98200'], ['노랑', '#f5c400'], ['갈색', '#5d4037'], ['회색', '#757575']];
   $('#body').innerHTML = `<div class="card switch"><div><b>직원 출근하기 버튼</b><div class="muted" id="pOnTxt" style="font-size:12.5px">확인 중...</div></div><button class="tog" id="pOn" disabled>...</button></div>
     <div class="card"><div class="row" style="align-items:center"><b>직원 목록</b><button class="sm pri" id="nAdd" style="flex:0 0 auto">직원 추가</button></div>
-    <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}${(c => c ? ` · 계약 주 ${c.min / 60}h` : ' · <span style="color:var(--warn)">계약시간 없음</span>')(contractNow(s, ymd(Date.now()).slice(0, 7)))}</span>${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
+    <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}${(c => c ? ` · 계약 주 ${c.min / 60}h` : ' · <span style="color:var(--warn)">계약시간 없음</span>')(contractNow(s, ymd(Date.now()).slice(0, 7)))}</span>${s.phone || s.email ? `<br><span class="muted" style="font-size:12px">${esc([s.phone, s.email].filter(Boolean).join(' · '))}</span>` : '<br><span class="muted" style="font-size:12px;color:var(--warn)">연락처 없음</span>'}${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
       <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm" data-se="${s.id}">수정</button><button class="sm" data-sx="${s.id}">삭제</button></span></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>
     <div class="card" id="ssCard"><div class="row" style="align-items:center;flex-wrap:wrap"><b style="font-size:16px">직원별 매출</b><span id="ssSel" style="flex:0 0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"></span></div>
     <div id="ssBody" class="muted" style="margin-top:8px">불러오는 중...</div></div>`;
@@ -2863,6 +2927,8 @@ async function tabStaff() {
       <label>이름</label><input id="fN" value="${esc(s ? s.name : '')}">
       <label>PIN (숫자 4~6자리, 직원마다 다르게)</label><input id="fP" inputmode="numeric" value="${esc(s ? s.pin : '')}">
       <label>시급</label><input id="fW" type="number" value="${s ? s.wage : BASEW}">
+      <label>전화번호 (명세서 문자·카톡 보내기용)</label><input id="fPh" type="tel" inputmode="tel" placeholder="010-0000-0000" value="${esc(s ? (s.phone || '') : '')}">
+      <label>이메일</label><input id="fEm" type="email" inputmode="email" placeholder="name@example.com" value="${esc(s ? (s.email || '') : '')}">
       <label>주 계약시간 (소정근로시간)</label>
       <div class="kline"><span>주</span><input id="fK" type="number" inputmode="decimal" step="0.5" min="0" max="52" placeholder="예: 14" value="${curC ? curC.min / 60 : ''}"><span>시간,</span><input id="fKm" type="month" value="${curM}"><span>부터</span></div>
       <div class="muted" style="font-size:12px;margin:2px 0 4px">주휴수당은 이 시간으로 판단합니다 (15시간 이상이면 대상, 금액도 이 시간 기준). 비워 두면 실제 근무시간으로 계산합니다.
@@ -2872,7 +2938,7 @@ async function tabStaff() {
       <label><input id="fB" type="checkbox" style="width:auto" ${!s || s.use_break !== 0 ? 'checked' : ''}> 휴게시간 사용</label>
       <div class="muted" style="font-size:12px;margin:-2px 0 4px 22px">체크: 출근~퇴근 4시간 이상이면 30분(8시간 30분 이상이면 1시간)을 빼고 급여 계산<br>체크 해제: 휴게 없이 근무한 시간 전부를 급여로 계산</div>
       <label><input id="fA" type="checkbox" style="width:auto" ${!s || s.active ? 'checked' : ''}> 재직 중</label>`, '저장', () =>
-      ({ id: s ? s.id : null, name: $('#fN').value, pin: $('#fP').value, wage: +$('#fW').value, color: $('#fC').value, active: $('#fA').checked, use_break: $('#fB').checked,
+      ({ id: s ? s.id : null, name: $('#fN').value, pin: $('#fP').value, wage: +$('#fW').value, phone: $('#fPh').value.trim(), email: $('#fEm').value.trim(), color: $('#fC').value, active: $('#fA').checked, use_break: $('#fB').checked,
          contract: (() => { const k = $('#fK').value.trim(), mth = $('#fKm').value; const prev = s ? contractNow(s, mth) : null;
            if (!mth) return null; if (k === '' && !(prev && prev.month === mth)) return null;           // 안 바꿨으면 보내지 않음
            if (k !== '' && prev && prev.min === Math.round(+k * 60)) return null;
