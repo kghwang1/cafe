@@ -21,6 +21,7 @@ label{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
 .wrap{max-width:900px;margin:0 auto;padding:12px 16px 60px}
 .top{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
 .top h1{font-size:18px;margin:0}
+.top.pl{flex-wrap:wrap;gap:6px}.plhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.plbtns{display:flex;gap:5px;flex-wrap:wrap}.plbtns button.on{background:#e65100;color:#fff;border-color:#e65100}
 .card{background:var(--card);border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .row{display:flex;gap:8px;align-items:flex-end}.row>*{flex:1}
 .muted{color:var(--sub);font-size:13px}
@@ -1260,6 +1261,7 @@ async function api(path, body) {
   const j = await r.json().catch(() => ({ error: '서버 응답을 읽을 수 없습니다.' }));
   if (r.status === 401 && ME) { logout(); throw new Error('다시 로그인해 주세요.'); }
   if (!r.ok && !j.needConfirm) throw new Error(j.error || '오류가 발생했습니다.');
+  if (body && ADMPRAC && /^\/admin\/staff/.test(path)) planTouch();       // 계획수립에서 직원을 바꾸면 계획에 자동 저장
   return j;
 }
 async function run(fn) { try { return await fn(); } catch (e) { toast(e.message, 3500); } }
@@ -1297,6 +1299,7 @@ function getPos() {
 
 function resetIdle() { clearTimeout(idleT); if (TOKEN && !PRACTICE) return; if (ME) idleT = setTimeout(idleLogout, CFG.IDLE_MIN * MIN); }
 async function idleLogout() {
+  if (ADMPRAC) { await flushPlan(); logout(); toast('자동 로그아웃되었습니다.'); return; }   // 계획수립 중이면 저장한 뒤 홈으로
   if (TPL_DIRTY && TPL) { try { await api('/admin/template', { grid: TPL }); } catch (e) {} } // 작성 중인 근무표는 자동 저장
   TPL_DIRTY = false; logout(); toast('자동 로그아웃되었습니다.');
 }
@@ -1345,7 +1348,7 @@ async function practiceFetch(path, init) {
 
 // ===== 로그인 =====
 function logout() {
-  if (TPL_DIRTY && ME && ME.role === 'admin' && !confirm('근무표에 저장하지 않은 변경이 있습니다. 그래도 로그아웃할까요?')) return resetIdle();
+  if (!ADMPRAC && TPL_DIRTY && ME && ME.role === 'admin' && !confirm('근무표에 저장하지 않은 변경이 있습니다. 그래도 로그아웃할까요?')) return resetIdle();
   if (ADMPRAC) { endAdminPractice(); return; }                          // 관리자 연습 중이면 실제 화면으로
   if (TOKEN && !PRACTICE) { location.href = './'; return; }            // 로그인한 기기: 홈으로
   PIN = ''; ME = null; DATA = null; TPL = null; TPL_DIRTY = false; BRUSH = null; TAB = 'grid'; showLogin();
@@ -1778,14 +1781,104 @@ let STAFF = [], PREWEEK = null;
 // ===== 관리자 연습: 실제 자료를 이 기기의 연습장으로 복사해 주간근무표·급여·직원을 연습 =====
 let ADMPRAC = false, PLAN = '';                    // PLAN: 지금 연습장에 불러온 계획 이름
 const PLANPAGE = new URLSearchParams(location.search).has('plan');   // 홈의 '계획수립' 버튼으로 들어온 화면 (관리자 연습 = 계획수립)
-// 계획수립 첫 화면: 들어오면 바로 시작 창을 띄우고, 취소하면 이 화면에서 다시 시작하거나 홈으로
-function showPlanEntry() {
+// 계획수립: 계획마다 직원 구성과 주간근무표를 따로 저장함. 새 계획은 실제 직원으로 시작하고, 그 뒤로는 계획이 자기 직원 내용을 씀.
+// 홈에서 들어오면 중간 화면 없이 마지막으로 편집하던 계획의 주간근무표로 바로 이동 (변경은 자동 저장)
+const LASTPLAN = 'oozyLastPlan';
+const lastPlan = () => { try { return localStorage.getItem(LASTPLAN) || ''; } catch (e) { return ''; } };
+const setLast = n => { try { if (n) localStorage.setItem(LASTPLAN, n); else localStorage.removeItem(LASTPLAN); } catch (e) { } };
+let PLAN_CHG = false, PLAN_SAVING = false, PLAN_T = null;     // 서버에 아직 못 올린 변경 / 저장 중 / 자동저장 타이머
+const tplTabLabel = () => `주간근무표${ADMPRAC && PLAN ? ' · ' + esc(PLAN) : ''}${TPL_DIRTY || (ADMPRAC && PLAN_CHG) ? '*' : ''}`;
+function showPlanEntry(msg) {                                  // 불러오지 못했을 때만 보이는 화면
   $('#app').innerHTML = `<div class="login"><div style="text-align:left;margin-bottom:14px"><a class="homebtn" href="./">🏠 홈</a></div><div class="big">🗓 계획수립</div>
-    <div class="muted" style="margin:8px 0 16px">실제 자료를 이 기기의 연습장으로 복사해 주간근무표 · 급여 · 직원을 마음껏 바꿔 봅니다.<br>실제 운영에는 반영되지 않습니다.</div>
-    <button class="pri" id="plGo" style="width:100%;padding:14px;font-size:17px;font-weight:700">계획수립 시작</button></div>`;
+    <div class="muted" style="margin:8px 0 16px">${esc(msg || '계획을 불러오지 못했습니다.')}</div>
+    <button class="pri" id="plGo" style="width:100%;padding:14px;font-size:17px;font-weight:700">다시 불러오기</button></div>`;
   $('#plGo').onclick = startPlanning;
 }
-async function startPlanning() { await startAdminPractice(); if (!ADMPRAC) showPlanEntry(); }
+async function startPlanning() {
+  $('#app').innerHTML = '<div class="muted" style="padding:60px 0;text-align:center">계획수립 불러오는 중...</div>';
+  let list; try { list = await plansList(); } catch (e) { return showPlanEntry(e.message); }
+  const pick = list.find(x => x.name === lastPlan()) || list[0];          // list: 최근 저장 순
+  const ok = pick ? await openPlan(pick.name) : await newPlan('계획1', 'real');
+  if (!ok && !ADMPRAC) showPlanEntry();
+}
+async function openPlan(name) {
+  let d; try { d = await realApi('/admin/plan?name=' + encodeURIComponent(name)); } catch (e) { toast(e.message, 3500); return false; }
+  return enterPlan(d, name);
+}
+async function enterPlan(d, name) {                            // 계획 내용을 이 기기의 연습장에 넣고 그 계획의 화면을 엶 (직원도 계획에 저장된 것을 그대로 씀)
+  setPractice(true); ADMPRAC = true; PIN = '0000';
+  try { await practiceImport(d); ME = await api('/login'); }
+  catch (e) { ADMPRAC = false; setPractice(false); PIN = ''; toast(e.message, 3500); return false; }
+  clearTimeout(PLAN_T); PLAN = name; PLAN_CHG = false; setLast(name); TAB = 'tpl'; TPL = null; TPL_DIRTY = false;
+  await renderAdmin(); return true;
+}
+// 새 계획: from='real' 실제 직원·근무표로 시작 / 'copy' 지금 계획을 복사. 만들자마자 서버에 저장해 버튼이 생김
+async function newPlan(name, from) {
+  let d; try { d = from === 'copy' ? await api('/admin/backup') : await realBackup(); } catch (e) { toast(e.message, 3500); return false; }
+  d.punch_log = [];
+  try { await realApi('/admin/plan', { name, data: d }); } catch (e) { toast(e.message, 3500); return false; }
+  PLANLIST = PLANLIST.filter(x => x.name !== name).concat({ name, at: Date.now(), staff: (d.staff || []).filter(s => s.active && !s.deleted).length });
+  return enterPlan(d, name);
+}
+async function waitSave() { while (PLAN_SAVING) await new Promise(r => setTimeout(r, 80)); }
+function planTouch() {                                         // 바뀐 게 있으면 잠시 뒤 서버에 자동 저장
+  if (!ADMPRAC || !PLAN) return;
+  PLAN_CHG = true; clearTimeout(PLAN_T); PLAN_T = setTimeout(() => { flushPlan(); }, 2500);
+}
+function planMarks() {
+  const t = document.querySelector('[data-tab="tpl"]'); if (t) t.innerHTML = tplTabLabel();
+  const lab = $('#tStat'); if (lab) lab.innerHTML = (TPL_DIRTY || PLAN_CHG) ? '<b style="color:var(--bad)">저장 안 됨</b>' : '저장됨';
+}
+// 지금 계획(직원·주간근무표 전부)을 서버에 저장. 성공하거나 저장할 게 없으면 true
+async function flushPlan() {
+  if (!ADMPRAC || !PLAN) return true;
+  if (PLAN_SAVING) { await waitSave(); return flushPlan(); }
+  if (!PLAN_CHG && !TPL_DIRTY) return true;
+  clearTimeout(PLAN_T); PLAN_SAVING = true; PLAN_CHG = false;
+  const name = PLAN;
+  try {
+    const snap = TPL ? JSON.stringify(TPL) : null;
+    if (TPL && TPL_DIRTY) { await api('/admin/template', { grid: TPL }); if (snap === JSON.stringify(TPL)) TPL_DIRTY = false; else PLAN_CHG = true; }
+    const d = await api('/admin/backup'); d.punch_log = [];            // 수정 이력은 빼서 용량을 줄임
+    await realApi('/admin/plan', { name, data: d });
+    const n = (d.staff || []).filter(x => x.active && !x.deleted).length, it = PLANLIST.find(x => x.name === name);
+    if (it) { it.at = Date.now(); it.staff = n; } else PLANLIST.push({ name, at: Date.now(), staff: n });
+  } catch (e) { PLAN_CHG = true; PLAN_SAVING = false; toast('계획 저장 실패: ' + e.message, 3500); planMarks(); return false; }
+  PLAN_SAVING = false;
+  if (PLAN_CHG) planTouch();
+  planMarks(); return true;
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPlan(); });
+async function switchPlan(n) {
+  if (n === PLAN) return;
+  if (!await flushPlan() && !confirm('지금 계획을 서버에 저장하지 못했습니다. 그래도 이동할까요? (저장 안 된 변경은 사라집니다)')) return;
+  toast(`「${n}」 불러오는 중...`, 2000);
+  if (!await openPlan(n) && !ADMPRAC) showPlanEntry(`「${n}」 계획을 불러오지 못했습니다.`);
+}
+async function planNew() {
+  if (!await flushPlan() && !confirm('지금 계획을 서버에 저장하지 못했습니다. 그래도 새 계획을 만들까요?')) return;
+  const names = PLANLIST.map(x => x.name); let i = names.length + 1; while (names.includes('계획' + i)) i++;
+  const v = await modal(`<h3>새 계획</h3><label>계획 이름</label><input id="npN" maxlength="30" value="계획${i}">
+    <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="radio" name="npF" value="real" checked style="width:auto"> 실제 직원 · 근무표로 시작</label>
+    <label style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="radio" name="npF" value="copy" style="width:auto"> 지금 계획 「${esc(PLAN)}」 복사</label>
+    <div class="muted" style="font-size:12.5px;margin-top:8px">계획마다 직원 구성과 주간근무표가 따로 저장됩니다.</div>`, '만들기', () => {
+      const n = $('#npN').value.trim(); if (!n) { toast('계획 이름을 넣으세요'); return false; }
+      if (names.includes(n)) { toast('이미 있는 이름입니다'); return false; }
+      return { n, from: document.querySelector('input[name="npF"]:checked').value }; });
+  if (!v) return;
+  toast('새 계획을 만드는 중...');
+  if (!await newPlan(v.n, v.from) && !ADMPRAC) showPlanEntry('새 계획을 만들지 못했습니다.');
+  else if (ADMPRAC && PLAN === v.n) toast(`「${v.n}」 계획을 만들었습니다`);
+}
+async function planDelete() {
+  if (!PLAN || !confirm(`「${PLAN}」 계획을 지울까요?\n(이 계획의 직원 구성과 주간근무표가 함께 지워집니다)`)) return;
+  const n = PLAN; clearTimeout(PLAN_T); await waitSave(); PLAN_CHG = false; TPL_DIRTY = false;
+  try { await realApi('/admin/plan/delete', { name: n }); } catch (e) { return toast(e.message, 3500); }
+  PLAN = ''; setLast(''); PLANLIST = PLANLIST.filter(x => x.name !== n);
+  const next = PLANLIST.slice().sort((a, b) => b.at - a.at)[0];
+  const ok = next ? await openPlan(next.name) : await newPlan('계획1', 'real');
+  if (!ok && !ADMPRAC) showPlanEntry(); else toast(`「${n}」 계획을 지웠습니다`);
+}
 const PLANKEY = 'oozyPracticePlans';             // 예전에 이 기기에만 저장하던 계획 (서버로 옮긴 뒤 지움)
 // 연습 계획은 실제 서버에 보관 (연습 중에도 practice 가 아니라 실제 서버로 직접 요청)
 async function realApi(path, body) {
@@ -1808,115 +1901,14 @@ async function practiceImport(d) {
   const r = await practiceFetch('/practice/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
   const j = await r.json(); if (!r.ok) throw new Error(j.error || '불러오지 못했습니다'); return j;
 }
-// 연습 계획 저장: 이름을 붙여 지금 연습장 전체(직원·근무표·예정·기록·계약시간)를 서버에 보관
-async function savePlan() {
-  if (TPL_DIRTY && TPL) { try { await api('/admin/template', { grid: TPL }); TPL_DIRTY = false; } catch (e) { } }   // 작성 중인 근무표도 함께
-  let list; try { list = await plansList(); } catch (e) { return toast(e.message, 3500); }
-  const plans = {}; list.forEach(x => plans[x.name] = x); const names = list.map(x => x.name);
-  setTimeout(() => document.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => { $('#plN').value = b.dataset.pn; }), 0);
-  const name = await modal(`<h3>연습 계획 저장</h3><label>계획 이름</label><input id="plN" maxlength="30" placeholder="예: A안 - 핵심 2명 + 보조 4명" value="${esc(PLAN)}">
-    ${names.length ? `<div class="muted" style="font-size:12.5px;margin-top:8px">저장된 계획 (같은 이름이면 덮어씁니다)</div><div class="plist">${names.map(n => `<button type="button" class="sm" data-pn="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}`,
-    '저장', () => { const v = $('#plN').value.trim(); if (!v) { toast('계획 이름을 넣으세요'); return false; } return v; });
-  if (!name) return;
-  if (plans[name] && name !== PLAN && !confirm(`「${name}」 계획을 지금 내용으로 덮어쓸까요?`)) return;
-  const d = await run(() => api('/admin/backup')); if (!d) return;
-  d.punch_log = [];                                   // 수정 이력은 빼서 용량을 줄임
-  try { await realApi('/admin/plan', { name, data: d }); } catch (e) { return toast(e.message, 3500); }
-  PLAN = name; toast(`「${name}」 계획을 서버에 저장했습니다`); renderAdmin();
-}
-async function loadPlan() {
-  let list; try { list = await plansList(); } catch (e) { return toast(e.message, 3500); }
-  const plans = {}; list.forEach(x => plans[x.name] = x); const names = list.map(x => x.name);
-  const pick = modal(`<h3>연습 계획 불러오기</h3>
-    ${names.length ? `<div class="list">${names.map(n => `<div><span><b>${esc(n)}</b><br><span class="muted" style="font-size:12px">저장 ${mdw(plans[n].at)} ${hhmm(plans[n].at)} · 직원 ${plans[n].staff}명</span></span>
-      <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm pri" data-pl="${esc(n)}">불러오기</button><button class="sm" data-pd="${esc(n)}">삭제</button></span></div>`).join('')}</div>`
-      : '<div class="muted">저장된 계획이 없습니다. 연습한 뒤 [저장]을 눌러 이름을 붙여 보관하세요.</div>'}
-    <button class="sm" id="plReal" style="width:100%;margin-top:12px">↺ 실제 자료로 새로 시작</button>`, '닫기', undefined, null);
-  bindPlanModal();
-  return await pick;
-}
-function bindPlanModal() {
-  const box = [...document.querySelectorAll('.mbg')].pop(); if (!box) return;
-  const close = () => box.remove();
-  box.querySelectorAll('[data-pl]').forEach(b => b.onclick = async () => {
-    if (TPL_DIRTY && !confirm('저장하지 않은 연습 근무표 변경이 있습니다. 그래도 불러올까요?')) return;
-    const n = b.dataset.pl; close();
-    try { toast('계획을 불러오는 중...'); await practiceImport(await withRealStaff(await realApi('/admin/plan?name=' + encodeURIComponent(n)))); } catch (e) { return toast(e.message, 3500); }
-    PLAN = n; TPL = null; TPL_DIRTY = false; TAB = 'tpl'; renderAdmin(); toast(`「${n}」 계획을 불러왔습니다`);
-  });
-  box.querySelectorAll('[data-pd]').forEach(b => b.onclick = async () => {
-    const n = b.dataset.pd; if (!confirm(`「${n}」 계획을 지울까요?`)) return;
-    try { await realApi('/admin/plan/delete', { name: n }); } catch (e) { return toast(e.message, 3500); }
-    if (PLAN === n) PLAN = ''; close(); toast('지웠습니다'); renderAdmin();
-  });
-  const rl = box.querySelector('#plReal'); if (rl) rl.onclick = async () => {
-    if (!confirm('지금 연습 내용을 지우고 실제 자료로 새로 시작할까요? (저장한 계획은 그대로 남습니다)')) return;
-    close(); const d = await run(() => realBackup()); if (!d) return;
-    try { await practiceImport(d); } catch (e) { return toast(e.message, 3500); }
-    PLAN = ''; TPL = null; TPL_DIRTY = false; TAB = 'tpl'; renderAdmin(); toast('실제 자료로 새로 시작했습니다');
-  };
-}
-// 저장해 둔 계획을 불러올 때마다 직원은 실제 서버의 최신 직원으로 다시 맞춤 (새로 들어온 직원·바뀐 이름/시급이 반영됨).
-// 연습에서만 만든 직원(실제에 없는 번호)은 그대로 둠
-// 계획수립의 직원은 관리자 직원 페이지(실제 직원 목록)를 그대로 씀 — 이름·시급·색·휴게·계약시간이 실제와 같고, 실제에 없는 직원(예전 연습용)은 뺌
-async function withRealStaff(d) {
-  try {
-    const real = await realBackup(), rs = real.staff || [], ids = new Set(rs.map(s => s.id));
-    d.staff = rs; d.contract = real.contract || [];
-    for (const t of ['schedule', 'punch', 'edit_request', 'payslip']) if (d[t]) d[t] = d[t].filter(r => ids.has(r.staff_id));   // 없는 직원의 기록은 정리
-    for (const r of (d.settings || [])) if (r.k === 'template') {                                                              // 근무표 칸에서도 없는 직원 제거
-      try { const o = JSON.parse(r.v), g = o.grid || {};
-        for (const k in g) { g[k] = (g[k] || []).filter(x => x === 'O' || ids.has(x)); if (!g[k].length) delete g[k]; }
-        r.v = JSON.stringify(o); } catch (e) { }
-    }
-  } catch (e) { toast('실제 직원 목록을 받지 못해 저장된 직원으로 시작합니다', 3500); }
-  return d;
-}
 // 연습 중에 실제 서버 자료 받기 (토큰으로 실제 서버에 물음)
 async function realBackup() {
   const r = await fetch(CFG.API + '/admin/backup', { headers: { 'X-Token': TOKEN } });
   const j = await r.json(); if (!r.ok) throw new Error(j.error || '실제 자료를 받지 못했습니다'); return j;
 }
-async function startAdminPractice() {
-  // 저장된 연습 내용이 있으면 먼저 고르게 함: 이어서 연습 / 실제 자료로 새로 시작
-  let list = []; try { list = await plansList(); } catch (e) { }
-  let fresh = false;
-  if (list.length) {
-    let CHOICE = null;
-    const mp = modal(`<h3>계획수립</h3>저장된 연습 내용이 있습니다. 이어서 할 내용을 고르거나, 실제 자료로 새로 시작하세요.
-      <div class="list" style="margin-top:8px">${list.map(x => `<div><span><b>${esc(x.name)}</b><br><span class="muted" style="font-size:12px">저장 ${mdw(x.at)} ${hhmm(x.at)} · 직원 ${x.staff}명</span></span>
-        <span style="flex:0 0 auto"><button class="sm pri" data-sp="${esc(x.name)}">이어서 연습</button></span></div>`).join('')}</div>
-      <button class="sm" id="spReal" style="width:100%;margin-top:12px">↺ 실제 자료로 새로 시작</button>`, '취소', () => CHOICE, null);
-    const box = [...document.querySelectorAll('.mbg')].pop();
-    box.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { CHOICE = { plan: b.dataset.sp }; box.querySelector('[data-ok]').click(); });
-    box.querySelector('#spReal').onclick = () => { CHOICE = { fresh: true }; box.querySelector('[data-ok]').click(); };
-    const ch = await mp;
-    if (!ch) return;
-    if (ch.plan) {
-      toast('저장된 연습 내용을 불러오는 중...');
-      let d; try { d = await withRealStaff(await realApi('/admin/plan?name=' + encodeURIComponent(ch.plan))); } catch (e) { return toast(e.message, 3500); }
-      setPractice(true); ADMPRAC = true; PIN = '0000';
-      try { await practiceImport(d); PLAN = ch.plan; ME = await api('/login'); }
-      catch (e) { ADMPRAC = false; setPractice(false); PIN = ''; return toast(e.message, 3500); }
-      TAB = 'tpl'; TPL = null; TPL_DIRTY = false; renderAdmin(); toast(`「${ch.plan}」 내용으로 연습을 시작합니다`, 3000);
-      return;
-    }
-    fresh = true;                                    // 실제 자료로 새로 시작: 아래 확인 단계는 건너뜀
-  }
-  if (!fresh && !await modal(`<h3>계획수립</h3>지금의 <b>직원 · 주간근무표 · 근무 예정 · 출퇴근 기록 · 계약시간</b>을 이 기기의 연습장으로 복사합니다.<br><br>
-      연습에서는 <b>주간근무표 · 급여 · 직원</b>을 마음껏 바꿔 볼 수 있고, <b>실제 운영에는 전혀 반영되지 않습니다.</b>
-      <div class="muted" style="margin-top:6px;font-size:12.5px">시작할 때마다 실제 자료로 새로 복사됩니다.</div>`, '연습 시작')) return;
-  toast('실제 자료를 복사하는 중...');
-  const d = await run(() => api('/admin/backup')); if (!d) return;
-  setPractice(true); ADMPRAC = true; PIN = '0000';
-  try {
-    await practiceImport(d); PLAN = '';
-    ME = await api('/login');
-  } catch (e) { ADMPRAC = false; setPractice(false); PIN = ''; return toast(e.message, 3500); }
-  TAB = 'tpl'; renderAdmin(); toast('연습을 시작합니다. 실제 운영에는 반영되지 않습니다', 3000);
-}
 async function endAdminPractice() {
-  if (TPL_DIRTY && !confirm('연습 근무표에 저장하지 않은 변경이 있습니다. 그래도 홈으로 갈까요?')) return;
+  if (PLAN) { if (!await flushPlan() && !confirm('계획을 서버에 저장하지 못했습니다. 그래도 홈으로 갈까요?')) return; }
+  else if (TPL_DIRTY && !confirm('연습 근무표에 저장하지 않은 변경이 있습니다. 그래도 홈으로 갈까요?')) return;
   ADMPRAC = false; PLAN = ''; setPractice(false); PIN = ''; TPL_DIRTY = false; TAB = 'tpl';
   if (PLANPAGE) { location.href = './'; return; }                         // 계획수립 화면: 끝내면 홈으로
   try { ME = await api('/login'); } catch (e) { location.href = './'; return; }
@@ -1927,19 +1919,30 @@ async function renderAdmin() {
   const [sf, rq] = await Promise.all([run(() => api('/admin/staff')), run(() => api('/admin/requests'))]);
   STAFF = sf || []; const reqs = rq || [];
   PREWEEK = wk;
-  const tabs = ADMPRAC ? [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`]]            // 계획수립: 주간근무표만 (직원은 관리자 직원 페이지 내용을 그대로 사용)
-    : [['tpl', `주간근무표${TPL_DIRTY ? '*' : ''}`], ['grid', '근무기록'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
+  const tabs = ADMPRAC ? [['tpl', tplTabLabel()], ['staff', '직원']]            // 계획수립: 주간근무표 + 이 계획의 직원
+    : [['tpl', tplTabLabel()], ['grid', '근무기록'], ['punch', '추가기록/수정'], ['req', `수정요청${reqs.length ? ' ' + reqs.length : ''}`], ['pay', '급여'], ['staff', '직원'], ['bak', '백업']];
   if (!tabs.some(([k]) => k === TAB)) TAB = tabs[0][0];
-  $('#app').innerHTML = `<div class="wrap"><div class="top"><h1>${ADMPRAC ? '계획수립' : '관리자'}</h1><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ADMPRAC
-      ? '<button class="sm" id="plSave" style="background:#1f4d34;color:#fff">저장</button><button class="sm" id="plLoad">불러오기</button><button class="sm pri" id="pracEnd">홈</button>'
+  const pnames = PLANLIST.map(x => x.name).concat(PLAN && !PLANLIST.some(x => x.name === PLAN) ? [PLAN] : []).sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+  $('#app').innerHTML = `<div class="wrap"><div class="top${ADMPRAC ? ' pl' : ''}"><div class="plhead"><h1>${ADMPRAC ? '계획수립' : '관리자'}</h1>${ADMPRAC
+      ? `<span class="plbtns">${pnames.map(n => `<button class="sm${n === PLAN ? ' on' : ''}" data-plan="${esc(n)}">${esc(n)}</button>`).join('')}<button class="sm" id="plNew">＋ 새 계획</button></span>` : ''}</div>
+      <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ADMPRAC
+      ? '<button class="sm" id="plSave" style="background:#1f4d34;color:#fff">저장</button><button class="sm" id="plDel">삭제</button><button class="sm pri" id="pracEnd">홈</button>'
       : `<a class="homebtn" href="./">🏠 홈</a><button class="sm" id="out">로그아웃</button>`}</span></div>
-    ${ADMPRAC ? `<div class="card" style="background:#fff3e0;font-size:13px;color:#7a4a00">${PLAN ? `지금 계획: <b style="font-size:15px">「${esc(PLAN)}」</b><br>` : '<b>실제 자료를 복사한 연습장</b>입니다.<br>'}여기서 바꾼 내용은 실제 운영에 반영되지 않습니다. [저장]으로 이름을 붙여 여러 계획을 이 기기에 보관할 수 있습니다.</div>` : ''}
+    ${ADMPRAC ? `<div class="card" style="background:#fff3e0;font-size:13px;color:#7a4a00">계획마다 <b>직원 구성</b>과 <b>주간근무표</b>가 따로 저장됩니다 (바꾸면 자동 저장). 새 계획은 실제 직원으로 시작하며, 실제 운영에는 반영되지 않습니다.</div>` : ''}
     <div class="tabs admintabs">${tabs.map(([k, n]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="body"></div></div>`;
   if ($('#out')) $('#out').onclick = logout;
   if ($('#pracEnd')) $('#pracEnd').onclick = endAdminPractice;
-  if ($('#plSave')) $('#plSave').onclick = savePlan;
-  if ($('#plLoad')) $('#plLoad').onclick = () => { loadPlan(); };
-  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderAdmin(); });
+  if ($('#plSave')) $('#plSave').onclick = async () => { PLAN_CHG = true; if (await flushPlan()) toast(`「${PLAN}」 계획을 저장했습니다`); };
+  if ($('#plDel')) $('#plDel').onclick = planDelete;
+  if ($('#plNew')) $('#plNew').onclick = planNew;
+  document.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => switchPlan(b.dataset.plan));
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = async () => {
+    if (ADMPRAC) {                                   // 탭을 옮기기 전에 편집 중인 근무표를 연습장에 반영 (직원이 바뀌면 근무표를 다시 읽음)
+      if (TPL && TPL_DIRTY) { try { await api('/admin/template', { grid: TPL }); TPL_DIRTY = false; } catch (e) { return toast(e.message, 3500); } }
+      TPL = null;
+    }
+    TAB = b.dataset.tab; renderAdmin();
+  });
   ({ tpl: tabTpl, grid: tabGrid, punch: tabPunch, req: () => tabReq(reqs), pay: tabPay, staff: tabStaff, bak: tabBackup })[TAB]();
 }
 const staffOpts = sel => STAFF.filter(s => s.active || s.id === sel).map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
@@ -2029,7 +2032,7 @@ async function tabTpl() {
   $('#body').innerHTML = `<div class="card">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <b style="font-size:16px">주간 근무표</b>
-        <span class="muted" id="tStat">${TPL_DIRTY ? '<b style="color:var(--bad)">저장 안 됨</b>' : '저장됨'}</span>
+        <span class="muted" id="tStat">${TPL_DIRTY || (ADMPRAC && PLAN_CHG) ? '<b style="color:var(--bad)">저장 안 됨</b>' : '저장됨'}</span>
         <span style="flex:1"></span>
         ${ADMPRAC ? '' : '<button class="sm" id="tLoad">불러오기</button><button class="sm" id="tSave">저장</button><button class="sm pri" id="tApply">적용</button>'}</div>
       <div class="muted hs" style="font-size:12px;margin:6px 0 0">30분 위치:<button data-s="F">앞 30분</button><button data-s="B">뒤 30분</button><br>
@@ -2038,7 +2041,7 @@ async function tabTpl() {
         ${['O'].concat(active.map(s => s.id)).sort(byRank).map(x => { const s = STAFF.find(s => s.id === x);
           return x === 'O' ? '<button data-b="O" style="background:#cfc8e8;color:#3b315e">Owner</button>' : `<button data-b="${s.id}" style="background:${s.color};color:${onC(s.color)}">${esc(s.name)}</button>`; }).join('')}
       </div>
-      ${active.length ? '' : '<div class="warnlist">' + (ADMPRAC ? '근무 · 급여의 관리자 화면 → 직원 탭에서 직원을 먼저 등록하세요.' : '직원 탭에서 직원을 먼저 등록하세요.') + '</div>'}
+      ${active.length ? '' : '<div class="warnlist">' + (ADMPRAC ? '위의 [직원] 버튼에서 이 계획의 직원을 먼저 등록하세요.' : '직원 탭에서 직원을 먼저 등록하세요.') + '</div>'}
       <div class="tgrid" id="tg">${g}</div>
       <div style="text-align:right;margin-top:8px"><button class="sm" id="tClear">직원 근무 모두 지우기 (Owner 표시는 유지)</button></div>
     </div>
@@ -2083,8 +2086,8 @@ function drawCell(el) {
   el.innerHTML = items.map(([x, t]) => chip(x, t > 0, t === 2)).join('');
 }
 function dirty() {
-  TPL_DIRTY = true;
-  const t = document.querySelector('[data-tab="tpl"]'); if (t) t.textContent = '주간근무표*';
+  TPL_DIRTY = true; planTouch();                     // 계획수립 중이면 잠시 뒤 서버에 자동 저장
+  const t = document.querySelector('[data-tab="tpl"]'); if (t) t.innerHTML = tplTabLabel();
   const lab = $('#tStat'); if (lab) lab.innerHTML = '<b style="color:var(--bad)">저장 안 됨</b>';
 }
 // target: 'f' = 1시간 전체, 'h' = 앞 30분, 'b' = 뒤 30분  ·  저장: "요일-시" / "요일-시.5" / "요일-시.b"
@@ -2738,6 +2741,7 @@ async function staffSales() {
 }
 async function tabStaff() {
   setTimeout(async () => {                         // 출근하기 버튼 사용 여부
+    if (ADMPRAC) return;
     const draw = on => { const b = $('#pOn'); if (!b) return; b.disabled = false; b.className = 'tog ' + (on ? 'on' : 'off'); b.textContent = on ? '사용 중' : '잠김';
       $('#pOnTxt').textContent = on ? '직원이 출근하기를 누를 수 있습니다.' : '직원 화면의 출근하기 버튼이 회색으로 잠겨 있습니다.';
       b.onclick = async () => { if (!await modal(`<h3>출근하기 버튼</h3>직원 출근하기 버튼을 <b>${on ? '잠글까요' : '사용하도록 할까요'}</b>?`, on ? '잠그기' : '사용하기')) return;
@@ -2752,7 +2756,8 @@ async function tabStaff() {
       <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm" data-se="${s.id}">수정</button><button class="sm" data-sx="${s.id}">삭제</button></span></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>
     <div class="card" id="ssCard"><div class="row" style="align-items:center;flex-wrap:wrap"><b style="font-size:16px">직원별 매출</b><span id="ssSel" style="flex:0 0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"></span></div>
     <div id="ssBody" class="muted" style="margin-top:8px">불러오는 중...</div></div>`;
-  staffSales();
+  if (ADMPRAC) { ['.switch', '#ssCard'].forEach(q => { const e = document.querySelector('#body ' + q); if (e) e.remove(); }); }   // 계획수립: 직원 목록만
+  else staffSales();
   const edit = async s => {
     const col = s ? s.color : COLORS[STAFF.length % COLORS.length];
     const curM = ymd(Date.now()).slice(0, 7), curC = s ? contractNow(s, curM) : null;
@@ -2811,7 +2816,7 @@ async function tabStaff() {
     if (r.status === 401) { try { localStorage.removeItem('oozyToken'); localStorage.removeItem('oozyAuth'); } catch (e) { } location.replace('./'); return; }
     const j = await r.json(); if (!r.ok) throw new Error(j.error || '오류');
     ME = j; WEEK = monday(new Date());
-    if (PLANPAGE) { if (ME.role !== 'admin') { location.replace('./'); return; } showPlanEntry(); startPlanning(); return; }   // 홈의 '계획수립' (관리자만)
+    if (PLANPAGE) { if (ME.role !== 'admin') { location.replace('./'); return; } startPlanning(); return; }   // 홈의 '계획수립' (관리자만)
     const qt = q.get('tab'); if (qt && ME.role === 'admin') TAB = qt;                  // 홈에서 바로 가기 (예: ?tab=bak)
     ME.role === 'admin' ? renderAdmin() : renderStaff();
   } catch (e) {
