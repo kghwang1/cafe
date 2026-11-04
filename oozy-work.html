@@ -2655,6 +2655,41 @@ async function needPdfLibs() {
     if (!test()) throw new Error('PDF 도구를 불러오지 못했습니다. 인터넷을 확인하세요.');
   }
 }
+// PDF 저장: 같은 이름의 PDF는 처음 저장한 그 파일에 새 내용으로 덮어씀
+//  - PC 크롬·엣지: 처음 한 번 저장 위치를 고르면, 다음부터는 같은 파일에 바로 덮어씀 (파일 위치는 이 기기에 기억)
+//  - 휴대폰 등 그 기능이 없는 브라우저: 보통 내려받기 (같은 이름이 있으면 브라우저가 (1)을 붙일 수 있음)
+const PDF_DB = 'oozyPdfFiles';
+function pdfDb() {
+  return new Promise((res, rej) => { const r = indexedDB.open(PDF_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+async function pdfHandle(name, h) {
+  try {
+    const db = await pdfDb();
+    return await new Promise(res => {
+      const tx = db.transaction('h', h ? 'readwrite' : 'readonly'), st = tx.objectStore('h');
+      const r = h ? st.put(h, name) : st.get(name);
+      r.onsuccess = () => res(h ? true : r.result || null); r.onerror = () => res(null);
+    });
+  } catch (e) { return null; }
+}
+async function savePdf(file, name) {
+  if (!window.showSaveFilePicker) { saveBlob(file, name); return 'new'; }
+  const write = async h => { const w = await h.createWritable(); await w.write(file); await w.close(); };
+  let h = await pdfHandle(name);
+  if (h) {
+    try {
+      const ok = (await h.queryPermission({ mode: 'readwrite' })) === 'granted' || (await h.requestPermission({ mode: 'readwrite' })) === 'granted';
+      if (ok) { await write(h); return 'over'; }
+    } catch (e) { /* 파일을 옮기거나 지웠으면 다시 고르기 */ }
+  }
+  try {
+    h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }] });
+    await write(h); await pdfHandle(name, h); return 'new';
+  } catch (e) {
+    if (e && e.name === 'AbortError') { toast('저장을 취소했습니다'); return null; }
+    saveBlob(file, name); return 'new';
+  }
+}
 // 명세서 한 장을 그림(canvas)으로
 async function slipCanvas(s, month) {
   const box = document.createElement('div');
@@ -2664,7 +2699,7 @@ async function slipCanvas(s, month) {
   document.body.appendChild(box);
   try {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    return await window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    return await window.html2canvas(box, { scale: 4, backgroundColor: '#ffffff', useCORS: true });   // 4배로 그려 글씨를 선명하게
   } finally { box.remove(); }
 }
 // 그림 여러 장 → PDF (직원마다 새 쪽에서 시작, 길면 다음 쪽으로 이어짐). 쪽 그림도 함께 돌려줌 (화면 미리보기용)
@@ -2676,9 +2711,9 @@ function canvasesPdf(cvs) {
     for (let y = 0; y < cv.height; y += ph) {
       const part = document.createElement('canvas'); part.width = cv.width; part.height = Math.min(ph, cv.height - y);
       part.getContext('2d').drawImage(cv, 0, y, cv.width, part.height, 0, 0, cv.width, part.height);
-      const img = part.toDataURL('image/jpeg', 0.92);
+      const img = part.toDataURL('image/png');                 // PNG: 글씨 가장자리가 번지지 않음
       if (pages.length) pdf.addPage();
-      pdf.addImage(img, 'JPEG', m, m, iw, part.height * iw / cv.width);
+      pdf.addImage(img, 'PNG', m, m, iw, part.height * iw / cv.width, undefined, 'FAST');
       pages.push(img);
     }
   });
@@ -2695,9 +2730,9 @@ async function allSlipsPdf(P) {
     await needPdfLibs();
     const cvs = [];
     for (const [i, s] of list.entries()) { if (btn) btn.textContent = `PDF 만드는 중 ${i + 1}/${list.length}`; cvs.push(await slipCanvas(s, P.month)); }
-    const fname = `${+P.month.slice(5, 7)}월_급여명세서_전체(${list.length}명).pdf`;
-    saveBlob(new File([canvasesPdf(cvs).blob], fname, { type: 'application/pdf' }), fname);
-    toast(`${list.length}명 명세서를 PDF 한 파일로 저장했습니다`, 3500);
+    const fname = `${P.month.slice(0, 4)}년_${+P.month.slice(5, 7)}월_급여명세서_전체.pdf`;
+    const how = await savePdf(new File([canvasesPdf(cvs).blob], fname, { type: 'application/pdf' }), fname);
+    if (how) toast(`${list.length}명 명세서를 PDF로 ${how === 'over' ? '저장했습니다 (같은 파일에 새 내용으로 덮어씀)' : '저장했습니다'}`, 4000);
   } catch (e) { toast(e.message || 'PDF를 만들지 못했습니다', 3500); }
   finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
 }
@@ -2708,7 +2743,7 @@ const markSent = (month, id) => { try { const o = JSON.parse(localStorage.getIte
 // [보내기]: 그 직원 명세서 PDF를 화면에 보여 주고, 아래 [카톡 발송]
 async function sendSlip(s, month) {
   if (!s) return;
-  const mo = +month.slice(5, 7), fname = `${mo}월_급여명세서_${s.name}.pdf`;
+  const mo = +month.slice(5, 7), fname = `${month.slice(0, 4)}년_${mo}월_급여명세서_${s.name}.pdf`;
   const bg = document.createElement('div'); bg.className = 'slipbg';
   bg.innerHTML = `<div class="slipbar" style="background:rgba(30,20,15,.92);padding:8px 10px;border-radius:10px"><b style="margin-right:auto;color:#fff;align-self:center">${esc(s.name)} 님 ${mo}월 명세서 (PDF)</b><button class="sm pri" id="kvClose">닫기</button></div>
     <div class="pdfview" id="kvPages"><div class="pdfwait">PDF 만드는 중...</div></div>
@@ -2731,7 +2766,7 @@ async function sendSlip(s, month) {
     q('kvPages').innerHTML = r.pages.map((src, i) => `<img src="${src}" alt="명세서 ${i + 1}쪽">`).join('');
     q('kvKakao').disabled = false; q('kvSave').disabled = false;
   } catch (e) { q('kvPages').innerHTML = `<div class="pdfwait">${esc(e.message || 'PDF를 만들지 못했습니다')}</div>`; }
-  q('kvSave').onclick = () => { if (file) { saveBlob(file, fname); toast('PDF를 저장했습니다'); } };
+  q('kvSave').onclick = async () => { if (file) { const h = await savePdf(file, fname); if (h) toast(h === 'over' ? 'PDF를 새 내용으로 덮어썼습니다' : 'PDF를 저장했습니다'); } };
   q('kvKakao').onclick = () => file && kakaoSend(s, month, file, fname, showSent);
 }
 // 카톡 발송 과정: ① 안내 → ② 공유 창(카카오톡 → 받는 사람 → 전송) → ③ 보냈는지 확인
@@ -2751,7 +2786,7 @@ async function kakaoSend(s, month, file, fname, after) {
   if (canFile) {
     try { await navigator.share({ files: [file], title: `${mo}월 급여명세서` }); shared = true; }
     catch (e) { if (e && e.name === 'AbortError') return toast('보내기를 취소했습니다'); saveBlob(file, fname); toast('공유 창을 열지 못해 PDF를 저장했습니다. 카톡에서 파일로 보내세요', 4500); }
-  } else saveBlob(file, fname);
+  } else await savePdf(file, fname);
   const ok = await modal(`<h3>보냈나요?</h3>${esc(s.name)} 님에게 카톡으로 명세서를 보냈으면 <b>보냈음</b>을 누르세요.<div class="muted" style="font-size:12px;margin-top:6px">이 기기에 보낸 시각이 표시됩니다.</div>`, '보냈음', undefined, shared ? '아직' : '나중에');
   if (ok) { markSent(month, s.id); toast(`${s.name} 님 카톡 발송을 표시했습니다`); if (after) after(); if (typeof tabPay === 'function' && $('#pPdfAll')) tabPay(); }
 }
@@ -2759,7 +2794,7 @@ async function sendOther(s, month) {
   if (!s) return;
   const st = STAFF.find(x => x.id === s.id) || {}, c0 = loadContacts()[s.id] || {}, mo = +month.slice(5, 7);
   const c = { phone: st.phone || c0.phone || '', email: st.email || c0.email || '' };
-  const fname = `${mo}월_급여명세서_${s.name}.pdf`;
+  const fname = `${month.slice(0, 4)}년_${mo}월_급여명세서_${s.name}.pdf`;
   modal(`<h3>${esc(s.name)} 님 명세서 보내기</h3>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><button class="sm pri" id="sdPdfShare" disabled>PDF 만드는 중...</button><button class="sm" id="sdPdfSave" disabled>PDF 저장</button></div>
     <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px"><b>PDF 보내기</b>를 누르면 공유 창이 뜹니다 → <b>카카오톡</b> → ${esc(s.name)} 님 대화방을 고르고 전송하세요. (카톡이 안 보이면 [PDF 저장] 후 카톡에서 파일 첨부)</div>
@@ -2795,7 +2830,7 @@ async function sendOther(s, month) {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: subj }); } catch (e) { } }
     else { saveBlob(file, fname); toast('이 기기는 파일 공유를 지원하지 않아 PDF를 저장했습니다. 카톡에서 파일로 보내세요', 4500); }
   };
-  q('sdPdfSave').onclick = () => { if (file) { saveBlob(file, fname); toast('PDF를 저장했습니다'); } };
+  q('sdPdfSave').onclick = async () => { if (file) { const h = await savePdf(file, fname); if (h) toast(h === 'over' ? 'PDF를 새 내용으로 덮어썼습니다' : 'PDF를 저장했습니다'); } };
   q('sdSms').onclick = () => {
     const ph = q('sdPh').value.replace(/[^\d+]/g, ''); if (!ph) return toast('전화번호를 입력하세요');
     saveSrv(); location.href = `sms:${ph}${/iPhone|iPad|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(text())}`;
