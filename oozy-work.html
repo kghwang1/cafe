@@ -2470,7 +2470,7 @@ async function editPunch(p, fromWeek, day) {
     <div class="muted" style="font-size:12px" id="kRn">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
     <div class="otchk"><div class="kinds">
       <label><input type="checkbox" id="kO" ${p && p.ot ? 'checked' : ''}> <b>추가</b></label>
-      ${['교육', '행사'].map(t => `<label><input type="checkbox" data-kt="${t}" ${tagHas(p, t) ? 'checked' : ''}> <b>${t}</b></label>`).join('')}
+      ${['교육', '행사'].map(t => `<label><input type="checkbox" data-kt="${t}" ${tagHas(p, t) ? 'checked' : ''}> <b>${t}(계약전)</b></label>`).join('')}
       <label><input type="checkbox" id="kEtc" ${tagEtc(p) != null ? 'checked' : ''}> <b>기타</b></label></div>
       <input type="text" id="kEtcT" maxlength="30" placeholder="기타 내용 (예: 매장 청소)" value="${esc(tagEtc(p) || '')}" ${tagEtc(p) != null ? '' : 'hidden'}>
       <div class="muted">추가: <b>추가근무 시급</b>으로 계산 (급여 탭에서 설정) · 교육·행사: 각 시급 (급여 탭) · 기타: 표시만 (기본 시급)</div></div>
