@@ -2773,22 +2773,23 @@ async function sendSlip(s, month) {
 async function kakaoSend(s, month, file, fname, after) {
   const mo = +month.slice(5, 7), msg = `[우지커피] ${s.name}님 ${mo}월 급여명세서를 보내드립니다. 확인 부탁드려요.`;
   const canFile = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-  try { await navigator.clipboard.writeText(msg); } catch (e) { }
-  const steps = canFile
-    ? `<ol class="ksteps"><li><b>공유 창 열기</b>를 누르면 휴대폰 공유 창이 뜹니다.</li><li><b>카카오톡</b>을 고릅니다.</li><li>받는 사람 <b>${esc(s.name)}</b> 님을 고르고 <b>전송</b>을 누릅니다.</li><li>돌아오면 보냈는지 표시합니다.</li></ol>
-       <div class="muted" style="font-size:12px">인사말은 복사해 두었습니다. 카톡 대화방에서 길게 눌러 붙여넣을 수 있습니다.</div>`
-    : `<div class="warnlist" style="background:#fff3cd">이 기기(PC 등)에서는 카톡으로 파일을 바로 넘길 수 없습니다. PDF를 저장한 뒤 카톡에서 보내 주세요.</div>
-       <ol class="ksteps"><li><b>PDF 저장</b>을 누릅니다. (<b>${esc(fname)}</b>)</li><li>PC 카톡에서 <b>${esc(s.name)}</b> 님 대화방을 엽니다.</li><li>저장한 파일을 대화방에 끌어다 놓거나, 📎(파일 전송)으로 고릅니다.</li><li>인사말은 복사해 두었으니 붙여넣고 보냅니다.</li></ol>`;
-  const go = await modal(`<h3>카톡 발송 — ${esc(s.name)} 님</h3>${steps}
-    <div class="muted" style="font-size:12px;margin-top:6px">금액이 담긴 파일이니 받는 사람을 꼭 확인하세요.</div>`, canFile ? '공유 창 열기' : 'PDF 저장');
-  if (!go) return;
-  let shared = false;
+  const done = () => { markSent(month, s.id); if (after) after(); if (typeof tabPay === 'function' && $('#pPdfAll')) tabPay(); };
   if (canFile) {
-    try { await navigator.share({ files: [file], title: `${mo}월 급여명세서` }); shared = true; }
+    // 휴대폰: 안내 창 없이 바로 공유 창 → 카카오톡 → 받는 사람 고르기 (버튼을 누른 그 순간에 열어야 해서 앞에 기다리는 단계를 두지 않음)
+    try { navigator.clipboard.writeText(msg).catch(() => { }); } catch (e) { }   // 인사말은 복사해 둠 (카톡방에서 붙여넣기)
+    try { await navigator.share({ files: [file], title: `${mo}월 급여명세서` }); done(); toast(`${s.name} 님에게 보냈습니다`); }
     catch (e) { if (e && e.name === 'AbortError') return toast('보내기를 취소했습니다'); saveBlob(file, fname); toast('공유 창을 열지 못해 PDF를 저장했습니다. 카톡에서 파일로 보내세요', 4500); }
-  } else await savePdf(file, fname);
-  const ok = await modal(`<h3>보냈나요?</h3>${esc(s.name)} 님에게 카톡으로 명세서를 보냈으면 <b>보냈음</b>을 누르세요.<div class="muted" style="font-size:12px;margin-top:6px">이 기기에 보낸 시각이 표시됩니다.</div>`, '보냈음', undefined, shared ? '아직' : '나중에');
-  if (ok) { markSent(month, s.id); toast(`${s.name} 님 카톡 발송을 표시했습니다`); if (after) after(); if (typeof tabPay === 'function' && $('#pPdfAll')) tabPay(); }
+    return;
+  }
+  // PC 등 파일 공유가 안 되는 기기: PDF 저장 후 PC 카톡에서 보내도록 안내
+  try { await navigator.clipboard.writeText(msg); } catch (e) { }
+  const go = await modal(`<h3>카톡 발송 — ${esc(s.name)} 님</h3>
+    <div class="warnlist" style="background:#fff3cd">이 기기(PC 등)에서는 카톡으로 파일을 바로 넘길 수 없습니다. PDF를 저장한 뒤 카톡에서 보내 주세요.</div>
+    <ol class="ksteps"><li><b>PDF 저장</b>을 누릅니다. (<b>${esc(fname)}</b>)</li><li>PC 카톡에서 <b>${esc(s.name)}</b> 님 대화방을 엽니다.</li><li>저장한 파일을 대화방에 끌어다 놓거나, 📎(파일 전송)으로 고릅니다.</li><li>인사말은 복사해 두었으니 붙여넣고 보냅니다.</li></ol>`, 'PDF 저장');
+  if (!go) return;
+  if (!(await savePdf(file, fname))) return;
+  const ok = await modal(`<h3>보냈나요?</h3>${esc(s.name)} 님에게 카톡으로 명세서를 보냈으면 <b>보냈음</b>을 누르세요.<div class="muted" style="font-size:12px;margin-top:6px">이 기기에 보낸 시각이 표시됩니다.</div>`, '보냈음', undefined, '나중에');
+  if (ok) { done(); toast(`${s.name} 님 카톡 발송을 표시했습니다`); }
 }
 async function sendOther(s, month) {
   if (!s) return;
