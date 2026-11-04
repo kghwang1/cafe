@@ -254,6 +254,7 @@ body.practice{background:#fff4e0}
 // 2026-10-29 : 근무 구분(교육·행사·기타) 저장 — punch.tag, 교육·행사 시급 따로
 // 2026-11-02 : 재고관리 기준량(/stock/item/base)·필요량(buy) 저장
 // 2026-11-04 : 직원 연락처(staff.phone, staff.email) 저장
+// 2026-11-04 : 직원 계약날짜(staff.contract_date) 저장
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -372,6 +373,7 @@ async function ensureSettings(env) {
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN apps TEXT').run(); } catch (e) { }   // 쓸 수 있는 앱 (비어 있으면 기본)
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN phone TEXT').run(); } catch (e) { }   // 직원 연락처 (명세서 보내기용)
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN email TEXT').run(); } catch (e) { }
+  try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN contract_date TEXT').run(); } catch (e) { }   // 직원 계약날짜 (YYYY-MM-DD)
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS contract (staff_id INTEGER NOT NULL, month TEXT NOT NULL, weekly_min INTEGER NOT NULL, PRIMARY KEY(staff_id, month))').run();   // 주 계약시간 (그 달부터 적용)
   // 매장관리: 오픈·마감 확인 기록
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS store_check (date TEXT NOT NULL, kind TEXT NOT NULL, item TEXT NOT NULL, title TEXT,
@@ -977,6 +979,11 @@ async function route(req, env) {
     let sid = +b.id;
     if (!sid) sid = (await env.DB.prepare('INSERT INTO staff(name,pin,wage,color,active,use_break) VALUES(?,?,?,?,?,?)').bind(name, pin, wage, color, active, ub).run()).meta.last_row_id;
     if (b.phone !== undefined || b.email !== undefined) await env.DB.prepare('UPDATE staff SET phone=?,email=? WHERE id=?').bind(ph || null, em || null, sid).run();
+    if (b.contract_date !== undefined) {                                    // 계약날짜 (비워도 됨)
+      const cd = String(b.contract_date || '').trim();
+      if (cd && !/^\d{4}-\d{2}-\d{2}$/.test(cd)) return err('계약날짜 형식을 확인하세요.');
+      await env.DB.prepare('UPDATE staff SET contract_date=? WHERE id=?').bind(cd || null, sid).run();
+    }
     // 주 계약시간: 적용 월부터 (빈칸이면 그 달 기록 지움)
     if (b.contract && /^\d{4}-\d{2}$/.test(b.contract.month || '')) {
       const hrs = b.contract.hours;
@@ -3036,7 +3043,7 @@ async function tabStaff() {
   const PALETTE = [['빨강', '#e4572e'], ['초록', '#1d8a4b'], ['진한녹색', '#0b5d2a'], ['청록', '#00897b'], ['파랑', '#3a6ea5'], ['남색', '#283593'], ['보라', '#9c27b0'], ['분홍', '#c2185b'], ['주황', '#d98200'], ['노랑', '#f5c400'], ['갈색', '#5d4037'], ['회색', '#757575']];
   $('#body').innerHTML = `<div class="card switch"><div><b>직원 출근하기 버튼</b><div class="muted" id="pOnTxt" style="font-size:12.5px">확인 중...</div></div><button class="tog" id="pOn" disabled>...</button></div>
     <div class="card"><div class="row" style="align-items:center"><b>직원 목록</b><button class="sm pri" id="nAdd" style="flex:0 0 auto">직원 추가</button></div>
-    <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}${(c => c ? ` · 계약 주 ${c.min / 60}h` : ' · <span style="color:var(--warn)">계약시간 없음</span>')(contractNow(s, ymd(Date.now()).slice(0, 7)))}</span>${s.phone || s.email ? `<br><span class="muted" style="font-size:12px">${esc([s.phone, s.email].filter(Boolean).join(' · '))}</span>` : '<br><span class="muted" style="font-size:12px;color:var(--warn)">연락처 없음</span>'}${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
+    <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}${s.contract_date ? ` · 계약일 ${esc(s.contract_date)}` : ''}${(c => c ? ` · 계약 주 ${c.min / 60}h` : ' · <span style="color:var(--warn)">계약시간 없음</span>')(contractNow(s, ymd(Date.now()).slice(0, 7)))}</span>${s.phone || s.email ? `<br><span class="muted" style="font-size:12px">${esc([s.phone, s.email].filter(Boolean).join(' · '))}</span>` : '<br><span class="muted" style="font-size:12px;color:var(--warn)">연락처 없음</span>'}${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
       <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm" data-se="${s.id}">수정</button><button class="sm" data-sx="${s.id}">삭제</button></span></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>
     <div class="card" id="ssCard"><div class="row" style="align-items:center;flex-wrap:wrap"><b style="font-size:16px">직원별 매출</b><span id="ssSel" style="flex:0 0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"></span></div>
     <div id="ssBody" class="muted" style="margin-top:8px">불러오는 중...</div></div>`;
@@ -3053,6 +3060,7 @@ async function tabStaff() {
       <label>시급</label><input id="fW" type="number" value="${s ? s.wage : BASEW}">
       <label>전화번호 (명세서 문자·카톡 보내기용)</label><input id="fPh" type="tel" inputmode="tel" placeholder="010-0000-0000" value="${esc(s ? (s.phone || '') : '')}">
       <label>이메일</label><input id="fEm" type="email" inputmode="email" placeholder="name@example.com" value="${esc(s ? (s.email || '') : '')}">
+      <label>계약날짜</label><input id="fCd" type="date" value="${esc(s ? (s.contract_date || '') : '')}">
       <label>주 계약시간 (소정근로시간)</label>
       <div class="kline"><span>주</span><input id="fK" type="number" inputmode="decimal" step="0.5" min="0" max="52" placeholder="예: 14" value="${curC ? curC.min / 60 : ''}"><span>시간,</span><input id="fKm" type="month" value="${curM}"><span>부터</span></div>
       <div class="muted" style="font-size:12px;margin:2px 0 4px">주휴수당은 이 시간으로 판단합니다 (15시간 이상이면 대상, 금액도 이 시간 기준). 비워 두면 실제 근무시간으로 계산합니다.
@@ -3062,7 +3070,7 @@ async function tabStaff() {
       <label><input id="fB" type="checkbox" style="width:auto" ${!s || s.use_break !== 0 ? 'checked' : ''}> 휴게시간 사용</label>
       <div class="muted" style="font-size:12px;margin:-2px 0 4px 22px">체크: 출근~퇴근 4시간 이상이면 30분(8시간 30분 이상이면 1시간)을 빼고 급여 계산<br>체크 해제: 휴게 없이 근무한 시간 전부를 급여로 계산</div>
       <label><input id="fA" type="checkbox" style="width:auto" ${!s || s.active ? 'checked' : ''}> 재직 중</label>`, '저장', () =>
-      ({ id: s ? s.id : null, name: $('#fN').value, pin: $('#fP').value, wage: +$('#fW').value, phone: $('#fPh').value.trim(), email: $('#fEm').value.trim(), color: $('#fC').value, active: $('#fA').checked, use_break: $('#fB').checked,
+      ({ id: s ? s.id : null, name: $('#fN').value, pin: $('#fP').value, wage: +$('#fW').value, phone: $('#fPh').value.trim(), email: $('#fEm').value.trim(), contract_date: $('#fCd').value, color: $('#fC').value, active: $('#fA').checked, use_break: $('#fB').checked,
          contract: (() => { const k = $('#fK').value.trim(), mth = $('#fKm').value; const prev = s ? contractNow(s, mth) : null;
            if (!mth) return null; if (k === '' && !(prev && prev.month === mth)) return null;           // 안 바꿨으면 보내지 않음
            if (k !== '' && prev && prev.min === Math.round(+k * 60)) return null;
