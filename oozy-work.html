@@ -165,6 +165,15 @@ body.practice{background:#fff4e0}
 /* 명세서 화면 보기 */
 .slipbg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55;overflow:auto;padding:16px 10px 40px}
 .slipbar{max-width:720px;margin:0 auto 10px;display:flex;gap:8px;justify-content:flex-end;position:sticky;top:0}
+.pdfview{max-width:720px;margin:0 auto;padding-bottom:150px}
+.pdfview img{display:block;width:100%;background:#fff;margin:0 0 10px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.pdfwait{background:#fff;border-radius:10px;padding:40px 16px;text-align:center;color:#666}
+.kbar{position:fixed;left:0;right:0;bottom:0;background:rgba(30,20,15,.92);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:56}
+.kbar-in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.kakao{width:100%;padding:14px;border:0;border-radius:12px;background:#FEE500;color:#191919;font-size:17px;font-weight:700}
+.kakao:disabled{opacity:.5}
+.ksteps{margin:8px 0 6px 18px;line-height:1.8}
+.slipbg ~ .mbg{z-index:58}   /* 명세서 화면 위에 뜨는 창 */
 .slip{max-width:720px;margin:0 auto;background:#fff;border-radius:10px;padding:22px 18px;font-size:14px;color:#222;box-shadow:0 4px 20px rgba(0,0,0,.2)}
 .slip h2{text-align:center;margin:0 0 14px;letter-spacing:2px;white-space:pre}
 .slip table.wl{table-layout:fixed}.slip .wl td.kdc{text-align:left;white-space:nowrap}.slip .wl td.kdc{font-size:12px;padding-left:5px}.slip .wl td.kdc span:first-child{display:inline-block;width:2.4em}.slip .wl td.kdc.x{color:#8a5a00;font-weight:600}.slip .wl td,.slip .wl th{padding:5px 2px;font-size:12.5px}
@@ -2509,12 +2518,12 @@ async function tabPay() {
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${confAt ? `<span class="stamp ok">확정됨 ${mdw(confAt)} ${hhmm(confAt)}</span>` : '<span class="stamp wip">확정 전</span>'}
         <span style="flex:1"></span>
-        <button class="sm pri" id="pConfirm">${confAt ? '다시 확정 (변경 반영)' : '급여 확정'}</button>
+        <button class="sm" id="pPdfAll">PDF 만들기</button><button class="sm pri" id="pConfirm">${confAt ? '다시 확정 (변경 반영)' : '급여 확정'}</button>
         ${confAt ? '<button class="sm" id="pKakao">카톡 안내문</button><button class="sm" id="pUnconf">확정 취소</button>' : ''}
       </div>
       <div class="muted" style="margin-top:6px">확정하면 알바가 자기 PIN으로 로그인해 <b>확정급여</b>에서 본인 명세서만 볼 수 있습니다.</div></div>` +
     PAY.staff.map(s => `<div class="card" style="border-left:5px solid ${s.color}">
-      <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">${ctrLbl(s, PAY.month)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}</div><span style="display:flex;gap:6px;flex:0 0 auto"><button class="sm" data-slip="${s.id}">명세서</button><button class="sm pri" data-send="${s.id}">보내기</button></span></div>
+      <div class="row" style="align-items:center"><div><b style="font-size:17px">${esc(s.name)}</b> <span class="muted">${ctrLbl(s, PAY.month)}</span>${s.useBreak === false ? ' <span class="badge warn">휴게 없음</span>' : ''}${s.confirmedAt ? ' <span class="badge ok">확정</span>' : ''}${sentAt(PAY.month, s.id) ? ` <span class="badge ok">카톡 ${mdw(sentAt(PAY.month, s.id))}</span>` : ''}</div><span style="display:flex;gap:6px;flex:0 0 auto"><button class="sm" data-slip="${s.id}">명세서</button><button class="sm pri" data-send="${s.id}">보내기</button></span></div>
       <table class="pay t6" style="margin-top:6px"><tr><th>근로일수</th><th>총 근로시간</th><th>휴게시간</th><th>유급 근로시간</th><th>시급</th></tr>
       <tr><td>${s.days}일</td><td>${fmtH(s.total)}</td><td>${fmtH(s.brk)}</td><td>${fmtH(s.paid)}</td><td>${won(s.wage)}</td></tr></table>
       <table class="pay bx" style="margin-top:8px"><tr>${payItems(s).map(x => `<th>${x.n}</th>`).join('')}<th>주휴</th><th>월급여</th></tr>
@@ -2550,6 +2559,7 @@ async function tabPay() {
   });
   document.querySelectorAll('[data-slip]').forEach(b => b.onclick = () => { const s = PAY.staff.find(x => x.id === +b.dataset.slip); showSlip(s, PAY.month, s.confirmedAt ? `<span class="stamp ok">확정 ${ymd(s.confirmedAt)}</span>` : '<span class="stamp wip">확정 전</span>'); });
   document.querySelectorAll('[data-send]').forEach(b => b.onclick = () => sendSlip(PAY.staff.find(x => x.id === +b.dataset.send), PAY.month));
+  $('#pPdfAll').onclick = () => allSlipsPdf(PAY);
   $('#pConfirm').onclick = async () => {
     const ok = await modal(`<h3>${PAY.month} 급여 확정</h3>지금 계산된 금액으로 명세서를 확정합니다. 알바는 자기 화면의 <b>확정급여</b>에서 본인 것만 볼 수 있습니다.
       ${unres ? `<div class="warnlist" style="background:#fde3e3">⚠ 퇴근누락/근무중 기록 ${unres}건이 빠져 있습니다. 먼저 정리하는 것이 좋습니다.</div>` : ''}
@@ -2645,8 +2655,8 @@ async function needPdfLibs() {
     if (!test()) throw new Error('PDF 도구를 불러오지 못했습니다. 인터넷을 확인하세요.');
   }
 }
-async function slipPdf(s, month) {
-  await needPdfLibs();
+// 명세서 한 장을 그림(canvas)으로
+async function slipCanvas(s, month) {
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;left:-10000px;top:0;width:720px;background:#fff;z-index:-1';
   box.innerHTML = slipHTML(s, month, `${+month.slice(5, 7)}월`);
@@ -2654,20 +2664,98 @@ async function slipPdf(s, month) {
   document.body.appendChild(box);
   try {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    const cv = await window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-    const { jsPDF } = window.jspdf, pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-    const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), m = 24;
-    const iw = W - m * 2, ph = Math.floor((H - m * 2) * cv.width / iw);       // 한 쪽에 들어가는 원본 높이(px)
-    for (let y = 0, pg = 0; y < cv.height; y += ph, pg++) {
-      const part = document.createElement('canvas'); part.width = cv.width; part.height = Math.min(ph, cv.height - y);
-      part.getContext('2d').drawImage(cv, 0, y, cv.width, part.height, 0, 0, cv.width, part.height);
-      if (pg) pdf.addPage();
-      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', m, m, iw, part.height * iw / cv.width);
-    }
-    return pdf.output('blob');
+    return await window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
   } finally { box.remove(); }
 }
+// 그림 여러 장 → PDF (직원마다 새 쪽에서 시작, 길면 다음 쪽으로 이어짐). 쪽 그림도 함께 돌려줌 (화면 미리보기용)
+function canvasesPdf(cvs) {
+  const { jsPDF } = window.jspdf, pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), m = 24, pages = [];
+  cvs.forEach(cv => {
+    const iw = W - m * 2, ph = Math.floor((H - m * 2) * cv.width / iw);       // 한 쪽에 들어가는 원본 높이(px)
+    for (let y = 0; y < cv.height; y += ph) {
+      const part = document.createElement('canvas'); part.width = cv.width; part.height = Math.min(ph, cv.height - y);
+      part.getContext('2d').drawImage(cv, 0, y, cv.width, part.height, 0, 0, cv.width, part.height);
+      const img = part.toDataURL('image/jpeg', 0.92);
+      if (pages.length) pdf.addPage();
+      pdf.addImage(img, 'JPEG', m, m, iw, part.height * iw / cv.width);
+      pages.push(img);
+    }
+  });
+  return { blob: pdf.output('blob'), pages };
+}
+async function slipPdf(s, month) { await needPdfLibs(); return canvasesPdf([await slipCanvas(s, month)]).blob; }
+// 급여 페이지 [PDF 만들기]: 이달 근무가 있는 직원 모두의 명세서를 PDF 한 파일로 저장
+async function allSlipsPdf(P) {
+  const list = (P && P.staff || []).filter(s => s.shifts.length);
+  if (!list.length) return toast('이 달에 근무 기록이 있는 직원이 없습니다');
+  const btn = $('#pPdfAll'), old = btn ? btn.textContent : '';
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'PDF 만드는 중...'; }
+    await needPdfLibs();
+    const cvs = [];
+    for (const [i, s] of list.entries()) { if (btn) btn.textContent = `PDF 만드는 중 ${i + 1}/${list.length}`; cvs.push(await slipCanvas(s, P.month)); }
+    const fname = `${+P.month.slice(5, 7)}월_급여명세서_전체(${list.length}명).pdf`;
+    saveBlob(new File([canvasesPdf(cvs).blob], fname, { type: 'application/pdf' }), fname);
+    toast(`${list.length}명 명세서를 PDF 한 파일로 저장했습니다`, 3500);
+  } catch (e) { toast(e.message || 'PDF를 만들지 못했습니다', 3500); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+// 카톡으로 보낸 기록 (이 기기에만): { "2026-10:3": 시각 }
+const SENT_KEY = 'oozySlipSent';
+const sentAt = (month, id) => { try { return (JSON.parse(localStorage.getItem(SENT_KEY) || '{}') || {})[month + ':' + id] || 0; } catch (e) { return 0; } };
+const markSent = (month, id) => { try { const o = JSON.parse(localStorage.getItem(SENT_KEY) || '{}') || {}; o[month + ':' + id] = Date.now(); localStorage.setItem(SENT_KEY, JSON.stringify(o)); } catch (e) { } };
+// [보내기]: 그 직원 명세서 PDF를 화면에 보여 주고, 아래 [카톡 발송]
 async function sendSlip(s, month) {
+  if (!s) return;
+  const mo = +month.slice(5, 7), fname = `${mo}월_급여명세서_${s.name}.pdf`;
+  const bg = document.createElement('div'); bg.className = 'slipbg';
+  bg.innerHTML = `<div class="slipbar" style="background:rgba(30,20,15,.92);padding:8px 10px;border-radius:10px"><b style="margin-right:auto;color:#fff;align-self:center">${esc(s.name)} 님 ${mo}월 명세서 (PDF)</b><button class="sm pri" id="kvClose">닫기</button></div>
+    <div class="pdfview" id="kvPages"><div class="pdfwait">PDF 만드는 중...</div></div>
+    <div class="kbar"><div class="kbar-in">
+      <div class="muted" id="kvSent" style="font-size:12px;color:#fff"></div>
+      <button class="kakao" id="kvKakao" disabled>카톡 발송</button>
+      <div style="display:flex;gap:6px;justify-content:center"><button class="sm" id="kvSave" disabled>PDF 저장</button><button class="sm" id="kvOther">문자 · 메일 등 다른 방법</button></div>
+    </div></div>`;
+  document.body.appendChild(bg);
+  const q = id => bg.querySelector('#' + id), close = () => bg.remove();
+  const showSent = () => { const t = sentAt(month, s.id); q('kvSent').textContent = t ? `이 기기에서 카톡 발송: ${mdw(t)} ${hhmm(t)}` : ''; };
+  showSent();
+  q('kvClose').onclick = close;
+  q('kvOther').onclick = () => sendOther(s, month);
+  let file = null;
+  try {
+    await needPdfLibs();
+    const r = canvasesPdf([await slipCanvas(s, month)]);
+    file = new File([r.blob], fname, { type: 'application/pdf' });
+    q('kvPages').innerHTML = r.pages.map((src, i) => `<img src="${src}" alt="명세서 ${i + 1}쪽">`).join('');
+    q('kvKakao').disabled = false; q('kvSave').disabled = false;
+  } catch (e) { q('kvPages').innerHTML = `<div class="pdfwait">${esc(e.message || 'PDF를 만들지 못했습니다')}</div>`; }
+  q('kvSave').onclick = () => { if (file) { saveBlob(file, fname); toast('PDF를 저장했습니다'); } };
+  q('kvKakao').onclick = () => file && kakaoSend(s, month, file, fname, showSent);
+}
+// 카톡 발송 과정: ① 안내 → ② 공유 창(카카오톡 → 받는 사람 → 전송) → ③ 보냈는지 확인
+async function kakaoSend(s, month, file, fname, after) {
+  const mo = +month.slice(5, 7), msg = `[우지커피] ${s.name}님 ${mo}월 급여명세서를 보내드립니다. 확인 부탁드려요.`;
+  const canFile = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+  try { await navigator.clipboard.writeText(msg); } catch (e) { }
+  const steps = canFile
+    ? `<ol class="ksteps"><li><b>공유 창 열기</b>를 누르면 휴대폰 공유 창이 뜹니다.</li><li><b>카카오톡</b>을 고릅니다.</li><li>받는 사람 <b>${esc(s.name)}</b> 님을 고르고 <b>전송</b>을 누릅니다.</li><li>돌아오면 보냈는지 표시합니다.</li></ol>
+       <div class="muted" style="font-size:12px">인사말은 복사해 두었습니다. 카톡 대화방에서 길게 눌러 붙여넣을 수 있습니다.</div>`
+    : `<div class="warnlist" style="background:#fff3cd">이 기기(PC 등)에서는 카톡으로 파일을 바로 넘길 수 없습니다. PDF를 저장한 뒤 카톡에서 보내 주세요.</div>
+       <ol class="ksteps"><li><b>PDF 저장</b>을 누릅니다. (<b>${esc(fname)}</b>)</li><li>PC 카톡에서 <b>${esc(s.name)}</b> 님 대화방을 엽니다.</li><li>저장한 파일을 대화방에 끌어다 놓거나, 📎(파일 전송)으로 고릅니다.</li><li>인사말은 복사해 두었으니 붙여넣고 보냅니다.</li></ol>`;
+  const go = await modal(`<h3>카톡 발송 — ${esc(s.name)} 님</h3>${steps}
+    <div class="muted" style="font-size:12px;margin-top:6px">금액이 담긴 파일이니 받는 사람을 꼭 확인하세요.</div>`, canFile ? '공유 창 열기' : 'PDF 저장');
+  if (!go) return;
+  let shared = false;
+  if (canFile) {
+    try { await navigator.share({ files: [file], title: `${mo}월 급여명세서` }); shared = true; }
+    catch (e) { if (e && e.name === 'AbortError') return toast('보내기를 취소했습니다'); saveBlob(file, fname); toast('공유 창을 열지 못해 PDF를 저장했습니다. 카톡에서 파일로 보내세요', 4500); }
+  } else saveBlob(file, fname);
+  const ok = await modal(`<h3>보냈나요?</h3>${esc(s.name)} 님에게 카톡으로 명세서를 보냈으면 <b>보냈음</b>을 누르세요.<div class="muted" style="font-size:12px;margin-top:6px">이 기기에 보낸 시각이 표시됩니다.</div>`, '보냈음', undefined, shared ? '아직' : '나중에');
+  if (ok) { markSent(month, s.id); toast(`${s.name} 님 카톡 발송을 표시했습니다`); if (after) after(); if (typeof tabPay === 'function' && $('#pPdfAll')) tabPay(); }
+}
+async function sendOther(s, month) {
   if (!s) return;
   const st = STAFF.find(x => x.id === s.id) || {}, c0 = loadContacts()[s.id] || {}, mo = +month.slice(5, 7);
   const c = { phone: st.phone || c0.phone || '', email: st.email || c0.email || '' };
