@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-11-07.1">
+<meta name="app-version" content="2026-11-07.2">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -123,10 +123,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .tr input.note{text-align:left;padding:6px 6px;font-size:14px}
 .tr input:focus{outline:none;border-color:var(--green);background:var(--card);color:var(--ink)}
 .delx{border:0;background:var(--hot);color:#fff;border-radius:8px;min-height:42px;font-size:16px;font-weight:700;width:100%}
-.tr.edit{grid-template-columns:minmax(92px,1fr) 44px 84px 48px;border-left:0}
-.mvb{display:flex;gap:4px}
-.mvb button{flex:1;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;min-height:42px;font-size:16px;font-weight:700;padding:0}
-.mvb button:disabled{opacity:.3}
+.tr.edit{grid-template-columns:minmax(92px,1fr) 44px 56px 48px;border-left:0}
+.grip{display:flex;align-items:center;justify-content:center;min-height:42px;font-size:22px;font-weight:700;color:var(--muted);border:1.5px solid var(--line);background:var(--card);border-radius:8px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.tr.edit.dragging{background:var(--less-bg);box-shadow:0 4px 14px rgba(0,0,0,.25);position:relative;z-index:3;opacity:.95}
+.tr.edit.dragging .grip{cursor:grabbing}
 @media (max-width:340px){.tr{grid-template-columns:minmax(56px,1fr) 36px 40px 40px 40px minmax(44px,.9fr);gap:2px}
   .tr input{font-size:14px;padding:6px 1px}.tr.th{font-size:11.5px}}
 .empty{color:var(--muted);font-size:17px;padding:22px 6px;line-height:1.7}
@@ -404,12 +404,12 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       h += `<div class="tb"><div class="tr th edit"><span class="c1">품목</span><span>기록</span><span>이동</span><span>삭제</span></div>` +
         items.map((i, ix) => {
           const r = recOf(i.id);
-          return `<div class="tr edit"><span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
+          return `<div class="tr edit" data-id="${i.id}"><span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
             `<span class="c2">${r ? '있음' : '-'}</span>` +
-            `<span class="mvb"><button data-mv="${i.id}" data-d="-1" aria-label="${esc(i.name)} 위로"${ix === 0 ? ' disabled' : ''}>▲</button><button data-mv="${i.id}" data-d="1" aria-label="${esc(i.name)} 아래로"${ix === items.length - 1 ? ' disabled' : ''}>▼</button></span>` +
+            `<span class="grip" data-grip="${i.id}" aria-label="${esc(i.name)} 끌어서 이동">≡</span>` +
             `<button class="delx" data-del="${i.id}" data-nm="${esc(i.name)}" aria-label="${esc(i.name)} 삭제">✕</button></div>`;
         }).join('') + `</div>` +
-        `<div class="sub-t" style="margin-top:8px">품목을 지워도 지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.<br>▲▼를 누르면 같은 분류 안에서 순서가 바뀝니다.</div>`;
+        `<div class="sub-t" style="margin-top:8px">품목을 지워도 지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.<br>≡ 를 길게 누른 채 위아래로 끌면 같은 분류 안에서 순서가 바뀝니다.</div>`;
     } else {
       let grp = null;
       h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>필요량</span><span>발주</span><span>비고</span></div>` +
@@ -590,7 +590,6 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     if (e.target.closest('#addBtn')) { ADD = !ADD; EDIT = false; draw(); return; }
     if (e.target.closest('#aCancel')) { ADD = false; draw(); return; }
     if (e.target.closest('#aSave')) { addItem(); return; }
-    const mv = e.target.closest('[data-mv]'); if (mv) { moveItem(+mv.dataset.mv, +mv.dataset.d, mv); return; }
     const d = e.target.closest('[data-del]'); if (d) { delItem(+d.dataset.del, d.dataset.nm); return; }
   });
   function onEdit(t) {
@@ -658,12 +657,37 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     } catch (e) { btn.disabled = false; btn.textContent = '추가'; toastMsg(msgOf(e)); }
   }
   let MOVING = false;
-  async function moveItem(id, dir, btn) {
+  async function moveTo(id, to) {
     if (MOVING) return; MOVING = true;
-    try { const j = await api('/stock/item/move', { id, dir }); if (DAY) DAY.items = j.items; draw(); }
+    try { const j = await api('/stock/item/move', { id, to }); if (DAY) DAY.items = j.items; }
     catch (e) { toastMsg(msgOf(e)); }
-    MOVING = false;
+    MOVING = false; draw();
   }
+  // 품목 관리: ≡ 를 잡고 위아래로 끌어서 순서 바꾸기 (손가락·마우스 공통)
+  document.addEventListener('pointerdown', e => {
+    const g = e.target.closest('.grip'); if (!g || MOVING) return;
+    const row = g.closest('.tr.edit'), tb = row.parentElement, id = +g.dataset.grip;
+    const rowsOf = () => [...tb.querySelectorAll('.tr.edit[data-id]')];
+    const from = rowsOf().indexOf(row);
+    e.preventDefault(); row.classList.add('dragging');
+    try { g.setPointerCapture(e.pointerId); } catch (x) { }
+    let y = e.clientY;
+    const place = () => {
+      const others = rowsOf().filter(r => r !== row); let ref = null;
+      for (const r of others) { const b = r.getBoundingClientRect(); if (y < b.top + b.height / 2) { ref = r; break; } }
+      if (ref) { if (row.nextElementSibling !== ref) tb.insertBefore(row, ref); }
+      else if (row.nextElementSibling) tb.appendChild(row);
+    };
+    const mv = ev => { y = ev.clientY; place(); };
+    const tick = setInterval(() => { const h = innerHeight; if (y < 90) scrollBy(0, -14); else if (y > h - 90) scrollBy(0, 14); else return; place(); }, 30);
+    const done = ev => {
+      removeEventListener('pointermove', mv); removeEventListener('pointerup', done); removeEventListener('pointercancel', done); clearInterval(tick);
+      row.classList.remove('dragging');
+      const to = rowsOf().indexOf(row);
+      if (ev.type !== 'pointercancel' && to !== from) moveTo(id, to); else if (to !== from) draw();
+    };
+    addEventListener('pointermove', mv); addEventListener('pointerup', done); addEventListener('pointercancel', done);
+  });
   function delItem(id, nm) {
     confirmBox('품목 삭제', `「${nm}」을(를) 목록에서 지울까요?\n지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.`, async () => {
       try { const j = await api('/stock/item/del', { id }); if (DAY) DAY.items = j.items; draw(); toastMsg(`${nm} 을(를) 지웠습니다`); }

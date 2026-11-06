@@ -258,7 +258,7 @@ body.practice{background:#fff4e0}
 // 2026-11-05 : 종이 계약서 사진 보관(contract_img, /admin/contract/*)
 // 2026-11-06 : 재고 품목 정리 — 32oz 아이스컵, 아이스컵·컵홀더 크기별, 빨대 대/소, 유산지 (기존 매장은 한 번만 자동 반영)
 // 2026-11-07 : 유산지를 각대봉투 다음으로 이동
-// 2026-11-07 : 재고 품목 위/아래 이동(/stock/item/move)
+// 2026-11-07 : 재고 품목 이동(/stock/item/move, to=끌어서 옮긴 자리)
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -804,9 +804,10 @@ async function route(req, env) {
       const it = id ? await env.DB.prepare('SELECT id,cat FROM stock_item WHERE id=? AND deleted=0').bind(id).first() : null;
       if (!it) return err('품목을 찾을 수 없습니다.', 404);
       const list = (await env.DB.prepare('SELECT id,sort FROM stock_item WHERE cat=? AND deleted=0 ORDER BY sort, id').bind(it.cat).all()).results;
-      const i = list.findIndex(x => x.id === id), j = i + dir;
-      if (i >= 0 && j >= 0 && j < list.length) {
-        [list[i], list[j]] = [list[j], list[i]];
+      const i = list.findIndex(x => x.id === id);
+      const j = b.to !== undefined && b.to !== null ? Math.max(0, Math.min(list.length - 1, Math.floor(Number(b.to)) || 0)) : i + dir;   // to=끌어서 옮긴 자리, 없으면 한 칸씩
+      if (i >= 0 && j >= 0 && j < list.length && j !== i) {
+        const [x0] = list.splice(i, 1); list.splice(j, 0, x0);
         const base = Math.min(...list.map(x => x.sort));      // 분류 안 순서를 base + 0.01씩으로 다시 매김 (다른 분류와 섞이지 않음)
         const st = list.map((x, n) => env.DB.prepare('UPDATE stock_item SET sort=? WHERE id=?').bind(Math.round((base + n * 0.01) * 100) / 100, x.id));
         for (let k2 = 0; k2 < st.length; k2 += 40) await env.DB.batch(st.slice(k2, k2 + 40));
