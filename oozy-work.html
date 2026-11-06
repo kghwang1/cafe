@@ -257,6 +257,8 @@ body.practice{background:#fff4e0}
 // 2026-11-04 : 직원 계약날짜(staff.contract_date) 저장
 // 2026-11-05 : 종이 계약서 사진 보관(contract_img, /admin/contract/*)
 // 2026-11-06 : 재고 품목 정리 — 32oz 아이스컵, 아이스컵·컵홀더 크기별, 빨대 대/소, 유산지 (기존 매장은 한 번만 자동 반영)
+// 2026-11-07 : 유산지를 각대봉투 다음으로 이동
+// 2026-11-07 : 재고 품목 위/아래 이동(/stock/item/move)
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -723,9 +725,15 @@ async function route(req, env) {
           const old = await find('빨대');                      // 기존 「빨대」는 이름만 바꿔 지난 기록을 그대로 잇는다
           if (old && !(await find('빨대 (대)'))) mig.push(env.DB.prepare('UPDATE stock_item SET name=? WHERE id=?').bind('빨대 (대)', old.id));
           await addAfter(old ? '빨대' : null, old ? ['빨대 (소)'] : ['빨대 (대)', '빨대 (소)']);
-          await addAfter('물티슈', ['유산지']);
+          await addAfter('각대봉투', ['유산지']);
           mig.push(env.DB.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES('stock_mig_1106','1')"));
           for (let i = 0; i < mig.length; i += 40) await env.DB.batch(mig.slice(i, i + 40));
+        }
+        // 2026-11-07: 「유산지」를 각대봉투 바로 다음으로 옮김 (한 번만)
+        if (!(await env.DB.prepare("SELECT v FROM settings WHERE k='stock_mig_1107'").first())) {
+          const ga = await env.DB.prepare("SELECT sort FROM stock_item WHERE cat='컵 · 포장재' AND name='각대봉투' AND deleted=0 LIMIT 1").first();
+          if (ga) await env.DB.prepare("UPDATE stock_item SET sort=? WHERE cat='컵 · 포장재' AND name='유산지'").bind(ga.sort + 1).run();
+          await env.DB.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES('stock_mig_1107','1')").run();
         }
         globalThis.__stockSeeded = true;
         return;
@@ -749,8 +757,8 @@ async function route(req, env) {
         ['컵 · 포장재', [['10oz 아이스컵', ''], ['20oz 아이스컵', ''], ['24oz 아이스컵', ''], ['32oz 아이스컵', ''], ['핫컵', ''], ['컵 뚜껑', ''],
           ['10oz 아이스컵 뚜껑', ''], ['20oz 아이스컵 뚜껑', ''], ['24oz 아이스컵 뚜껑', ''], ['32oz 아이스컵 뚜껑', ''],
           ['컵홀더', ''], ['10oz 컵홀더', ''], ['20oz 컵홀더', ''], ['24oz 컵홀더', ''], ['32oz 컵홀더', ''],
-          ['빨대 (대)', ''], ['빨대 (소)', ''], ['파우치봉투', ''], ['각대봉투', ''], ['포장박스(소)', ''], ['포장박스(대)', ''],
-          ['소스용기', ''], ['캐리어', ''], ['냅킨', ''], ['물티슈', ''], ['유산지', '']]],
+          ['빨대 (대)', ''], ['빨대 (소)', ''], ['파우치봉투', ''], ['각대봉투', ''], ['유산지', ''], ['포장박스(소)', ''], ['포장박스(대)', ''],
+          ['소스용기', ''], ['캐리어', ''], ['냅킨', ''], ['물티슈', '']]],
       ];
       const st = [];
       let n = 0;
@@ -788,6 +796,22 @@ async function route(req, env) {
       if (!st.length) return err('저장할 내용이 없습니다.');
       for (let i = 0; i < st.length; i += 40) await env.DB.batch(st.slice(i, i + 40));
       return json({ ok: true, n: st.length });
+    }
+
+    // 품목 위/아래로 옮기기 (같은 분류 안에서 한 칸씩)
+    if (p === '/stock/item/move' && m === 'POST') {
+      const id = Number(b.id || 0), dir = Number(b.dir) < 0 ? -1 : 1;
+      const it = id ? await env.DB.prepare('SELECT id,cat FROM stock_item WHERE id=? AND deleted=0').bind(id).first() : null;
+      if (!it) return err('품목을 찾을 수 없습니다.', 404);
+      const list = (await env.DB.prepare('SELECT id,sort FROM stock_item WHERE cat=? AND deleted=0 ORDER BY sort, id').bind(it.cat).all()).results;
+      const i = list.findIndex(x => x.id === id), j = i + dir;
+      if (i >= 0 && j >= 0 && j < list.length) {
+        [list[i], list[j]] = [list[j], list[i]];
+        const base = Math.min(...list.map(x => x.sort));      // 분류 안 순서를 base + 0.01씩으로 다시 매김 (다른 분류와 섞이지 않음)
+        const st = list.map((x, n) => env.DB.prepare('UPDATE stock_item SET sort=? WHERE id=?').bind(Math.round((base + n * 0.01) * 100) / 100, x.id));
+        for (let k2 = 0; k2 < st.length; k2 += 40) await env.DB.batch(st.slice(k2, k2 + 40));
+      }
+      return json({ ok: true, items: await itemsOf() });
     }
 
     // 품목 삭제 (지난 기록은 그대로 남음)
