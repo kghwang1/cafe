@@ -255,6 +255,8 @@ body.practice{background:#fff4e0}
 // 2026-11-02 : 재고관리 기준량(/stock/item/base)·필요량(buy) 저장
 // 2026-11-04 : 직원 연락처(staff.phone, staff.email) 저장
 // 2026-11-04 : 직원 계약날짜(staff.contract_date) 저장
+// 2026-11-05 : 종이 계약서 사진 보관(contract_img, /admin/contract/*)
+// 2026-11-06 : 재고 품목 정리 — 32oz 아이스컵, 아이스컵·컵홀더 크기별, 빨대 대/소, 유산지 (기존 매장은 한 번만 자동 반영)
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -374,6 +376,7 @@ async function ensureSettings(env) {
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN phone TEXT').run(); } catch (e) { }   // 직원 연락처 (명세서 보내기용)
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN email TEXT').run(); } catch (e) { }
   try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN contract_date TEXT').run(); } catch (e) { }   // 직원 계약날짜 (YYYY-MM-DD)
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS contract_img (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, data TEXT NOT NULL, at INTEGER NOT NULL)').run();   // 종이 계약서 사진 (직원마다 여러 장)
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS contract (staff_id INTEGER NOT NULL, month TEXT NOT NULL, weekly_min INTEGER NOT NULL, PRIMARY KEY(staff_id, month))').run();   // 주 계약시간 (그 달부터 적용)
   // 매장관리: 오픈·마감 확인 기록
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS store_check (date TEXT NOT NULL, kind TEXT NOT NULL, item TEXT NOT NULL, title TEXT,
@@ -699,6 +702,31 @@ async function route(req, env) {
           env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(old.cat, '버터케이크', '', old.sort + 1),
           env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(old.cat, '밀크케이크', '', old.sort + 2),
         ]);
+        // 2026-11-06: 「컵 · 포장재」 품목 정리 (한 번만). 이미 있는 이름은 건너뛰고, 지운 품목을 되살리지 않는다.
+        //   32oz 아이스컵 · 아이스컵 크기별 뚜껑 · 컵홀더 크기별 · 빨대 → 빨대 (대)/(소) · 유산지
+        if (!(await env.DB.prepare("SELECT v FROM settings WHERE k='stock_mig_1106'").first())) {
+          const CUP = '컵 · 포장재', mig = [];
+          let tail = (await env.DB.prepare('SELECT COALESCE(MAX(sort),0) s FROM stock_item WHERE cat=?').bind(CUP).first()).s;
+          const find = n => env.DB.prepare('SELECT id,sort FROM stock_item WHERE cat=? AND name=? ORDER BY deleted, id LIMIT 1').bind(CUP, n).first();
+          const addAfter = async (anchor, names) => {
+            const a = anchor ? await find(anchor) : null;
+            let s = a ? a.sort : null;
+            for (const nm of names) {
+              if (await find(nm)) continue;
+              s = s == null ? ++tail : s + 1;
+              mig.push(env.DB.prepare('INSERT INTO stock_item(cat,name,spec,sort) VALUES(?,?,?,?)').bind(CUP, nm, '', s));
+            }
+          };
+          await addAfter('24oz 아이스컵', ['32oz 아이스컵']);
+          await addAfter('컵 뚜껑', ['10oz 아이스컵 뚜껑', '20oz 아이스컵 뚜껑', '24oz 아이스컵 뚜껑', '32oz 아이스컵 뚜껑']);
+          await addAfter('컵홀더', ['10oz 컵홀더', '20oz 컵홀더', '24oz 컵홀더', '32oz 컵홀더']);
+          const old = await find('빨대');                      // 기존 「빨대」는 이름만 바꿔 지난 기록을 그대로 잇는다
+          if (old && !(await find('빨대 (대)'))) mig.push(env.DB.prepare('UPDATE stock_item SET name=? WHERE id=?').bind('빨대 (대)', old.id));
+          await addAfter(old ? '빨대' : null, old ? ['빨대 (소)'] : ['빨대 (대)', '빨대 (소)']);
+          await addAfter('물티슈', ['유산지']);
+          mig.push(env.DB.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES('stock_mig_1106','1')"));
+          for (let i = 0; i < mig.length; i += 40) await env.DB.batch(mig.slice(i, i + 40));
+        }
         globalThis.__stockSeeded = true;
         return;
       }
@@ -718,9 +746,11 @@ async function route(req, env) {
           ['블루베리베이스', ''], ['냉동 타피오카 펄', '해동 금지'], ['오렌지주스', '']]],
         ['토핑', [['쿠키분태', ''], ['오레오', ''], ['핑거쿠키', ''], ['아몬드슬라이스', ''], ['그래놀라', ''],
           ['초코크런치볼', ''], ['다크블라썸', ''], ['메이플팝콘', ''], ['카라멜팝콘', ''], ['시나몬', ''], ['황설탕', ''], ['맛소금', '']]],
-        ['컵 · 포장재', [['10oz 아이스컵', ''], ['20oz 아이스컵', ''], ['24oz 아이스컵', ''], ['핫컵', ''], ['컵 뚜껑', ''],
-          ['컵홀더', ''], ['빨대', ''], ['파우치봉투', ''], ['각대봉투', ''], ['포장박스(소)', ''], ['포장박스(대)', ''],
-          ['소스용기', ''], ['캐리어', ''], ['냅킨', ''], ['물티슈', '']]],
+        ['컵 · 포장재', [['10oz 아이스컵', ''], ['20oz 아이스컵', ''], ['24oz 아이스컵', ''], ['32oz 아이스컵', ''], ['핫컵', ''], ['컵 뚜껑', ''],
+          ['10oz 아이스컵 뚜껑', ''], ['20oz 아이스컵 뚜껑', ''], ['24oz 아이스컵 뚜껑', ''], ['32oz 아이스컵 뚜껑', ''],
+          ['컵홀더', ''], ['10oz 컵홀더', ''], ['20oz 컵홀더', ''], ['24oz 컵홀더', ''], ['32oz 컵홀더', ''],
+          ['빨대 (대)', ''], ['빨대 (소)', ''], ['파우치봉투', ''], ['각대봉투', ''], ['포장박스(소)', ''], ['포장박스(대)', ''],
+          ['소스용기', ''], ['캐리어', ''], ['냅킨', ''], ['물티슈', ''], ['유산지', '']]],
       ];
       const st = [];
       let n = 0;
@@ -932,8 +962,33 @@ async function route(req, env) {
   if (p === '/admin/staff' && m === 'GET') {
     const st = (await env.DB.prepare('SELECT * FROM staff WHERE deleted=0 ORDER BY active DESC, id').all()).results;
     const ct = (await env.DB.prepare('SELECT * FROM contract ORDER BY month').all()).results;
+    const ci = (await env.DB.prepare('SELECT staff_id, COUNT(*) c FROM contract_img GROUP BY staff_id').all()).results;
+    st.forEach(s => { s.contract_n = (ci.find(x => x.staff_id === s.id) || {}).c || 0; });
     st.forEach(s => { s.contracts = ct.filter(c => c.staff_id === s.id).map(c => ({ month: c.month, min: c.weekly_min })); });
     return json(st);
+  }
+  // 종이 계약서 사진: 목록(사진 내용 제외) / 한 장 / 추가 / 삭제
+  if (p === '/admin/contract/list' && m === 'GET') {
+    const rows = (await env.DB.prepare('SELECT id, at FROM contract_img WHERE staff_id=? ORDER BY at, id').bind(+url.searchParams.get('staff_id')).all()).results;
+    return json(rows);
+  }
+  if (p === '/admin/contract/img' && m === 'GET') {
+    const r = await env.DB.prepare('SELECT id, data, at FROM contract_img WHERE id=?').bind(+url.searchParams.get('id')).first();
+    return r ? json(r) : err('사진을 찾을 수 없습니다.', 404);
+  }
+  if (p === '/admin/contract/add' && m === 'POST') {
+    const sid = +b.staff_id, d = String(b.data || '');
+    if (!sid || !/^data:image\/(jpeg|png|webp);base64,/.test(d)) return err('사진 형식이 올바르지 않습니다.');
+    if (d.length > 1500000) return err('사진이 너무 큽니다. 다시 찍어 올려 주세요.');
+    if (!(await env.DB.prepare('SELECT id FROM staff WHERE id=?').bind(sid).first())) return err('직원을 찾을 수 없습니다.', 404);
+    const n = (await env.DB.prepare('SELECT COUNT(*) c FROM contract_img WHERE staff_id=?').bind(sid).first()).c;
+    if (n >= 10) return err('계약서 사진은 직원마다 10장까지 올릴 수 있습니다.');
+    const r = await env.DB.prepare('INSERT INTO contract_img(staff_id,data,at) VALUES(?,?,?)').bind(sid, d, now).run();
+    return json({ ok: true, id: r.meta.last_row_id, at: now });
+  }
+  if (p === '/admin/contract/delete' && m === 'POST') {
+    await env.DB.prepare('DELETE FROM contract_img WHERE id=?').bind(+b.id).run();
+    return json({ ok: true });
   }
   // 직원 삭제: 기록이 없으면 완전히 지우고, 출퇴근·급여 기록이 있으면 기록은 남기고 목록에서만 뺀다
   if (p === '/admin/staff/delete' && m === 'POST') {
@@ -956,6 +1011,7 @@ async function route(req, env) {
     } else {
       stmts.push(env.DB.prepare('DELETE FROM schedule WHERE staff_id=?').bind(sid));
       stmts.push(env.DB.prepare('DELETE FROM edit_request WHERE staff_id=?').bind(sid));
+      stmts.push(env.DB.prepare('DELETE FROM contract_img WHERE staff_id=?').bind(sid));
       stmts.push(env.DB.prepare('DELETE FROM staff WHERE id=?').bind(sid));
     }
     await env.DB.batch(stmts);
@@ -3030,6 +3086,57 @@ async function staffSales() {
   $('#ssEd').onclick = () => { SSEXE = !SSEXE; draw(); };
   draw();
 }
+// ===== 종이 계약서 사진: 직원마다 여러 장 올려 두고 보기 =====
+async function shrinkPhoto(file) {                 // 사진을 긴 변 1600px, JPEG로 줄여서 올림 (용량 절약)
+  let bmp; try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { bmp = await createImageBitmap(file); }
+  const sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), cv = document.createElement('canvas');
+  cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc);
+  const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(bmp, 0, 0, cv.width, cv.height);
+  return cv.toDataURL('image/jpeg', 0.75);
+}
+async function showContract(s) {
+  if (!s) return;
+  const bg = document.createElement('div'); bg.className = 'slipbg';
+  bg.innerHTML = `<div class="slipbar" style="background:rgba(30,20,15,.92);padding:8px 10px;border-radius:10px"><b style="margin-right:auto;color:#fff;align-self:center">${esc(s.name)} 님 계약서${s.contract_date ? ' · 계약일 ' + esc(s.contract_date) : ''}</b>
+      <button class="sm pri" id="ctAdd">+ 사진 올리기</button><button class="sm" id="ctClose">닫기</button></div>
+    <input type="file" id="ctFile" accept="image/*" multiple hidden>
+    <div class="pdfview" id="ctList" style="padding-bottom:40px"><div class="pdfwait">불러오는 중...</div></div>`;
+  document.body.appendChild(bg);
+  const q = id => bg.querySelector('#' + id), close = () => { bg.remove(); renderAdmin(); };   // 닫으면 목록의 장수가 새로고침됨
+  q('ctClose').onclick = close; bg.onclick = e => { if (e.target === bg) close(); };
+  const draw = async () => {
+    const list = await run(() => api('/admin/contract/list?staff_id=' + s.id));
+    if (!list) { q('ctList').innerHTML = '<div class="pdfwait">불러오지 못했습니다.</div>'; return; }
+    if (!list.length) { q('ctList').innerHTML = '<div class="pdfwait">올려 둔 계약서가 없습니다.<br>[+ 사진 올리기]를 눌러 종이 계약서를 찍거나 사진을 고르세요.</div>'; return; }
+    q('ctList').innerHTML = list.map((r, i) => `<div style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;background:#fff;padding:6px 10px;border-radius:10px 10px 0 0"><b>${i + 1}쪽</b><span class="muted" style="font-size:12px">${ymd(r.at)} 올림</span><span style="flex:1"></span><button class="sm bad" data-cd="${r.id}">삭제</button></div><div id="ci${r.id}" class="pdfwait" style="border-radius:0 0 10px 10px">사진 불러오는 중...</div></div>`).join('');
+    list.forEach(async r => {
+      const j = await api('/admin/contract/img?id=' + r.id).catch(() => null), box = q('ci' + r.id); if (!box) return;
+      if (!j) { box.textContent = '사진을 불러오지 못했습니다.'; return; }
+      box.className = ''; box.style.cssText = 'background:#fff;border-radius:0 0 10px 10px;overflow:hidden';
+      box.innerHTML = `<img src="${j.data}" alt="계약서" style="display:block;width:100%;margin:0;box-shadow:none">`;
+      box.querySelector('img').onclick = () => window.open(j.data, '_blank');
+    });
+    bg.querySelectorAll('[data-cd]').forEach(b => b.onclick = async () => {
+      if (!await modal('<h3>계약서 사진 삭제</h3>이 사진을 삭제할까요? 되돌릴 수 없습니다.', '삭제')) return;
+      if (await run(() => api('/admin/contract/delete', { id: +b.dataset.cd }))) { toast('삭제했습니다'); draw(); }
+    });
+  };
+  q('ctAdd').onclick = () => q('ctFile').click();
+  q('ctFile').onchange = async e => {
+    const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+    const btn = q('ctAdd'); btn.disabled = true;
+    try {
+      for (const [i, f] of files.entries()) {
+        btn.textContent = `올리는 중 ${i + 1}/${files.length}`;
+        const data = await shrinkPhoto(f);
+        await api('/admin/contract/add', { staff_id: s.id, data });
+      }
+      toast(`${files.length}장을 올렸습니다`);
+    } catch (err) { toast(err.message || '사진을 올리지 못했습니다. worker 배포를 확인하세요', 4000); }
+    btn.disabled = false; btn.textContent = '+ 사진 올리기'; draw();
+  };
+  draw();
+}
 async function tabStaff() {
   setTimeout(async () => {                         // 출근하기 버튼 사용 여부
     if (ADMPRAC) return;
@@ -3044,7 +3151,7 @@ async function tabStaff() {
   $('#body').innerHTML = `<div class="card switch"><div><b>직원 출근하기 버튼</b><div class="muted" id="pOnTxt" style="font-size:12.5px">확인 중...</div></div><button class="tog" id="pOn" disabled>...</button></div>
     <div class="card"><div class="row" style="align-items:center"><b>직원 목록</b><button class="sm pri" id="nAdd" style="flex:0 0 auto">직원 추가</button></div>
     <div class="list">${STAFF.map(s => `<div><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${s.color}"></i> <b>${esc(s.name)}</b> <span class="muted">PIN ${esc(s.pin)} · ${won(s.wage)}${s.contract_date ? ` · 계약일 ${esc(s.contract_date)}` : ''}${(c => c ? ` · 계약 주 ${c.min / 60}h` : ' · <span style="color:var(--warn)">계약시간 없음</span>')(contractNow(s, ymd(Date.now()).slice(0, 7)))}</span>${s.phone || s.email ? `<br><span class="muted" style="font-size:12px">${esc([s.phone, s.email].filter(Boolean).join(' · '))}</span>` : '<br><span class="muted" style="font-size:12px;color:var(--warn)">연락처 없음</span>'}${s.use_break === 0 ? '<span class="badge warn">휴게 없음</span>' : '<span class="badge">휴게 있음</span>'}${s.active ? '' : '<span class="badge">퇴사</span>'}</span>
-      <span style="display:flex;gap:4px;flex:0 0 auto"><button class="sm" data-se="${s.id}">수정</button><button class="sm" data-sx="${s.id}">삭제</button></span></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>
+      <span style="display:flex;gap:4px;flex:0 0 auto">${ADMPRAC ? '' : `<button class="sm" data-sc="${s.id}">계약서${s.contract_n ? ' ' + s.contract_n : ''}</button>`}<button class="sm" data-se="${s.id}">수정</button><button class="sm" data-sx="${s.id}">삭제</button></span></div>`).join('') || '<div class="muted">등록된 직원이 없습니다.</div>'}</div></div>
     <div class="card" id="ssCard"><div class="row" style="align-items:center;flex-wrap:wrap"><b style="font-size:16px">직원별 매출</b><span id="ssSel" style="flex:0 0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"></span></div>
     <div id="ssBody" class="muted" style="margin-top:8px">불러오는 중...</div></div>`;
   if (ADMPRAC) { ['.switch', '#ssCard'].forEach(q => { const e = document.querySelector('#body ' + q); if (e) e.remove(); }); }   // 계획수립: 직원 목록만
@@ -3084,6 +3191,7 @@ async function tabStaff() {
     toast('저장했습니다'); renderAdmin();
   };
   $('#nAdd').onclick = () => edit(null);
+  document.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => showContract(STAFF.find(s => s.id === +b.dataset.sc)));
   document.querySelectorAll('[data-se]').forEach(b => b.onclick = () => edit(STAFF.find(s => s.id === +b.dataset.se)));
   document.querySelectorAll('[data-sx]').forEach(b => b.onclick = async () => {
     const s = STAFF.find(x => x.id === +b.dataset.sx);
