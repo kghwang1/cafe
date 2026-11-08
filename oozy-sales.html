@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-08.3">
+<meta name="app-version" content="2026-11-08.6">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -359,7 +359,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-08.3';
+const APP_VERSION = '2026-11-08.6';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = (()=>{ try{ return localStorage.getItem('oozyAnTab')==='cost' ? 'cost' : 'sales' }catch(e){ return 'sales' } })();
@@ -423,8 +423,8 @@ const sPart = (d,h) => (SALES_PART[d]||[]).indexOf(h)>=0;
 const sDow = d => WKN[new Date(d+'T00:00:00').getDay()];
 const sLab = d => d.slice(5,7)+'/'+d.slice(8,10)+'('+sDow(d)+')'+(SALES_PART[d]?'*':'');
 const sK = n => (n/1000).toFixed(1);
-const kWon = k => k==null ? '-' : won(k*1000)+'원';   // 그래프 값(천원) → 툴팁용 원 (예: 15.5 → 15,500원)
-const Y2_MAX = 150;                                   // 2번 그래프 세로축 고정 (천원)
+const kWon = k => k==null ? '-' : (+k).toFixed(1)+'천원';   // 그래프 값(천원) 그대로 표시 (예: 15.5천원 = 15,500원)
+const Y2_MAX = 180;                                   // 2번 그래프 세로축 고정 (천원)
 /* 요일별 — 월요일을 한 주의 시작으로 본다 */
 const WD_LAB = ['월','화','수','목','금','토','일'];
 const wdIdx = d => (new Date(d+'T00:00:00').getDay()+6)%7;          // 월=0 … 일=6
@@ -536,7 +536,7 @@ function vSales(){
   </div>
   <div class="card"><h2>1. ${sMonLabel(mon)} 시간대별 평균 순매출 <span class="hint" style="display:inline">천원</span></h2>
     <div style="position:relative;height:240px"><canvas id="slC1"></canvas></div></div>
-  <div class="card"><h2>2. ${sMonLabel(mon)} 일자별 시간대 순매출 <span class="hint" style="display:inline">천원 · 세로축 150 고정${days.length>10?' · 최근 10일':''}</span></h2>
+  <div class="card"><h2>2. ${sMonLabel(mon)} 일자별 시간대 순매출 <span class="hint" style="display:inline">천원 · 세로축 180 고정${days.length>10?' · 최근 10일':''}</span></h2>
     <div class="tools no-print" style="margin:4px 0 8px;gap:6px">
       <button class="btn g sm" data-free id="slAll">모두 선택</button>
       <button class="btn g sm" data-free id="slNone">모두 해제</button>
@@ -648,7 +648,7 @@ function drawSales(){
     SALES[d].forEach((v,i)=>{ const h = SALES_HOURS[i];
       if(sPart(d,h) || (h<9 && v===0) || (h===22 && v===0)) return;
       const s2 = seg(h, Math.min(v/1000, Y2_MAX), c, LINE_W2, sLab(d)+' '+h+'시~'+(h+1)+'시');
-      s2.borderWidth = Math.max(1, +(LINE_W2*(v/1000)/BASE_K).toFixed(2)); s2.realK = v/1000;   // 150천원 넘으면 맨 위에 그리고, 금액은 실제 값으로
+      s2.borderWidth = Math.max(1, +(LINE_W2*(v/1000)/BASE_K).toFixed(2)); s2.realK = v/1000;   // 180천원 넘으면 맨 위에 그리고, 금액은 실제 값으로
       segs2.push(s2);
     });
   });
@@ -734,7 +734,10 @@ function vCost(){
     <b>기간</b>
     <select id="cMon" style="width:auto;min-width:140px;font-size:15px">${ms.map(m=>`<option value="${m}" ${m===mon?'selected':''}>${m.slice(0,4)}년 ${(+m.slice(5,7))}월</option>`).join('')}</select>
     <span class="hint" style="margin:0" id="cStat"></span></div>`;
-  if(!COST || COST.month!==mon) return head+`<div class="card"><p class="hint" style="margin:0">${costBusy?'불러오는 중...':esc(COST&&COST.err||'불러오는 중...')}</p></div>`;
+  if(!COST || COST.month!==mon) return head+`<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>`;
+  if(COST.err) return head+`<div class="card"><p class="out" style="margin:0 0 10px">${esc(COST.err)}</p>
+    ${/알 수 없는 요청/.test(COST.err)?'<p class="hint">지출분석 저장 기능이 아직 서버에 없습니다. Cloudflare의 oozy-work에 새 worker.js를 배포해 주세요.</p>':''}
+    <button class="btn g sm" id="cRetry">다시 불러오기</button></div>`;
   const d = COST.data || {}, hq = d.hq || {}, ex = (d.extra && d.extra.length) ? d.extra : [];
   const pay = COST.pay || { total:0, staff:[] };
   return head + `
@@ -803,7 +806,7 @@ function costCalc(){
 async function costLoad(){
   costBusy = true;
   try{ const j = await api('/cost?month='+costMon); COST = { month:costMon, data:j.data||{}, pay:j.pay }; }
-  catch(e){ COST = { month:'-', err:'불러오지 못했습니다: '+e.message }; }
+  catch(e){ COST = { month:costMon, err:'불러오지 못했습니다: '+e.message }; }   // 실패해도 그 달로 표시 (다시 불러오기 반복 방지)
   costBusy = false; costDirty = false;
   if(tab==='cost') render();
 }
@@ -811,6 +814,7 @@ function bindCost(){
   const sel = document.getElementById('cMon');
   sel.onchange = () => { if(costDirty && !confirm('저장하지 않은 내용이 있습니다. 다른 달로 넘어갈까요?')) { sel.value = costMon; return } costMon = sel.value; COST = null; render(); costLoad(); };
   if(!COST || COST.month!==costMon){ if(!costBusy) costLoad(); return }
+  if(COST.err){ document.getElementById('cRetry').onclick = () => { COST = null; render(); }; return }
   const v = document.getElementById('view');
   v.oninput = e => { const i = e.target; if(i.matches('input.n')){ const pos = i.value.length - i.selectionStart; const n = numIn(i.value); i.value = n ? won(n) : ''; try{ const p2 = Math.max(0, i.value.length-pos); i.setSelectionRange(p2,p2) }catch(_){} }
     costDirty = true; costCalc(); };
