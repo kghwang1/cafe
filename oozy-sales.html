@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-03.3">
-<title>우지커피 매출분석</title>
+<meta name="app-version" content="2026-11-08.3">
+<title>우지커피 분석</title>
 <style>
 :root{
   --ink:#1c2333; --ink2:#4a5468; --mute:#8792a8;
@@ -352,17 +352,23 @@ ol.steps small{color:var(--mute);display:block}
   <div class="wrap">
     <div class="ttl" style="padding-top:2px">
       <a class="homeln" href="./" aria-label="홈으로">🏠<span class="ht"> 홈</span></a>
-      <h1 id="hTitle">매출분석</h1>
+      <h1 id="hTitle">분석</h1>
     </div>
+    <nav id="anNav"><button data-tab="sales">매출분석</button><button data-tab="cost">지출분석</button></nav>
   </div>
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-08.1';
+const APP_VERSION = '2026-11-08.3';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let tab = 'sales';
-function render(){ document.getElementById('view').innerHTML = vSales(); bindSales(); }
+let tab = (()=>{ try{ return localStorage.getItem('oozyAnTab')==='cost' ? 'cost' : 'sales' }catch(e){ return 'sales' } })();
+function render(){
+  document.querySelectorAll('#anNav [data-tab]').forEach(b=>{ b.classList.toggle('on', b.dataset.tab===tab);
+    b.onclick=()=>{ tab=b.dataset.tab; try{ localStorage.setItem('oozyAnTab',tab) }catch(e){} window.scrollTo(0,0); render() } });
+  if(tab==='cost'){ salesCharts.forEach(c=>{ try{ c.destroy() }catch(e){} }); salesCharts=[]; document.getElementById('view').innerHTML = vCost(); bindCost(); return }
+  document.getElementById('view').innerHTML = vSales(); bindSales();
+}
 /* ── 매출분석 ──
    POS '시간대별매출현황(결제)' 영수증의 순매출액을 날짜별로 옮겨 적은 자료입니다.
    매일 영수증 사진을 보내 주시면 아래 SALES 에 그날 줄을 한 줄 더하면 됩니다.
@@ -417,6 +423,8 @@ const sPart = (d,h) => (SALES_PART[d]||[]).indexOf(h)>=0;
 const sDow = d => WKN[new Date(d+'T00:00:00').getDay()];
 const sLab = d => d.slice(5,7)+'/'+d.slice(8,10)+'('+sDow(d)+')'+(SALES_PART[d]?'*':'');
 const sK = n => (n/1000).toFixed(1);
+const kWon = k => k==null ? '-' : won(k*1000)+'원';   // 그래프 값(천원) → 툴팁용 원 (예: 15.5 → 15,500원)
+const Y2_MAX = 150;                                   // 2번 그래프 세로축 고정 (천원)
 /* 요일별 — 월요일을 한 주의 시작으로 본다 */
 const WD_LAB = ['월','화','수','목','금','토','일'];
 const wdIdx = d => (new Date(d+'T00:00:00').getDay()+6)%7;          // 월=0 … 일=6
@@ -493,7 +501,7 @@ function salesText(days){
     const few = wd.filter(x=>x.n<2).map(x=>x.w);
     if(few.length===wd.length) out.w.push('아직 요일마다 한 번씩뿐이라 위 평균은 그날 매출 그대로입니다. 주가 쌓이면 요일 차이가 또렷해집니다.');
     else if(few.length) out.w.push(`${few.join('·')}요일은 아직 한 번뿐이라 평균으로 보기 이릅니다.`);
-    out.w.push(`지금까지 ${wks.length}주 치가 쌓였습니다. 위 평균은 전체 기간이고, 그래프는 이번 주(막대)와 지난주(선)를 보여 줍니다.`);
+    out.w.push(`지금까지 ${wks.length}주 치가 쌓였습니다. 위 평균은 전체 기간이고, 그래프는 이번 주(막대)와 지난 주들(주마다 선)을 보여 줍니다.`);
   }
   /* 월별 */
   const ms = mon==='ALL' ? sMonths() : [mon];
@@ -528,7 +536,7 @@ function vSales(){
   </div>
   <div class="card"><h2>1. ${sMonLabel(mon)} 시간대별 평균 순매출 <span class="hint" style="display:inline">천원</span></h2>
     <div style="position:relative;height:240px"><canvas id="slC1"></canvas></div></div>
-  <div class="card"><h2>2. ${sMonLabel(mon)} 일자별 시간대 순매출 <span class="hint" style="display:inline">천원${days.length>10?' · 최근 10일':''}</span></h2>
+  <div class="card"><h2>2. ${sMonLabel(mon)} 일자별 시간대 순매출 <span class="hint" style="display:inline">천원 · 세로축 150 고정${days.length>10?' · 최근 10일':''}</span></h2>
     <div class="tools no-print" style="margin:4px 0 8px;gap:6px">
       <button class="btn g sm" data-free id="slAll">모두 선택</button>
       <button class="btn g sm" data-free id="slNone">모두 해제</button>
@@ -538,7 +546,7 @@ function vSales(){
   <div class="card"><h2>3. ${sMonLabel(mon)} 요일별 순매출 <span class="hint" style="display:inline">천원</span></h2>
     <div id="slLg4" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:4px 0 8px;font-size:12.5px"></div>
     <div style="position:relative;height:260px"><canvas id="slC4"></canvas></div>
-    <p class="hint" style="margin:8px 0 0">월요일을 한 주의 시작으로 봅니다. 이번 주는 막대, 지난주는 선으로 보여 주며, 아직 지나지 않았거나 자료가 없는 요일은 비어 있습니다.</p></div>
+    <p class="hint" style="margin:8px 0 0">월요일을 한 주의 시작으로 봅니다. 이번 주는 막대, 지난 주들은 주마다 선 하나로 보여 주며 (지난주가 가장 굵은 선), 아직 지나지 않았거나 자료가 없는 요일은 비어 있습니다.</p></div>
   <div class="card"><h2>분석</h2>
     <h3 style="font-size:14px;margin:12px 0 2px">시간대별</h3><ul style="margin:0;padding-left:18px">${li(tx.h)}</ul>
     <h3 style="font-size:14px;margin:16px 0 2px">일별</h3><ul style="margin:0;padding-left:18px">${li(tx.d)}</ul>
@@ -612,7 +620,7 @@ function drawSales(){
   const days = sSel();
   const lab = SALES_HOURS.map(h=>String(h));
   const base = (ytitle)=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
-    tooltip:{callbacks:{label:c=> (c.dataset.label? c.dataset.label+' ':'')+(c.parsed.y==null?'-':c.parsed.y.toFixed(1)+'천원')}}},
+    tooltip:{callbacks:{label:c=> (c.dataset.label? c.dataset.label+' ':'')+kWon(c.parsed.y)}}},
     scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{beginAtZero:true,grid:{color:'#e6e4de'},ticks:{font:{size:11}},title:{display:!!ytitle,text:ytitle}}}});
   const mk=(id,cfg)=>salesCharts.push(new Chart(document.getElementById(id),cfg));
   /* 1·2번 — 한 시간을 수평선 한 줄로 긋는다 (9시 매출이면 9~10시 사이).
@@ -628,37 +636,45 @@ function drawSales(){
       y:{beginAtZero:true,grid:{color:'#e6e4de'},ticks:{font:{size:11}}}}});
   const segs = [];
   sHourAvg(days).forEach((v,i)=>{ if(v==null) return;
-    const h = SALES_HOURS[i], k = +(v/1000).toFixed(1);
+    const h = SALES_HOURS[i], k = v/1000;
     segs.push(seg(h, k, '#2a78d6', LINE_W, h+'시~'+(h+1)+'시'));
   });
   mk('slC1',{type:'line',data:{datasets:segs},options:hourOpts({displayColors:false,
-      callbacks:{title:it=>it[0].dataset.label, label:c=>c.parsed.y.toFixed(1)+'천원'}})});
+      callbacks:{title:it=>it[0].dataset.label, label:c=>kWon(c.parsed.y)}})});
   const shown = days.filter(sOn);
   salesDayBtns(days);
   const segs2 = [];
   shown.forEach(d=>{ const c = sColor(d, days);
     SALES[d].forEach((v,i)=>{ const h = SALES_HOURS[i];
       if(sPart(d,h) || (h<9 && v===0) || (h===22 && v===0)) return;
-      segs2.push(seg(h, +(v/1000).toFixed(1), c, LINE_W2, sLab(d)+' '+h+'시~'+(h+1)+'시'));
+      const s2 = seg(h, Math.min(v/1000, Y2_MAX), c, LINE_W2, sLab(d)+' '+h+'시~'+(h+1)+'시');
+      s2.borderWidth = Math.max(1, +(LINE_W2*(v/1000)/BASE_K).toFixed(2)); s2.realK = v/1000;   // 150천원 넘으면 맨 위에 그리고, 금액은 실제 값으로
+      segs2.push(s2);
     });
   });
-  mk('slC2',{type:'line',data:{datasets:segs2},options:hourOpts({displayColors:true,
-      callbacks:{title:it=>it[0].dataset.label, label:c=>c.parsed.y.toFixed(1)+'천원'}})});
-  /* 3번 — 이번 주는 막대, 지난주는 선 (선택한 달과 상관없이 전체 자료에서) */
-  const cw = curWeek(sDays()), pw = cw ? dayOfWeek(cw,-7) : '';
-  const wv = (mon0,j)=>{ const d=dayOfWeek(mon0,j); return SALES[d] ? +(sTotal(d)/1000).toFixed(1) : null };
+  const o2 = hourOpts({displayColors:true,
+      callbacks:{title:it=>it[0].dataset.label, label:c=>kWon(c.dataset.realK)+(c.dataset.realK>Y2_MAX?' (축 위로 넘침)':'')}});
+  o2.scales.y.min = 0; o2.scales.y.max = Y2_MAX; o2.scales.y.ticks.stepSize = 30;
+  mk('slC2',{type:'line',data:{datasets:segs2},options:o2});
+  /* 3번 — 이번 주는 막대, 지난 주들은 주마다 선 하나 (선택한 달과 상관없이 전체 자료에서) */
+  const cw = curWeek(sDays());
+  const wv = (mon0,j)=>{ const d=dayOfWeek(mon0,j); return SALES[d] ? sTotal(d)/1000 : null };
   if(cw){
+    const past = sWeeks(sDays()).filter(k=>k<cw).reverse();               // 가까운 주부터
+    const WCOL = ['#eb6834','#1baf7a','#6250d6','#eda100','#e34948','#0e8fa8','#8a5a2b','#c2417a','#4b7f2f','#7a7a7a'];
+    const wk = past.map((k,i)=>({k, col:WCOL[i%WCOL.length], name:(i===0?'지난주':i+1+'주 전')+' '+weekSpan(k), w:i===0?LINE_W:Math.max(1.5,LINE_W*0.6)}));
     const lg4 = document.getElementById('slLg4');
-    if(lg4) lg4.innerHTML = [['이번 주 '+weekSpan(cw),'#2a78d6',1],['지난주 '+weekSpan(pw),'#eb6834',0]]
+    if(lg4) lg4.innerHTML = [['이번 주 '+weekSpan(cw),'#2a78d6',1]].concat(wk.map(x=>[x.name,x.col,0]))
       .map(x=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;box-sizing:border-box;${x[2]?'border:2px solid '+x[1]:'background:'+x[1]}"></span>${x[0]}</span>`).join('');
+    const wkOf = [cw].concat(wk.map(x=>x.k));
     mk('slC4',{data:{labels:WD_LAB,datasets:[
-      {type:'bar',label:'이번 주',data:WD_LAB.map((_,j)=>wv(cw,j)),backgroundColor:'rgba(42,120,214,0)',borderColor:'#2a78d6',borderWidth:2,borderSkipped:false,borderRadius:5,maxBarThickness:52,order:2},
-      {type:'line',label:'지난주',data:WD_LAB.map((_,j)=>wv(pw,j)),borderColor:'#eb6834',backgroundColor:'#eb6834',borderWidth:LINE_W,
-        tension:CURVE,pointRadius:4,spanGaps:false,order:1}]},
+      {type:'bar',label:'이번 주',data:WD_LAB.map((_,j)=>wv(cw,j)),backgroundColor:'rgba(42,120,214,0)',borderColor:'#2a78d6',borderWidth:2,borderSkipped:false,borderRadius:5,maxBarThickness:52,order:9}]
+      .concat(wk.map((x,i)=>({type:'line',label:x.name,data:WD_LAB.map((_,j)=>wv(x.k,j)),borderColor:x.col,backgroundColor:x.col,borderWidth:x.w,
+        tension:CURVE,pointRadius:i===0?4:3,spanGaps:false,order:i+1})))},
       options:Object.assign(base(''),{plugins:{legend:{display:false},tooltip:{displayColors:true,
         callbacks:{title:()=>'',
-          label:c=>{ const d=dayOfWeek(c.datasetIndex===0?cw:pw,c.dataIndex);       // 예: 10. 27. (화), 745
-            return (+d.slice(5,7))+'. '+(+d.slice(8,10))+'. ('+sDow(d)+'), '+(c.parsed.y==null?'자료 없음':Math.floor(c.parsed.y)) }}}}})});
+          label:c=>{ const d=dayOfWeek(wkOf[c.datasetIndex],c.dataIndex);       // 예: 10. 27. (화), 745,000원
+            return (+d.slice(5,7))+'. '+(+d.slice(8,10))+'. ('+sDow(d)+'), '+(c.parsed.y==null?'자료 없음':kWon(c.parsed.y)) }}}}})});
   }
   /* 5번 — 월별 합계·하루 평균 (전체 달) */
   if(document.getElementById('slC5')){
@@ -667,15 +683,149 @@ function drawSales(){
     if(lg5) lg5.innerHTML = [['순매출 합계','#2f5d50'],['하루 평균','#eda100']]
       .map(x=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${x[1]}"></span>${x[0]}</span>`).join('');
     mk('slC5',{type:'line',data:{labels:ms.map(m=>m.slice(0,4)+'년 '+sMonLabel(m)),datasets:[
-      {label:'순매출 합계',data:st.map(x=>+(x.tot/1000).toFixed(1)),borderColor:'#2f5d50',borderWidth:LINE_W,
+      {label:'순매출 합계',data:st.map(x=>x.tot/1000),borderColor:'#2f5d50',borderWidth:LINE_W,
         tension:CURVE,pointRadius:5,pointBackgroundColor:'#2f5d50'},
-      {label:'하루 평균',data:st.map(x=>+(x.avg/1000).toFixed(1)),borderColor:'#eda100',borderWidth:LINE_W,
+      {label:'하루 평균',data:st.map(x=>x.avg/1000),borderColor:'#eda100',borderWidth:LINE_W,
         borderDash:[5,4],tension:CURVE,pointRadius:4,pointBackgroundColor:'#eda100'}]},
       options:Object.assign(base(''),{plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:c=>c.dataset.label+' '+c.parsed.y.toFixed(1)+'천원'}}}})});
+        tooltip:{callbacks:{label:c=>c.dataset.label+' '+kWon(c.parsed.y)}}}})});
   }
 }
 
+
+/* ── 지출분석 ──
+   매출: 위 SALES 자료에서 주별로 자동 합계
+   지출: 본사 주문(주별 입력) · 급여(근무관리에서 자동) · 전기세 · 수도세 · 추가 항목 — 근무관리 서버(/cost)에 달마다 저장 */
+const API = 'https://oozy-work.kghwang1.workers.dev';
+const tokenOf = () => { try { return localStorage.getItem('oozyToken') || '' } catch(e){ return '' } };
+async function api(path, body){
+  const r = await fetch(API+path, { method: body?'POST':'GET', headers:{'Content-Type':'application/json','X-Token':tokenOf()}, body: body?JSON.stringify(body):undefined });
+  let j = {}; try{ j = await r.json() }catch(e){}
+  if(!r.ok || j.error) throw new Error(j.error || ('서버 오류 '+r.status));
+  return j;
+}
+const todayK = () => isoOf(new Date());
+let costMon = '', COST = null, costBusy = false, costDirty = false;
+function costMonths(){
+  const s = new Set(sMonths().filter(m=>m!=='ALL')); s.add(todayK().slice(0,7));
+  return [...s].sort().reverse();
+}
+function monWeeks(mon){                         // 그 달에 하루라도 걸친 주 (월요일 기준)
+  const [y,m] = mon.split('-').map(Number), last = new Date(y, m, 0).getDate(), out = [];
+  for(let k = monOf(mon+'-01'); k <= mon+'-'+String(last).padStart(2,'0'); k = dayOfWeek(k,7)) out.push(k);
+  return out;
+}
+function weekSales(mon, wk){                    // 그 주 가운데 이달에 속한 날의 매출
+  let tot = 0, n = 0, part = false;
+  for(let j=0;j<7;j++){ const d = dayOfWeek(wk,j); if(d.slice(0,7)!==mon || !SALES[d]) continue; tot += sTotal(d); n++; if(SALES_PART[d]) part = true; }
+  return { tot, n, part };
+}
+const wkRange = (mon, wk) => {                  // 이달 안쪽만: 11/01 ~ 11/02
+  let a = wk, z = dayOfWeek(wk,6); if(a.slice(0,7)<mon) a = mon+'-01'; if(z.slice(0,7)>mon) { const [y,m]=mon.split('-').map(Number); z = mon+'-'+String(new Date(y,m,0).getDate()).padStart(2,'0'); }
+  return a.slice(5,7)+'/'+a.slice(8,10)+' ~ '+z.slice(5,7)+'/'+z.slice(8,10);
+};
+const numIn = v => { const n = Math.round(+String(v||'').replace(/[^\d]/g,'')); return n>0 ? n : 0 };
+const fmtIn = n => n ? won(n) : '';
+function vCost(){
+  const ms = costMonths(); if(ms.indexOf(costMon)<0) costMon = ms[0];
+  const mon = costMon, wks = monWeeks(mon), mlab = (+mon.slice(5,7))+'월';
+  const sw = wks.map(k=>weekSales(mon,k)), stot = sw.reduce((a,x)=>a+x.tot,0), sdays = sw.reduce((a,x)=>a+x.n,0);
+  const head = `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <b>기간</b>
+    <select id="cMon" style="width:auto;min-width:140px;font-size:15px">${ms.map(m=>`<option value="${m}" ${m===mon?'selected':''}>${m.slice(0,4)}년 ${(+m.slice(5,7))}월</option>`).join('')}</select>
+    <span class="hint" style="margin:0" id="cStat"></span></div>`;
+  if(!COST || COST.month!==mon) return head+`<div class="card"><p class="hint" style="margin:0">${costBusy?'불러오는 중...':esc(COST&&COST.err||'불러오는 중...')}</p></div>`;
+  const d = COST.data || {}, hq = d.hq || {}, ex = (d.extra && d.extra.length) ? d.extra : [];
+  const pay = COST.pay || { total:0, staff:[] };
+  return head + `
+  <div class="card"><h2>${mlab} 매출 <span class="hint" style="display:inline">매출분석 자료에서 자동</span></h2>
+    <table><thead><tr><th>주</th><th>기간</th><th class="c">영업일</th><th class="n">순매출</th></tr></thead><tbody>
+    ${wks.map((k,i)=>`<tr><td>${i+1}주</td><td class="nw">${wkRange(mon,k)}</td><td class="c">${sw[i].n||'-'}</td><td class="n">${sw[i].n?won(sw[i].tot)+'원'+(sw[i].part?' *':''):'-'}</td></tr>`).join('')}
+    <tr class="tot"><td colspan="2">매출 계</td><td class="c">${sdays}일</td><td class="n" id="cSales" data-v="${stot}">${won(stot)}원</td></tr></tbody></table>
+    ${sw.some(x=>x.part)?'<p class="hint" style="margin:8px 0 0">* 영수증을 일찍 뽑아 일부 시간이 빠진 날이 있는 주 (실제는 조금 더 큼)</p>':''}
+    ${sdays?'':'<p class="hint" style="margin:8px 0 0">이 달 매출 자료가 아직 없습니다. 영수증 사진을 보내 주시면 넣어 드립니다.</p>'}</div>
+
+  <div class="card"><h2>${mlab} 지출</h2>
+    <p class="hint">금액을 넣고 아래 <b>저장</b>을 누르세요. 급여는 근무관리에서 계산한 금액(주휴 포함)을 자동으로 가져옵니다.</p>
+    <h3 style="font-size:14px;margin:6px 0 6px">본사 주문금액 <span class="hint" style="display:inline">원두 등 · 주별</span></h3>
+    <table><thead><tr><th>주</th><th>기간</th><th class="n" style="width:30%">금액(원)</th><th style="width:30%">메모</th></tr></thead><tbody>
+    ${wks.map((k,i)=>`<tr><td style="white-space:nowrap">${i+1}주</td><td class="nw">${wkRange(mon,k)}</td>
+      <td><input type="text" class="n" inputmode="numeric" data-hq="${k}" value="${fmtIn((hq[k]||{}).amt)}" placeholder="0"></td>
+      <td><input type="text" data-hqm="${k}" maxlength="60" value="${esc((hq[k]||{}).memo||'')}" placeholder="예: 원두 4kg"></td></tr>`).join('')}
+    <tr class="sub"><td colspan="2">본사 주문 계</td><td class="n" id="cHqT"></td><td></td></tr></tbody></table>
+
+    <h3 style="font-size:14px;margin:18px 0 6px">급여 <span class="hint" style="display:inline">근무관리에서 자동 · ${pay.confirmed?'급여 확정됨':'확정 전 (근무기록이 바뀌면 같이 바뀜)'}</span></h3>
+    <table><tbody>
+    ${pay.staff.length ? pay.staff.map(s=>`<tr><td>${esc(s.name)}</td><td class="n">${won(s.pay)}원</td></tr>`).join('') : '<tr><td colspan="2" class="hint">이 달 급여가 없습니다</td></tr>'}
+    <tr class="sub"><td>급여 계</td><td class="n" id="cPay" data-v="${pay.total}">${won(pay.total)}원</td></tr></tbody></table>
+
+    <h3 style="font-size:14px;margin:18px 0 6px">공과금 · 기타</h3>
+    <table><tbody>
+      <tr><td style="width:40%">전기세</td><td><input type="text" class="n" inputmode="numeric" id="cElec" value="${fmtIn(d.elec)}" placeholder="0"></td><td style="width:44px"></td></tr>
+      <tr><td>수도세</td><td><input type="text" class="n" inputmode="numeric" id="cWater" value="${fmtIn(d.water)}" placeholder="0"></td><td></td></tr>
+      ${ex.map((x,i)=>`<tr data-exr><td><input type="text" data-exn maxlength="30" value="${esc(x.name)}" placeholder="항목 이름 (예: 가스비)"></td>
+        <td><input type="text" class="n" inputmode="numeric" data-exa value="${fmtIn(x.amt)}" placeholder="0"></td>
+        <td><button class="btn dg sm" data-exdel="${i}" title="이 항목 지우기">✕</button></td></tr>`).join('')}
+    </tbody></table>
+    <button class="btn g sm" id="cAdd" style="margin-top:8px">+ 항목 추가</button>
+
+    <table style="margin-top:16px"><tbody><tr class="tot"><td>지출 계</td><td class="n" id="cCost"></td></tr></tbody></table>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+      <button class="btn" id="cSave">저장</button><span class="hint" style="margin:0" id="cMsg">${d.at?'마지막 저장 '+new Date(d.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</span></div>
+  </div>
+
+  <div class="card"><h2>${mlab} 요약</h2><div id="cSum"></div></div>`;
+}
+function costCollect(){
+  const q = s => document.querySelector(s), hq = {};
+  document.querySelectorAll('[data-hq]').forEach(i=>{ const k=i.dataset.hq, a=numIn(i.value), m=(document.querySelector(`[data-hqm="${k}"]`)||{}).value||'';
+    if(a || m.trim()) hq[k] = { amt:a, memo:m.trim() } });
+  const extra = [...document.querySelectorAll('[data-exr]')].map(r=>({ name:r.querySelector('[data-exn]').value.trim(), amt:numIn(r.querySelector('[data-exa]').value) }));
+  return { hq, elec:numIn(q('#cElec').value), water:numIn(q('#cWater').value), extra };
+}
+function costCalc(){
+  if(!document.getElementById('cCost')) return;
+  const d = costCollect(), sales = +document.getElementById('cSales').dataset.v, pay = +document.getElementById('cPay').dataset.v;
+  const hqT = Object.values(d.hq).reduce((a,x)=>a+x.amt,0), exT = d.extra.reduce((a,x)=>a+x.amt,0);
+  const cost = hqT + pay + d.elec + d.water + exT, left = sales - cost;
+  document.getElementById('cHqT').textContent = won(hqT)+'원';
+  document.getElementById('cCost').textContent = won(cost)+'원';
+  const pc = v => sales ? ' ('+(v/sales*100).toFixed(1)+'%)' : '';
+  const rows = [['본사 주문',hqT],['급여',pay],['전기세',d.elec],['수도세',d.water]].concat(d.extra.filter(x=>x.name||x.amt).map(x=>[x.name||'(이름 없음)',x.amt]));
+  document.getElementById('cSum').innerHTML = `<table><tbody>
+    <tr><td><b>매출 계</b></td><td class="n"><b class="in">${won(sales)}원</b></td></tr>
+    ${rows.map(r=>`<tr><td style="padding-left:18px">${esc(r[0])}</td><td class="n">${won(r[1])}원<span class="hint" style="margin:0">${pc(r[1])}</span></td></tr>`).join('')}
+    <tr class="sub"><td><b>지출 계</b></td><td class="n"><b class="out">${won(cost)}원</b><span class="hint" style="margin:0">${pc(cost)}</span></td></tr>
+    <tr class="tot"><td>남은 금액 (매출 − 지출)</td><td class="n ${left<0?'out':'in'}">${left<0?'−':''}${won(Math.abs(left))}원<span class="hint" style="margin:0">${pc(left)}</span></td></tr>
+  </tbody></table><p class="hint" style="margin:8px 0 0">( ) 안은 매출 대비 비율입니다. 카드 수수료·임대료·세금 등 넣지 않은 비용은 빠져 있으니, 필요하면 <b>항목 추가</b>로 넣으세요.</p>`;
+  const st = document.getElementById('cStat'); if(st) st.textContent = `매출 ${won(sales)}원 · 지출 ${won(cost)}원`;
+}
+async function costLoad(){
+  costBusy = true;
+  try{ const j = await api('/cost?month='+costMon); COST = { month:costMon, data:j.data||{}, pay:j.pay }; }
+  catch(e){ COST = { month:'-', err:'불러오지 못했습니다: '+e.message }; }
+  costBusy = false; costDirty = false;
+  if(tab==='cost') render();
+}
+function bindCost(){
+  const sel = document.getElementById('cMon');
+  sel.onchange = () => { if(costDirty && !confirm('저장하지 않은 내용이 있습니다. 다른 달로 넘어갈까요?')) { sel.value = costMon; return } costMon = sel.value; COST = null; render(); costLoad(); };
+  if(!COST || COST.month!==costMon){ if(!costBusy) costLoad(); return }
+  const v = document.getElementById('view');
+  v.oninput = e => { const i = e.target; if(i.matches('input.n')){ const pos = i.value.length - i.selectionStart; const n = numIn(i.value); i.value = n ? won(n) : ''; try{ const p2 = Math.max(0, i.value.length-pos); i.setSelectionRange(p2,p2) }catch(_){} }
+    costDirty = true; costCalc(); };
+  document.getElementById('cAdd').onclick = () => { COST.data = Object.assign({}, COST.data, costCollect()); COST.data.extra = COST.data.extra.concat([{name:'',amt:0}]); costDirty = true; render();
+    const ns = document.querySelectorAll('[data-exn]'); if(ns.length) ns[ns.length-1].focus(); };
+  document.querySelectorAll('[data-exdel]').forEach(b=>b.onclick=()=>{ COST.data = Object.assign({}, COST.data, costCollect()); COST.data.extra.splice(+b.dataset.exdel,1); costDirty = true; render(); });
+  document.getElementById('cSave').onclick = async () => {
+    const b = document.getElementById('cSave'), msg = document.getElementById('cMsg'); b.disabled = true; msg.textContent = '저장 중...';
+    try{ const j = await api('/cost', { month:costMon, data:costCollect() }); COST.data = j.data; costDirty = false; render();
+      document.getElementById('cMsg').textContent = '저장했습니다 ✓'; }
+    catch(e){ b.disabled = false; msg.innerHTML = '<span class="out">저장 실패: '+esc(e.message)+'</span>'; }
+  };
+  costCalc();
+}
+window.addEventListener('beforeunload', e => { if(costDirty){ e.preventDefault(); e.returnValue = '' } });
 
 render();
 (async function(){

@@ -130,7 +130,7 @@ header h1 .ver{font-size:12px;font-weight:500;opacity:.7;letter-spacing:0;align-
 <script>
 // ===== 설정: 앱 주소는 여기서 바꾸세요 =====
 const CFG = {
-  VERSION: '11.8.-v.1',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
+  VERSION: '11.8.-v.3',                                   // 전체 버전 (여기에만 표시): 홈·근무·매장관리·레시피·카페운영 중 하나라도 고치면 그날 날짜로 번호를 올림
   OPEN_DATE: '2026-10-21',                                   // 오픈일
   API: 'https://oozy-work.kghwang1.workers.dev',             // 근무관리 Worker (사장님 PIN 확인용)
   HOURS: '07:00~22:00',
@@ -142,7 +142,7 @@ const CFG = {
     { key: 'device', perm: 'store', name: '기기관리', ic: '🔧', bg: '#e9e6f3', url: 'https://kghwang1.github.io/cafe/oozy-device.html',
       subs: [['청소', 'https://kghwang1.github.io/cafe/oozy-device.html?tab=clean'], ['사용법', 'https://kghwang1.github.io/cafe/oozy-device.html?tab=manual'], ['동영상', 'https://kghwang1.github.io/cafe/oozy-device.html?tab=video']] },
     { key: 'recipe', name: '레시피', ic: '📖', bg: '#fbe9dc', url: 'https://kghwang1.github.io/cafe/oozy-recipe.html' },
-    { key: 'sales', perm: 'ledger', name: '매출분석', ic: '📈', bg: '#fff1d6', url: 'https://kghwang1.github.io/cafe/oozy-sales.html' },
+    { key: 'sales', perm: 'ledger', name: '분석', ic: '📈', bg: '#fff1d6', url: 'https://kghwang1.github.io/cafe/oozy-sales.html' },
     { key: 'data', perm: ['ledger', 'coffee'], name: '자료', ic: '🗂', bg: '#e6ecfa', url: 'https://kghwang1.github.io/cafe/oozy-ledger.html',
       subs: [['보관 자료', 'https://kghwang1.github.io/cafe/oozy-ledger.html?tab=memo', 'ledger'], ['커피 회사', 'https://kghwang1.github.io/cafe/oozy-ledger.html?tab=coffee', 'coffee']] },
     { key: 'opening', perm: 'ledger', name: '개업자료', ic: '📒', bg: '#e8efe9', url: 'https://kghwang1.github.io/cafe/oozy-opening.html' },   // perm: 같은 권한으로 열림

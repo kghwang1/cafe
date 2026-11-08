@@ -259,6 +259,7 @@ body.practice{background:#fff4e0}
 // 2026-11-06 : 재고 품목 정리 — 32oz 아이스컵, 아이스컵·컵홀더 크기별, 빨대 대/소, 유산지 (기존 매장은 한 번만 자동 반영)
 // 2026-11-07 : 유산지를 각대봉투 다음으로 이동
 // 2026-11-07 : 재고 품목 이동(/stock/item/move, to=끌어서 옮긴 자리)
+// 2026-11-08 : 지출분석(/cost) — 달마다 본사 주문·전기세·수도세·추가 항목 저장, 그 달 급여 합계
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
 //   환경변수: ADMIN_PIN (필수, 6자리 이상 권장)
@@ -879,6 +880,34 @@ async function route(req, env) {
     return err('재고관리: 알 수 없는 요청입니다.', 404);
   }
 
+  // ---------- 지출분석: 달마다 본사 주문(주별)·전기세·수도세·추가 항목 + 그 달 급여 합계 (사장·'카페운영' 권한) ----------
+  if (p.startsWith('/cost')) {
+    if (me.role !== 'admin' && !appsOf(me.staff).includes('ledger')) return err('지출분석을 쓸 권한이 없습니다. 관리자에게 문의하세요.', 403);
+    const month = String((m === 'POST' ? b.month : url.searchParams.get('month')) || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(month)) return err('month=YYYY-MM 형식이 필요합니다.');
+    const key = 'cost:' + month;
+    const amt = v => { const n = Math.round(+String(v == null ? '' : v).replace(/[^\d.-]/g, '')); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e10) : 0; };
+    const txt = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+    if (p === '/cost' && m === 'GET') {
+      const r = await env.DB.prepare('SELECT v FROM settings WHERE k=?').bind(key).first();
+      let data = {}; try { data = r ? JSON.parse(r.v) : {}; } catch (e) { }
+      const pay = await computePay(env, month);                       // 급여: 근무관리에서 계산한 그 달 급여 (주휴 포함)
+      const st = (pay.staff || []).filter(s => s.payTotal > 0).map(s => ({ name: s.name, pay: s.payTotal }));
+      const cf = (await env.DB.prepare('SELECT COUNT(*) c FROM payslip WHERE month=?').bind(month).first()).c;
+      return json({ month, data, pay: { total: st.reduce((a, s) => a + s.pay, 0), staff: st, confirmed: cf > 0 } });
+    }
+    if (p === '/cost' && m === 'POST') {
+      const d = b.data || {}, hq = {};
+      for (const [wk, v] of Object.entries(d.hq || {})) if (/^\d{4}-\d{2}-\d{2}$/.test(wk) && (amt(v && v.amt) || txt(v && v.memo, 60)))
+        hq[wk] = { amt: amt(v.amt), memo: txt(v.memo, 60) };
+      const extra = (Array.isArray(d.extra) ? d.extra : []).slice(0, 30).map(x => ({ name: txt(x && x.name, 30), amt: amt(x && x.amt) })).filter(x => x.name || x.amt);
+      const data = { hq, elec: amt(d.elec), water: amt(d.water), extra, at: now };
+      await env.DB.prepare('INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(key, JSON.stringify(data)).run();
+      return json({ ok: true, data });
+    }
+    return err('지출분석: 알 수 없는 요청입니다.', 404);
+  }
+
   // ---------- 직원 ----------
   if (me.role === 'staff') {
     if (!appsOf(me.staff).includes('work') && p !== '/week') return err('근무·급여를 쓸 권한이 없습니다. 관리자에게 문의하세요.', 403);
@@ -1318,7 +1347,6 @@ export default {
     catch (e) { return err('서버 오류: ' + (e && e.message || e), 500); }
   },
 };
-
 </script>
 <script>
 // ===== 설정 =====
