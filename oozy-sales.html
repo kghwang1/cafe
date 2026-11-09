@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-09.4">
+<meta name="app-version" content="2026-11-09.5">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -359,7 +359,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-09.4';
+const APP_VERSION = '2026-11-09.5';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = (()=>{ try{ return localStorage.getItem('oozyAnTab')==='cost' ? 'cost' : 'sales' }catch(e){ return 'sales' } })();
@@ -737,6 +737,7 @@ const wkRange = (mon, wk) => {                  // 이달 안쪽만: 11/01 ~ 11/
   let a = wk, z = dayOfWeek(wk,6); if(a.slice(0,7)<mon) a = mon+'-01'; if(z.slice(0,7)>mon) { const [y,m]=mon.split('-').map(Number); z = mon+'-'+String(new Date(y,m,0).getDate()).padStart(2,'0'); }
   return a.slice(5,7)+'/'+a.slice(8,10)+' ~ '+z.slice(5,7)+'/'+z.slice(8,10);
 };
+const RENT_DEF = 1100000, VAT_RATE = 0.1;      // 월세 기본값, 부가가치세 = 매출의 10%
 const numIn = v => { const n = Math.round(+String(v||'').replace(/[^\d]/g,'')); return n>0 ? n : 0 };
 const fmtIn = n => n ? won(n) : '';
 function vCost(){
@@ -762,7 +763,7 @@ function vCost(){
     ${sdays?'':'<p class="hint" style="margin:8px 0 0">이 달 매출 자료가 아직 없습니다. 영수증 사진을 보내 주시면 넣어 드립니다.</p>'}</div>
 
   <div class="card"><h2>${mlab} 지출</h2>
-    <p class="hint">금액을 넣고 아래 <b>저장</b>을 누르세요. 급여는 근무관리에서 계산한 금액(주휴 포함)을 자동으로 가져옵니다.</p>
+    <p class="hint">금액을 넣고 아래 <b>저장</b>을 누르세요. 급여는 근무관리에서 계산한 금액(주휴 포함)을 자동으로 가져옵니다. 월세는 110만 원, 부가가치세는 매출 계의 10%가 기본으로 들어갑니다 (고쳐 쓸 수 있음).</p>
     <h3 style="font-size:14px;margin:6px 0 6px">본사 주문금액 <span class="hint" style="display:inline">원두 등 · 주별</span></h3>
     <table><thead><tr><th>주</th><th>기간</th><th class="n" style="width:30%">금액(원)</th><th style="width:30%">메모</th></tr></thead><tbody>
     ${wks.map((k,i)=>`<tr><td style="white-space:nowrap">${i+1}주</td><td class="nw">${wkRange(mon,k)}</td>
@@ -776,7 +777,11 @@ function vCost(){
 
     <h3 style="font-size:14px;margin:18px 0 6px">공과금 · 기타</h3>
     <table><tbody>
-      <tr><td style="width:40%">전기세</td><td><input type="text" class="n" inputmode="numeric" id="cElec" value="${fmtIn(d.elec)}" placeholder="0"></td><td style="width:44px"></td></tr>
+      <tr><td style="width:40%">월세<br><span class="hint" style="margin:0">기본 1,100,000원</span></td><td><input type="text" class="n" inputmode="numeric" id="cRent" value="${fmtIn(d.rent==null?RENT_DEF:d.rent)}" placeholder="0"></td><td style="width:44px"></td></tr>
+      <tr><td>부가가치세<br><span class="hint" style="margin:0" id="cVatH">${d.vat==null?'매출의 10% 자동':'직접 입력'}</span></td>
+        <td><input type="text" class="n" inputmode="numeric" id="cVat" value="${fmtIn(d.vat==null?Math.round(stot*VAT_RATE):d.vat)}" placeholder="0" data-auto="${d.vat==null?1:''}"></td>
+        <td><button class="btn g sm" id="cVatAuto" title="매출의 10%로 되돌리기" style="${d.vat==null?'visibility:hidden':''}">10%</button></td></tr>
+      <tr><td>전기세</td><td><input type="text" class="n" inputmode="numeric" id="cElec" value="${fmtIn(d.elec)}" placeholder="0"></td><td style="width:44px"></td></tr>
       <tr><td>수도세</td><td><input type="text" class="n" inputmode="numeric" id="cWater" value="${fmtIn(d.water)}" placeholder="0"></td><td></td></tr>
       ${ex.map((x,i)=>`<tr data-exr><td><input type="text" data-exn maxlength="30" value="${esc(x.name)}" placeholder="항목 이름 (예: 가스비)"></td>
         <td><input type="text" class="n" inputmode="numeric" data-exa value="${fmtIn(x.amt)}" placeholder="0"></td>
@@ -796,17 +801,21 @@ function costCollect(){
   document.querySelectorAll('[data-hq]').forEach(i=>{ const k=i.dataset.hq, a=numIn(i.value), m=(document.querySelector(`[data-hqm="${k}"]`)||{}).value||'';
     if(a || m.trim()) hq[k] = { amt:a, memo:m.trim() } });
   const extra = [...document.querySelectorAll('[data-exr]')].map(r=>({ name:r.querySelector('[data-exn]').value.trim(), amt:numIn(r.querySelector('[data-exa]').value) }));
-  return { hq, elec:numIn(q('#cElec').value), water:numIn(q('#cWater').value), extra };
+  const vi = q('#cVat');
+  return { hq, elec:numIn(q('#cElec').value), water:numIn(q('#cWater').value), rent:numIn(q('#cRent').value),
+    vat: vi.dataset.auto ? null : numIn(vi.value), extra };
 }
 function costCalc(){
   if(!document.getElementById('cCost')) return;
   const d = costCollect(), sales = +document.getElementById('cSales').dataset.v, pay = +document.getElementById('cPay').dataset.v;
   const hqT = Object.values(d.hq).reduce((a,x)=>a+x.amt,0), exT = d.extra.reduce((a,x)=>a+x.amt,0);
-  const cost = hqT + pay + d.elec + d.water + exT, left = sales - cost;
+  const vi = document.getElementById('cVat'), vat = vi.dataset.auto ? Math.round(sales*VAT_RATE) : d.vat;
+  if(vi.dataset.auto && document.activeElement!==vi) vi.value = fmtIn(vat);
+  const cost = hqT + pay + d.rent + vat + d.elec + d.water + exT, left = sales - cost;
   document.getElementById('cHqT').textContent = won(hqT)+'원';
   document.getElementById('cCost').textContent = won(cost)+'원';
   const pc = v => sales ? ' ('+(v/sales*100).toFixed(1)+'%)' : '';
-  const rows = [['본사 주문',hqT],['급여',pay],['전기세',d.elec],['수도세',d.water]].concat(d.extra.filter(x=>x.name||x.amt).map(x=>[x.name||'(이름 없음)',x.amt]));
+  const rows = [['본사 주문',hqT],['급여',pay],['월세',d.rent],['부가가치세',vat],['전기세',d.elec],['수도세',d.water]].concat(d.extra.filter(x=>x.name||x.amt).map(x=>[x.name||'(이름 없음)',x.amt]));
   document.getElementById('cSum').innerHTML = `<table><tbody>
     <tr><td><b>매출 계</b></td><td class="n"><b class="in">${won(sales)}원</b></td></tr>
     ${rows.map(r=>`<tr><td style="padding-left:18px">${esc(r[0])}</td><td class="n">${won(r[1])}원<span class="hint" style="margin:0">${pc(r[1])}</span></td></tr>`).join('')}
@@ -829,7 +838,10 @@ function bindCost(){
   if(COST.err){ document.getElementById('cRetry').onclick = () => { COST = null; render(); }; return }
   const v = document.getElementById('view');
   v.oninput = e => { const i = e.target; if(i.matches('input.n')){ const pos = i.value.length - i.selectionStart; const n = numIn(i.value); i.value = n ? won(n) : ''; try{ const p2 = Math.max(0, i.value.length-pos); i.setSelectionRange(p2,p2) }catch(_){} }
+    if(i.id==='cVat' && i.dataset.auto){ i.dataset.auto=''; document.getElementById('cVatH').textContent='직접 입력'; document.getElementById('cVatAuto').style.visibility=''; }
     costDirty = true; costCalc(); };
+  document.getElementById('cVatAuto').onclick = () => { const i=document.getElementById('cVat'); i.dataset.auto='1';
+    document.getElementById('cVatH').textContent='매출의 10% 자동'; document.getElementById('cVatAuto').style.visibility='hidden'; costDirty = true; costCalc(); };
   document.getElementById('cAdd').onclick = () => { COST.data = Object.assign({}, COST.data, costCollect()); COST.data.extra = COST.data.extra.concat([{name:'',amt:0}]); costDirty = true; render();
     const ns = document.querySelectorAll('[data-exn]'); if(ns.length) ns[ns.length-1].focus(); };
   document.querySelectorAll('[data-exdel]').forEach(b=>b.onclick=()=>{ COST.data = Object.assign({}, COST.data, costCollect()); COST.data.extra.splice(+b.dataset.exdel,1); costDirty = true; render(); });

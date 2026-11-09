@@ -260,6 +260,7 @@ body.practice{background:#fff4e0}
 // 2026-11-06 : 재고 품목 정리 — 32oz 아이스컵, 아이스컵·컵홀더 크기별, 빨대 대/소, 유산지 (기존 매장은 한 번만 자동 반영)
 // 2026-11-07 : 유산지를 각대봉투 다음으로 이동
 // 2026-11-07 : 재고 품목 이동(/stock/item/move, to=끌어서 옮긴 자리)
+// 2026-11-09 : 지출분석 월세(rent)·부가가치세(vat) 저장
 // 2026-11-08 : 지출분석(/cost) — 달마다 본사 주문·전기세·수도세·추가 항목 저장, 그 달 급여 합계
 // 필요한 설정
 //   D1 바인딩: 변수명 DB
@@ -902,7 +903,8 @@ async function route(req, env) {
       for (const [wk, v] of Object.entries(d.hq || {})) if (/^\d{4}-\d{2}-\d{2}$/.test(wk) && (amt(v && v.amt) || txt(v && v.memo, 60)))
         hq[wk] = { amt: amt(v.amt), memo: txt(v.memo, 60) };
       const extra = (Array.isArray(d.extra) ? d.extra : []).slice(0, 30).map(x => ({ name: txt(x && x.name, 30), amt: amt(x && x.amt) })).filter(x => x.name || x.amt);
-      const data = { hq, elec: amt(d.elec), water: amt(d.water), extra, at: now };
+      const opt = v => v === '' || v == null ? null : amt(v);          // 비우면 null → 화면에서 기본값(월세 110만 원, 부가세 매출의 10%)
+      const data = { hq, elec: amt(d.elec), water: amt(d.water), rent: opt(d.rent), vat: opt(d.vat), extra, at: now };
       await env.DB.prepare('INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(key, JSON.stringify(data)).run();
       return json({ ok: true, data });
     }
