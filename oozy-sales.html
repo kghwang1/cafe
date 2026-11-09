@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-09.2">
+<meta name="app-version" content="2026-11-09.3">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -359,7 +359,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-09.2';
+const APP_VERSION = '2026-11-09.3';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = (()=>{ try{ return localStorage.getItem('oozyAnTab')==='cost' ? 'cost' : 'sales' }catch(e){ return 'sales' } })();
@@ -549,8 +549,8 @@ function vSales(){
     <p class="hint" style="margin:8px 0 0">월요일을 한 주의 시작으로 봅니다. 이번 주는 막대, 지난 주들은 주마다 선 하나로 보여 주며 (지난주가 가장 굵은 선), 아직 지나지 않았거나 자료가 없는 요일은 비어 있습니다.</p></div>
   <div class="card"><h2>분석</h2>
     <h3 style="font-size:14px;margin:12px 0 2px">시간대별</h3><ul style="margin:0;padding-left:18px">${li(tx.h)}</ul>
-    <h3 style="font-size:14px;margin:18px 0 6px">일별 <span class="hint" style="display:inline">${sMonLabel(mon)}</span></h3>${anDayTable(days)}
-    <h3 style="font-size:14px;margin:18px 0 6px">요일별 <span class="hint" style="display:inline">${sMonLabel(mon)} · 요일별 평균</span></h3>${anWdTable(days)}
+    <h3 style="font-size:14px;margin:18px 0 6px">일별 <span class="hint" style="display:inline">${sMonLabel(mon)} · 주별 최고·최저·평균</span></h3>${anDayTable(days)}
+    <h3 style="font-size:14px;margin:18px 0 6px">요일별 <span class="hint" style="display:inline">${sMonLabel(mon)} · 주별 요일 매출과 평균</span></h3>${anWdTable(days)}
     <h3 style="font-size:14px;margin:18px 0 6px">월별 <span class="hint" style="display:inline">위 기간 선택과 상관없이 전체 달</span></h3>${anMonTable()}
     <p class="hint" style="margin:14px 0 0">금액은 POS 영수증의 순매출액(할인 제외) 기준입니다. <span class="in">초록</span>은 가장 높은 값, <span class="out">빨강</span>은 가장 낮은 값입니다. * 표시는 영수증을 일찍 뽑아 일부 시간이 빠진 날입니다.</p>
   </div>`;
@@ -559,26 +559,34 @@ function vSales(){
 const hiLo = (arr, f) => { const v = arr.map(f).filter(x=>x!=null); return { hi: Math.max(...v), lo: Math.min(...v), one: v.length<2 } };
 const mark = (v, h) => h.one || v==null ? '' : v===h.hi ? 'in' : v===h.lo ? 'out' : '';
 const star = d => '';   // sLab 이 이미 * 를 붙임
+// 기간(주) 줄 만들기: 고른 기간의 날짜를 월~일 주로 묶음
+function anWeeks(days){ return sWeeks(days).map(k=>({k, ds:days.filter(d=>monOf(d)===k)})) }
+const dl = d => `${sLab(d)}<br><b>${won(sTotal(d))}</b>`;
 function anDayTable(days){
   if(!days.length) return '<p class="hint">자료가 없습니다</p>';
-  const tots = days.map(d=>({d, t:sTotal(d)})), sum = tots.reduce((a,x)=>a+x.t,0), h = hiLo(tots, x=>x.t);
-  const best = tots.find(x=>x.t===h.hi), worst = tots.find(x=>x.t===h.lo);
-  return `<div class="scroll"><table class="ws"><thead><tr><th class="nw">날짜</th><th class="n">순매출</th><th class="n">평균 대비</th></tr></thead><tbody>
-    ${tots.map(x=>{ const c=mark(x.t,h), g=Math.round((x.t/(sum/days.length)-1)*100);
-      return `<tr><td class="nw ${c}">${sLab(x.d)}${star(x.d)}${c==='in'?' <b>최고</b>':c==='out'?' <b>최저</b>':''}</td><td class="n ${c}">${won(x.t)}</td><td class="n">${g>0?'+':''}${g}%</td></tr>` }).join('')}
-    <tr class="sub"><td>합계 (${days.length}일)</td><td class="n">${won(sum)}</td><td></td></tr>
-    <tr class="sub"><td>하루 평균</td><td class="n">${won(sum/days.length)}</td><td></td></tr>
-    ${days.length>1?`<tr class="sub"><td class="in">최고 · ${sLab(best.d)}</td><td class="n in">${won(best.t)}</td><td></td></tr>
-    <tr class="sub"><td class="out">최저 · ${sLab(worst.d)}${star(worst.d)}</td><td class="n out">${won(worst.t)}</td><td></td></tr>`:''}
-  </tbody></table></div>`;
+  const row = (name, ds) => { const s=ds.reduce((a,d)=>a+sTotal(d),0); let hi=ds[0], lo=ds[0];
+    ds.forEach(d=>{ if(sTotal(d)>sTotal(hi)) hi=d; if(sTotal(d)<sTotal(lo)) lo=d });
+    return { name, n:ds.length, s, avg:s/ds.length, hi, lo } };
+  const rows = anWeeks(days).map(w=>row(weekSpan(w.k), w.ds)), all = row('전체', days);
+  const tr = (r, cls) => `<tr class="${cls||''}"><td class="nw">${r.name}<br><span class="hint" style="margin:0">${r.n}일 · 합계 ${won(r.s)}</span></td>
+    <td class="nw in">${dl(r.hi)}</td><td class="nw out">${r.n>1?dl(r.lo):'-'}</td><td class="n nw"><b>${won(r.avg)}</b></td></tr>`;
+  return `<div class="scroll"><table class="ws"><thead><tr><th class="nw">기간</th><th class="nw">최고</th><th class="nw">최저</th><th class="n nw">평균</th></tr></thead><tbody>
+    ${rows.map(r=>tr(r)).join('')}${rows.length>1?tr(all,'sub'):''}</tbody></table></div>`;
 }
 function anWdTable(days){
-  const o = WD_LAB.map(()=>({s:0,n:0})); days.forEach(d=>{ const x=o[wdIdx(d)]; x.s+=sTotal(d); x.n++ });
-  const rows = o.map((x,i)=>({w:WD_LAB[i], n:x.n, s:x.s, avg:x.n?x.s/x.n:null})), h = hiLo(rows, x=>x.avg);
-  return `<table class="ws"><thead><tr><th>요일</th><th class="n">영업일</th><th class="n">합계</th><th class="n">평균 매출</th></tr></thead><tbody>
-    ${rows.map(x=>{ const c=mark(x.avg,h); return `<tr><td class="${c}">${x.w}${c==='in'?' <b>최고</b>':c==='out'?' <b>최저</b>':''}</td><td class="n">${x.n?x.n+'일':'-'}</td>
-      <td class="n">${x.n?won(x.s):'-'}</td><td class="n ${c}"><b>${x.avg==null?'-':won(x.avg)}</b></td></tr>` }).join('')}
-  </tbody></table>${rows.some(x=>x.n===1)?'<p class="hint" style="margin:6px 0 0">영업일이 1일인 요일은 그날 매출이 곧 평균입니다. 주가 쌓이면 차이가 또렷해집니다.</p>':''}`;
+  if(!days.length) return '';
+  const ws = anWeeks(days), tot = WD_LAB.map(()=>({s:0,n:0}));
+  const cell = d => d ? `<td class="n nw">${won(sTotal(d))}${SALES_PART[d]?'*':''}</td>` : '<td class="n">-</td>';
+  const body = ws.map(w=>{ const by = WD_LAB.map((_,j)=>{ const d=dayOfWeek(w.k,j); return w.ds.indexOf(d)>=0 ? d : null });
+    by.forEach((d,j)=>{ if(d){ tot[j].s+=sTotal(d); tot[j].n++ } });
+    const s = w.ds.reduce((a,d)=>a+sTotal(d),0);
+    return `<tr><td class="nw">${weekSpan(w.k)}</td>${by.map(cell).join('')}<td class="n nw"><b>${won(s/w.ds.length)}</b></td></tr>` }).join('');
+  const avg = tot.map(x=>x.n?x.s/x.n:null), h = hiLo(avg.map(v=>({v})), x=>x.v);
+  const all = days.reduce((a,d)=>a+sTotal(d),0)/days.length;
+  return `<div class="scroll"><table class="ws"><thead><tr><th class="nw">기간</th>${WD_LAB.map(w=>`<th class="n">${w}</th>`).join('')}<th class="n">평균</th></tr></thead><tbody>
+    ${body}<tr class="sub"><td class="nw">요일 평균</td>${avg.map(v=>`<td class="n nw ${mark(v,h)}">${v==null?'-':won(v)}</td>`).join('')}<td class="n nw"><b>${won(all)}</b></td></tr>
+  </tbody></table></div><p class="swipe">← 표를 옆으로 밀어 보세요 →</p>
+  <p class="hint" style="margin:6px 0 0">줄마다 한 주(월~일)이고, 맨 아래 <b>요일 평균</b>에서 가장 높은 요일은 초록, 가장 낮은 요일은 빨강입니다. 오른쪽 <b>평균</b>은 그 주 하루 평균입니다.</p>`;
 }
 function anMonTable(){
   const ms = sMonths(); if(!ms.length) return '';
