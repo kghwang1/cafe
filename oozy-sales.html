@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-08.6">
+<meta name="app-version" content="2026-11-09.1">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -359,7 +359,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-08.6';
+const APP_VERSION = '2026-11-09.1';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = (()=>{ try{ return localStorage.getItem('oozyAnTab')==='cost' ? 'cost' : 'sales' }catch(e){ return 'sales' } })();
@@ -759,7 +759,6 @@ function vCost(){
 
     <h3 style="font-size:14px;margin:18px 0 6px">급여 <span class="hint" style="display:inline">근무관리에서 자동 · ${pay.confirmed?'급여 확정됨':'확정 전 (근무기록이 바뀌면 같이 바뀜)'}</span></h3>
     <table><tbody>
-    ${pay.staff.length ? pay.staff.map(s=>`<tr><td>${esc(s.name)}</td><td class="n">${won(s.pay)}원</td></tr>`).join('') : '<tr><td colspan="2" class="hint">이 달 급여가 없습니다</td></tr>'}
     <tr class="sub"><td>급여 계</td><td class="n" id="cPay" data-v="${pay.total}">${won(pay.total)}원</td></tr></tbody></table>
 
     <h3 style="font-size:14px;margin:18px 0 6px">공과금 · 기타</h3>
