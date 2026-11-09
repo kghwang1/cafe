@@ -165,6 +165,7 @@ body.practice{background:#fff4e0}
 /* 명세서 화면 보기 */
 .slipbg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55;overflow:auto;padding:16px 10px 40px}
 .slipbar{max-width:720px;margin:0 auto 10px;display:flex;gap:8px;justify-content:flex-end;position:sticky;top:0}
+.slipbar button{white-space:nowrap} .slipbar select{min-width:0;flex:1 1 auto}
 .pdfview{max-width:720px;margin:0 auto;padding-bottom:150px}
 .pdfview img{display:block;width:100%;background:#fff;margin:0 0 10px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .pdfwait{background:#fff;border-radius:10px;padding:40px 16px;text-align:center;color:#666}
@@ -1831,16 +1832,17 @@ async function loadMyPay(month) {
     <div class="muted" style="margin-top:6px;font-size:12px">이 금액은 지금까지의 기록으로 계산한 것입니다. 실제 지급액은 사장님이 확정한 <b>확정급여</b>를 확인하세요.</div>`;
   $('#mpPrev').onclick = () => loadMyPay(prev);
   $('#mpNext').onclick = () => loadMyPay(next);
-  $('#mpView').onclick = () => showSlip(s, month, `<span class="stamp wip">확정 전 · ${month === cur ? '현재까지' : '계산값'}</span>`);
+  $('#mpView').onclick = () => showSlip(s, month, `<span class="stamp wip">확정 전 · ${month === cur ? '현재까지' : '계산값'}</span>`, { mine: true });
 }
 // 알바: 사장님이 확정한 명세서
 async function showMyConfirmed() {
   const list = await run(() => api('/my/payslips')); if (!list) return;
   if (!list.length) return modal('<h3>확정급여</h3>아직 확정된 급여명세서가 없습니다.<br><span class="muted">사장님이 급여를 확정하면 여기에서 볼 수 있습니다.</span>', '닫기', undefined, null);
-  modal(`<h3>확정급여</h3><div class="list">${list.map((r, i) => `<div><span><b>${+r.month.slice(0, 4)}년 ${+r.month.slice(5)}월</b><br><span class="muted">확정 ${ymd(r.at)}</span></span>
-      <span style="display:flex;align-items:center;gap:8px"><b>${won(r.slip.pay || 0)}</b><button class="sm pri" data-ms="${i}">보기</button></span></div>`).join('')}</div>`, '닫기', undefined, null);
-  const box = [...document.querySelectorAll('.mbg')].pop();
-  box.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { const r = list[+b.dataset.ms]; box.remove(); showSlip(r.slip, r.month, `<span class="stamp ok">확정 ${ymd(r.at)}</span>`); });
+  // 가장 최근 확정 명세서를 바로 보여 줌. 지난 달 명세서는 위쪽 목록에서 고름
+  const pick = list.map(r => ({ month: r.month, text: `${+r.month.slice(0, 4)}년 ${+r.month.slice(5)}월 (확정 ${ymd(r.at).slice(5).replace('-', '/')})` }));
+  const open = m => { const r = list.find(x => x.month === m) || list[0];
+    showSlip(r.slip, r.month, `<span class="stamp ok">확정 ${ymd(r.at)}</span>`, { mine: true, pick, onPick: open }); };
+  open(list[0].month);
 }
 const END_LABEL = { auto: '예정 퇴근', normal: '정시', early: '조기퇴근', extra: '추가근무' };
 const endBadge = p => p.end_type ? `<span class="badge ${p.end_type === 'extra' ? 'warn' : p.end_type === 'early' ? 'bad' : ''}">${END_LABEL[p.end_type]}</span>` : '';
@@ -2966,13 +2968,16 @@ async function sendOther(s, month) {
   };
 }
 // 명세서를 화면에 띄우고, 필요하면 인쇄·PDF 저장
-function showSlip(s, month, label) {
+function showSlip(s, month, label, opt) {   // opt.mine: 알바 본인 화면 (보내기 없음), opt.pick: 다른 달 고르기 [{month, text}], opt.onPick(month)
+  opt = opt || {};
   const bg = document.createElement('div'); bg.className = 'slipbg';
-  bg.innerHTML = `<div class="slipbar"><button class="sm pri" id="slSend">보내기</button><button class="sm" id="slPrint">인쇄 / PDF 저장</button><button class="sm pri" id="slClose">닫기</button></div>${slipHTML(s, month, label)}`;
+  const pick = opt.pick && opt.pick.length > 1 ? `<select id="slPick" style="margin-right:auto">${opt.pick.map(x => `<option value="${x.month}" ${x.month === month ? 'selected' : ''}>${x.text}</option>`).join('')}</select>` : '';
+  bg.innerHTML = `<div class="slipbar">${pick}${opt.mine ? '' : '<button class="sm pri" id="slSend">보내기</button>'}<button class="sm" id="slPrint">인쇄 / PDF 저장</button><button class="sm pri" id="slClose">닫기</button></div>${slipHTML(s, month, label)}`;
   document.body.appendChild(bg);
   const close = () => bg.remove();
   bg.querySelector('#slClose').onclick = close;
-  bg.querySelector('#slSend').onclick = () => sendSlip(s, month);
+  if (!opt.mine) bg.querySelector('#slSend').onclick = () => sendSlip(s, month);
+  if (pick) bg.querySelector('#slPick').onchange = e => { close(); opt.onPick(e.target.value); };
   bg.onclick = e => { if (e.target === bg) close(); };
   bg.querySelector('#slPrint').onclick = () => { $('#print').innerHTML = slipHTML(s, month, label); window.print(); };
 }
