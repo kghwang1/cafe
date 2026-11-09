@@ -260,6 +260,7 @@ body.practice{background:#fff4e0}
 // 2026-11-06 : 재고 품목 정리 — 32oz 아이스컵, 아이스컵·컵홀더 크기별, 빨대 대/소, 유산지 (기존 매장은 한 번만 자동 반영)
 // 2026-11-07 : 유산지를 각대봉투 다음으로 이동
 // 2026-11-07 : 재고 품목 이동(/stock/item/move, to=끌어서 옮긴 자리)
+// 2026-11-10 : 근무 구분 '식사' (휴게를 명세서에 '식사시간 N분'으로 표시)
 // 2026-11-09 : 지출분석 월세(rent)·부가가치세(vat) 저장
 // 2026-11-08 : 지출분석(/cost) — 달마다 본사 주문·전기세·수도세·추가 항목 저장, 그 달 급여 합계
 // 필요한 설정
@@ -1268,7 +1269,7 @@ async function route(req, env) {
     const sid = +b.staff_id, s = num(b.start), e = num(b.end);
     const bm = b.brk_min === '' || b.brk_min == null ? null : Math.max(0, Math.round(+b.brk_min) || 0);   // 휴게(분)
     const ot = b.ot ? 1 : 0;                                                                             // 추가근무 체크
-    const tag = String(b.tag || '').split(',').map(x => x.trim()).filter(x => /^(교육|행사|기타(:.{0,30})?)$/.test(x)).join(',') || null;   // 근무 구분 (표시용)
+    const tag = String(b.tag || '').split(',').map(x => x.trim()).filter(x => /^(교육|행사|식사|기타(:.{0,30})?)$/.test(x)).join(',') || null;   // 근무 구분 (표시용)
     const v = validRange(s, e); if (v) return err(v);
     if (bm != null && bm >= (e - s) / MIN) return err('휴게시간이 근무시간보다 깁니다.');
     if (await overlap(env, 'punch', sid, s, e, +b.id || 0)) return err('이 직원의 다른 근무 기록과 시간이 겹칩니다.', 409);
@@ -2425,7 +2426,7 @@ let PMONTH = ymd(Date.now()).slice(0, 7), PDAY = ymd(Date.now()), PROWS = [], PJ
 const tagArr = p => String((p && p.tag) || '').split(',').filter(Boolean);
 const tagHas = (p, t) => tagArr(p).includes(t);
 const tagEtc = p => { const x = tagArr(p).find(s => s.startsWith('기타')); return x == null ? null : x.slice(3); };
-const tagTxt = p => tagArr(p).map(s => s.startsWith('기타') ? (s.slice(3) ? '기타(' + s.slice(3) + ')' : '기타') : s).join(' · ');
+const tagTxt = p => tagArr(p).filter(s => s !== '식사').map(s => s.startsWith('기타') ? (s.slice(3) ? '기타(' + s.slice(3) + ')' : '기타') : s).join(' · ');
 const brkOf = (p, min) => {                     // 이 기록의 휴게(분): 기록에 적은 값 > 직원 설정(휴게 사용이면 자동 규칙, 없음이면 0)
   if (p.brk_min != null) return Math.min(+p.brk_min, min);
   const s = STAFF.find(x => x.id === p.staff_id); const use = !s || s.use_break !== 0;
@@ -2588,6 +2589,7 @@ async function editPunch(p, fromWeek, day) {
       <div><label>퇴근</label><input type="hidden" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"><button type="button" class="tbtn" id="kBb">${tLabel(p && p.end ? hhmm(p.end) : '')}</button></div></div>
     <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${defBrk}">
     <div class="muted" style="font-size:12px" id="kRn">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
+    <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:600"><input type="checkbox" id="kMeal" ${tagHas(p, '식사') ? 'checked' : ''} style="width:auto"> 휴게를 <b>식사시간</b>으로 표시 <span class="muted" style="font-weight:400;font-size:12px">(명세서: 식사시간 60분)</span></label>
     <div class="otchk"><div class="kinds">
       <label><input type="checkbox" id="kO" ${p && p.ot ? 'checked' : ''}> <b>추가</b></label>
       ${['교육', '행사'].map(t => `<label><input type="checkbox" data-kt="${t}" ${tagHas(p, t) ? 'checked' : ''}> <b>${t}(계약전)</b></label>`).join('')}
@@ -2599,7 +2601,7 @@ async function editPunch(p, fromWeek, day) {
       if (!d || !a || !b) { toast('날짜와 시간을 모두 입력하세요'); return false; }
       if (r !== '' && !(+r >= 0)) { toast('휴게시간은 0 이상의 분으로 넣으세요'); return false; }
       return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? null : +r, ot: $('#kO').checked ? 1 : 0,
-        tag: [...document.querySelectorAll('[data-kt]')].filter(x => x.checked).map(x => x.dataset.kt).concat($('#kEtc').checked ? ['기타:' + $('#kEtcT').value.trim().replace(/,/g, ' ')] : []).join(',') };
+        tag: [...document.querySelectorAll('[data-kt]')].filter(x => x.checked).map(x => x.dataset.kt).concat($('#kMeal').checked ? ['식사'] : []).concat($('#kEtc').checked ? ['기타:' + $('#kEtcT').value.trim().replace(/,/g, ' ')] : []).join(',') };
     });
   if (!v) return;
   if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else { PDAY = ymd(v.start); PMONTH = PDAY.slice(0, 7); tabPunch(); } }
@@ -2724,9 +2726,9 @@ const baseOf = s => s.basePay != null ? s.basePay : s.pay;          // 기본급
 const totOf = s => s.payTotal != null ? s.payTotal : s.pay;          // 월 급여 = 기본급 + 주휴수당 (예전 확정본은 기본급만)
 const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week + 6 * DAY).replace(/\(.\)/, '')} 주 · 실근무 ${fmtH(w.minutes)}${w.basis === 'contract' ? ` · 계약 ${fmtH(w.base)}` : ' · 계약시간 없음(실근무 기준)'} → ${w.ok ? won(w.amount) : '없음 (' + w.reason + ')'}`);
 function workListHTML(s, check = true) {
-  return `<h3>근무 내역 (${s.shifts.length}회)</h3><table class="wl"><colgroup><col style="width:17%"><col style="width:26%"><col style="width:10%"><col style="width:32%"><col style="width:15%"></colgroup><tr><th>날짜</th><th>출퇴근</th><th>휴게</th><th>구분</th><th>기타</th></tr>
-    ${s.shifts.map(x => { const kd = kindOf(x), rest = tagArr(x).filter(t => t !== KN[kd]).map(t => t.startsWith('기타') ? (t.slice(3) || '기타') : t).join(', ');
-      return `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td class="kdc${kd !== 'base' ? ' x' : ''}"><span>${KN[kd]}</span><span>${fmtH(x.paid)}</span></td><td style="font-size:11.5px">${rest ? esc(rest) : '-'}</td></tr>`; }).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
+  return `<h3>근무 내역 (${s.shifts.length}회)</h3><table class="wl"><colgroup><col style="width:15%"><col style="width:24%"><col style="width:14%"><col style="width:32%"><col style="width:15%"></colgroup><tr><th>날짜</th><th>출퇴근</th><th>휴게</th><th>구분</th><th>기타</th></tr>
+    ${s.shifts.map(x => { const kd = kindOf(x), rest = tagArr(x).filter(t => t !== KN[kd] && t !== '식사').map(t => t.startsWith('기타') ? (t.slice(3) || '기타') : t).join(', ');
+      return `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? (tagHas(x, '식사') ? '식사시간<br>' : '') + x.brk + '분' : '-'}</td><td class="kdc${kd !== 'base' ? ' x' : ''}"><span>${KN[kd]}</span><span>${fmtH(x.paid)}</span></td><td style="font-size:11.5px">${rest ? esc(rest) : '-'}</td></tr>`; }).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
     ${s.shifts.length ? (() => { const sum = kd => s.shifts.filter(x => kindOf(x) === kd).reduce((a, x) => a + x.paid, 0);
       const ok = payItems(s).every((it, i) => sum(['base', 'edu', 'evt', 'ot'][i]) === it.min);
       return `<tr class="tot"><th colspan="2">합계 (휴게 제외)</th><td colspan="3" style="text-align:left;white-space:nowrap;font-size:12.5px"><b>${['base', 'edu', 'evt', 'ot'].filter(k => sum(k)).map(k => `${KN[k]} ${sum(k) % 60 ? Math.floor(sum(k) / 60) + ':' + pad(sum(k) % 60) : sum(k) / 60}`).join(',&nbsp; ')}</b></td></tr></table>
