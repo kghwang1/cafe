@@ -2581,6 +2581,7 @@ async function editPunch(p, fromWeek, day) {
       $('#kR').placeholder = off ? '비우면 0 (직원 설정: 휴게 없음)' : '비우면 자동 (4시간 이상 30분 · 8시간 30분 이상 60분)';
       $('#kRn').innerHTML = `비워 두면 <b>직원 설정</b>(${off ? '휴게 없음' : '휴게 사용 · 자동'})을 따릅니다. 이 날만 다르게 하려면 분을 넣으세요 (넣은 값이 우선).`; upd(); };
     if (ks) ks.onchange = sync; sync();
+    const km = $('#kMeal'); if (km) km.onchange = () => { const r = $('#kR'); if (km.checked && (r.value.trim() === '' || +r.value === 0)) { r.value = 60; upd(); } };   // 식사시간 체크하면 휴게 60분을 채움
     const ke = $('#kEtc'); if (ke) ke.onchange = () => { const t = $('#kEtcT'); t.hidden = !ke.checked; if (ke.checked) t.focus(); };
   }, 0);
   const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'} · ${dt.getMonth() + 1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</h3><label>이름</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
