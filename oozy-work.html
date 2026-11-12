@@ -2437,12 +2437,14 @@ async function tabPunch() {
   if (PDAY.slice(0, 7) !== PMONTH) PDAY = PMONTH + '-01';
   $('#body').innerHTML = `<div class="card"><div class="calnav"><button class="sm" id="cmPrev">◀</button>
       <input type="month" id="cmSel" value="${PMONTH}"><button class="sm" id="cmNext">▶</button></div>
+    <div style="text-align:center;margin-bottom:8px"><button class="sm" id="cmBulk">📋 일괄 입력 (종이 기록 옮기기)</button></div>
     <div class="cal" id="cal"><div class="muted" style="grid-column:1/-1;padding:12px">불러오는 중...</div></div></div>
     <div class="card" id="dayBox"></div>`;
   const go = ym => { PMONTH = ym; tabPunch(); };
   const shift = k => { const d = new Date(y, m - 1 + k, 1); go(ymd(d).slice(0, 7)); };
   $('#cmPrev').onclick = () => shift(-1); $('#cmNext').onclick = () => shift(1);
   $('#cmSel').onchange = e => { if (e.target.value) go(e.target.value); };
+  $('#cmBulk').onclick = () => bulkPunch();
   const from = new Date(y, m - 1, 1).getTime(), to = new Date(y, m, 1).getTime();
   const payP = api('/admin/pay?month=' + PMONTH).catch(() => null);         // 주휴수당 (같이 받아 둠)
   const rows = await run(() => api(`/admin/punches?from=${from}&to=${to}`)); if (!rows) return;
@@ -2554,6 +2556,78 @@ function pickTime(cur, title, check) {
     };
     draw(); document.body.appendChild(bg);
   });
+}
+// ===== 일괄 입력: 종이 달력 기록(사진을 글로 옮긴 것)을 한 번에 저장 =====
+// 한 줄에 기록 하나:  11/3 신혜라 08:00~15:00   ·   11/3 신혜라 15:00~15:10 추가   (추가·교육·행사·휴게30 을 뒤에 붙일 수 있음)
+let BULK_TXT = '';
+function parseBulk(txt) {
+  const [py, pm] = PMONTH.split('-').map(Number), out = [];
+  txt.split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.trim(); if (!line || line.startsWith('#')) return;
+    const r = { line: i + 1, raw: line };
+    const m = line.match(/^(\d{1,2})\s*[\/.]\s*(\d{1,2})\.?\s*(?:\([^)]*\))?\s+([^\s\d]+)\s+(\d{1,2})(?::(\d{2}))?\s*[~\-]\s*(\d{1,2})(?::(\d{2}))?(.*)$/);
+    if (!m) { r.err = '형식을 읽을 수 없음'; out.push(r); return; }
+    const mo = +m[1], da = +m[2]; let yr = py;
+    if (mo - pm > 6) yr--; else if (pm - mo > 6) yr++;                 // 12월 달력에서 1/2 같은 다음 해 날짜
+    const dd = `${yr}-${pad(mo)}-${pad(da)}`, a = `${pad(+m[4])}:${m[5] || '00'}`, b = `${pad(+m[6])}:${m[7] || '00'}`;
+    r.day = dd; r.a = a; r.b = b; r.name = m[3];
+    const rest = m[8] || '', bm = rest.match(/휴게\s*(\d+)/);
+    r.ot = /추가|초과|\*/.test(rest) ? 1 : 0;
+    r.tag = ['교육', '행사'].filter(t => rest.includes(t)).join(',');
+    r.brk = bm ? +bm[1] : null;
+    const d = new Date(dd + 'T00:00');
+    if (isNaN(d) || d.getMonth() + 1 !== mo || d.getDate() !== da) r.err = '날짜 오류';
+    r.start = toMs(dd, a); r.end = toMs(dd, b);
+    if (!r.err && !(r.end > r.start)) r.err = '퇴근이 출근보다 빠름';
+    const s = STAFF.find(x => String(x.name).trim() === r.name);
+    if (!r.err && !s) r.err = '등록되지 않은 직원';
+    if (s) r.sid = s.id;
+    out.push(r);
+  });
+  return out;
+}
+async function bulkPunch() {
+  if (!STAFF.length) STAFF = await run(() => api('/admin/staff')) || [];
+  const ex = `11/3 신혜라 08:00~15:00\n11/3 신혜라 15:00~15:10 추가\n11/3 한지윤 16:00~19:00`;
+  const txt = await modal(`<h3>일괄 입력</h3>
+    <div class="muted" style="font-size:12.5px;line-height:1.5">한 줄에 기록 하나씩: <b>날짜 이름 출근~퇴근</b><br>
+      뒤에 <b>추가</b>(추가근무)·<b>교육</b>·<b>행사</b>·<b>휴게30</b>(분)을 붙일 수 있습니다. 휴게를 안 적으면 직원 설정(자동)을 따릅니다.<br>
+      종이 달력 사진을 Claude에게 보내면 이 형식으로 옮겨 드립니다.</div>
+    <textarea id="bkT" rows="12" style="width:100%;font-family:inherit;font-size:14px;margin-top:8px" placeholder="${ex}">${esc(BULK_TXT)}</textarea>`, '미리보기', () => $('#bkT').value);
+  if (txt == null || txt === false) return;
+  BULK_TXT = txt;
+  const rows = parseBulk(txt); if (!rows.length) return toast('입력한 기록이 없습니다');
+  const ok = rows.filter(r => !r.err);
+  if (ok.length) {                                   // 이미 있는 기록과 비교
+    const from = Math.min(...ok.map(r => r.start)), to = Math.max(...ok.map(r => r.end));
+    const cur = await run(() => api(`/admin/punches?from=${from}&to=${to}`)); if (!cur) return;
+    ok.forEach((r, i) => {
+      if (cur.some(p => p.staff_id === r.sid && p.start === r.start && p.end === r.end)) { r.skip = '이미 있음'; return; }
+      const hit = cur.find(p => p.staff_id === r.sid && p.status !== 'missing' && p.start < r.end && (p.end || Date.now()) > r.start);
+      if (hit) { r.err = `기존 기록과 겹침 (${hhmm(hit.start)}~${hit.end ? hhmm(hit.end) : ''})`; return; }
+      if (ok.slice(0, i).some(q => !q.err && !q.skip && q.sid === r.sid && q.start < r.end && q.end > r.start)) r.err = '입력한 다른 줄과 겹침';
+    });
+  }
+  const todo = rows.filter(r => !r.err && !r.skip), bad = rows.filter(r => r.err);
+  const tr = r => { const d = r.day ? new Date(r.day + 'T00:00') : null, min = r.err && !r.start ? 0 : Math.round((r.end - r.start) / MIN);
+    const st = r.err ? `<span style="color:var(--bad)">✕ ${esc(r.err)}</span>` : r.skip ? `<span class="muted">${r.skip} (건너뜀)</span>` : '<span style="color:var(--ok)">저장</span>';
+    const kind = [r.ot ? '추가' : '', r.tag || '', r.brk != null ? '휴게' + r.brk : ''].filter(Boolean).join(' · ');
+    return d ? `<tr><td>${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})</td><td>${esc(r.name)}</td><td>${r.a}~${r.b}${min > 0 ? `<div class="muted" style="font-size:11px">${fmtH(min)}</div>` : ''}</td><td>${kind || '-'}</td><td>${st}</td></tr>`
+      : `<tr><td colspan="4">${esc(r.raw)}</td><td>${st}</td></tr>`; };
+  const go = await modal(`<h3>미리보기 — 저장 ${todo.length}건${bad.length ? ` · <span style="color:var(--bad)">확인 필요 ${bad.length}건</span>` : ''}</h3>
+    <div class="dayscroll" style="max-height:55vh;overflow:auto"><table class="dayt"><tr><th>날짜</th><th>이름</th><th>근무구간</th><th>구분</th><th>처리</th></tr>${rows.map(tr).join('')}</table></div>
+    ${bad.length ? '<div class="muted" style="font-size:12px;margin-top:6px">✕ 표시 줄은 저장하지 않습니다. 고치려면 취소 후 글을 수정하세요.</div>' : ''}`, todo.length ? `${todo.length}건 저장` : '닫기', () => true);
+  if (!go || !todo.length) return;
+  let done = 0; const fail = [];
+  for (const r of todo) {
+    try { await api('/admin/punch', { id: null, staff_id: r.sid, start: r.start, end: r.end, brk_min: r.brk, ot: r.ot, tag: r.tag });
+      done++; toast(`저장 중... ${done}/${todo.length}`, 800); }
+    catch (e) { fail.push(`${r.raw} → ${e.message}`); }
+  }
+  if (!fail.length) BULK_TXT = '';
+  PDAY = todo[0].day; PMONTH = PDAY.slice(0, 7); tabPunch();
+  if (fail.length) modal(`<h3>${done}건 저장 · ${fail.length}건 실패</h3><div class="warnlist">${fail.map(esc).join('<br>')}</div>`, '확인', undefined, null);
+  else toast(`${done}건 저장했습니다`);
 }
 async function editPunch(p, fromWeek, day) {
   const dd = p ? ymd(p.start) : (day || ymd(Date.now())), dt = new Date(dd + 'T00:00');
