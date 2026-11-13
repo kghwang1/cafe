@@ -6141,21 +6141,28 @@ function divScanCondCells(x){
   // 120일 — 주가가 120일선 위/아래 (trend = 신호와 같은 쪽)
   const above120 = bull ? !!x.trend : !x.trend;
   const c120 = tri(above120, !!x.trend, '120일선 ' + (above120 ? '위' : '아래') + (x.trend ? ' — 신호와 같은 방향' : ' — 신호와 반대 방향'));
-  // 외국인 — 위: 가장 최근일 ▲▼ 보유비중 (5일 증감). 예: ▲23%(0.37%)
-  //          아래(작게): 확정일 기준 5일 증감. 예: 확정일 ▼(0.12%) — 형성 중 신호는 둘이 같아 생략
+  // 외국인 보유비중 — 위: 지금 비중 (최근 5거래일 증감). 예: 12%(▲2.00%)
+  //          아래(작게): 신호 확정후 지금까지 증감 / 지난 거래일수. 예: 확정후 ▲2.00%/2d
   let cf;
-  const sub = (x.kd != null && !x.forming)
-    ? '<div class="fsub ' + (((x.kd > 0) && bull) || ((x.kd < 0) && !bull) ? (x.kd > 0 ? 'up' : 'dn') : 'mu') + '" title="신호 확정일(' + divScanEsc(x.date) + ')까지 '
-      + DIVSCAN_FRGN_N + '거래일 보유비중 ' + (x.kd >= 0 ? '+' : '') + x.kd.toFixed(2) + '%p' + (x.kh != null ? ' · 그날 비중 ' + x.kh.toFixed(2) + '%' : '') + '">확정일 '
-      + (x.kd > 0 ? '▲' : x.kd < 0 ? '▼' : '–') + '(' + Math.abs(x.kd).toFixed(2) + '%)</div>'
-    : '';
+  /* 아랫줄 (2026-11-13 바뀜) — 예전에는 '확정일까지 5거래일' 증감이었는데,
+     신호가 난 뒤 외국인이 그 편을 들어 주는지가 더 쓸모 있어 '확정후 ~ 지금' 으로 바꿨다.
+     확정 당일(0일)과 형성 중 신호는 잴 구간이 없어 아랫줄을 적지 않는다 */
+  let sub = '';
+  if (!x.forming && x.kh != null && x.fh != null && x.ago > 0) {
+    const kv = +(x.fh - x.kh).toFixed(2);
+    const ku = kv > 0, kdn = kv < 0;
+    const kgood = (ku && bull) || (kdn && !bull);        // 신호와 같은 방향이면 진하게
+    sub = '<div class="fsub ' + (kgood ? (ku ? 'up' : 'dn') : 'mu') + '" title="신호 확정일(' + divScanEsc(x.date) + ') 비중 '
+        + x.kh.toFixed(2) + '% → 지금 ' + x.fh.toFixed(2) + '% · ' + (kv >= 0 ? '+' : '') + kv.toFixed(2) + '%p (' + x.ago + '거래일)">확정후 '
+        + (ku ? '▲' + kv.toFixed(2) + '%' : kdn ? '▼' + Math.abs(kv).toFixed(2) + '%' : '–') + '/' + x.ago + 'd</div>';
+  }
   if (x.fh != null) {
     const dv = x.fd, up = dv != null && dv > 0, dn = dv != null && dv < 0;
     const hv = x.fh >= 10 ? Math.round(x.fh) : x.fh.toFixed(1);
     const good = (up && bull) || (dn && !bull);              // 신호와 같은 방향이면 진하게
     cf = '<td class="cc ' + (good ? (up ? 'up' : 'dn') : 'mu') + '" title="외국인 보유비중 ' + x.fh.toFixed(2) + '% · '
        + DIVSCAN_FRGN_N + '거래일 전보다 ' + (dv == null ? '자료 없음' : (dv >= 0 ? '+' : '') + dv.toFixed(2) + '%p') + '">'
-       + (up ? '▲' : dn ? '▼' : '–') + hv + '%' + (dv != null ? '<span class="sm">(' + Math.abs(dv).toFixed(2) + '%)</span>' : '') + sub + '</td>';
+       + hv + '%' + (dv != null ? '<span class="sm">(' + (up ? '▲' + dv.toFixed(2) + '%' : dn ? '▼' + Math.abs(dv).toFixed(2) + '%' : '–') + ')</span>' : '') + sub + '</td>';
   } else if (x.fr != null) {   // 예전 결과 — 보유비중 없이 순매수만 있음
     cf = '<td class="cc ' + ((x.fr > 0) === bull ? (x.fr > 0 ? 'up' : 'dn') : 'mu') + '" title="최근 5일 외국인 순' + (x.fr > 0 ? '매수' : '매도') + ' (다시 찾으면 보유비중으로 표시)">' + (x.fr > 0 ? '▲' : '▼') + '</td>';
   } else cf = none('외국인 자료 없음');
@@ -6183,7 +6190,7 @@ function divScanRender(res){
       .sort((a, b) => ((a.forming ? 1 : 0) - (b.forming ? 1 : 0)) || (b.tags.length - a.tags.length)
                       || (a.forming ? (b.held - a.held) : (a.ago - b.ago)));
     if (!rows.length) return '<div class="ds-empty">최근 ' + DIVSCAN_RECENT + '거래일 안에 확정된 신호가 없습니다.</div>';
-    let h = '<div class="ds-wrap"><table><tr><th class="l">종목</th><th class="l">지표</th><th class="cc">RSI</th><th class="cc">20일</th><th class="cc">120일</th><th class="cc">외국인</th><th>확정일</th><th>지난 날</th><th>확정 뒤</th><th>현재가</th></tr>';
+    let h = '<div class="ds-wrap"><table><tr><th class="l">종목</th><th class="l">지표</th><th class="cc">RSI</th><th class="cc">20일</th><th class="cc">120일</th><th class="cc">외국인 보유비중</th><th>확정일</th><th>지난 날</th><th>확정 뒤</th><th>현재가</th></tr>';
     rows.forEach(x => {
       h += '<tr class="ds-row' + (x.forming ? ' ds-form' : '') + '" data-code="' + divScanEsc(x.code) + '" data-name="' + divScanEsc(x.name) + '">'
          + '<td class="l"><span class="nm">' + divScanEsc(x.name) + '</span><span class="mk">' + divScanEsc(x.mk) + '</span></td>'
@@ -6257,7 +6264,9 @@ function divScanRender(res){
     + missH + idxH + failH
     + '<div class="ds-note">· 지표 글자: R=RSI · C=CCI · M=MACD · E=Elder Ray · F=MFI. 글자가 많을수록 여러 지표가 같은 꼭지에서 엇갈린 것입니다.<br>'
     + '· 확정일 = 두 번째 꼭지 뒤 ' + DIV_L + '거래일 — 그날이 지나야 꼭지인 줄 알 수 있어 차트의 ▲▼ 보다 늦게 잡힙니다.<br>'
-    + '· 지표 옆 <b>외+</b>/<b>외−</b> = 최근 5일 외국인 순매수/순매도 (신호와 같은 방향이면 초록).<br>'
+    + '· <b>외국인 보유비중</b> 칸 — 윗줄 <b>12%(▲2.00%)</b> = 지금 비중 12%, 최근 ' + DIVSCAN_FRGN_N + '거래일 동안 2.00%p 늘었다는 뜻. '
+    + '아랫줄 <b>확정후 ▲2.00%/2d</b> = 신호가 확정된 뒤 2거래일 동안 비중이 2.00%p 늘었다는 뜻 (확정 당일·형성 중은 잴 구간이 없어 안 적습니다). '
+    + '글자색은 신호와 같은 방향이면 진하게(▲ 저점에 비중 늘면 빨강, ▼ 고점에 비중 줄면 파랑), 어긋나면 회색입니다. 숫자에 손을 올리면 정확한 값이 뜹니다.<br>'
     + '· <b style="color:#f0a836">형성 중</b> = 두 번째 꼭지 뒤 아직 ' + DIV_L + '거래일이 안 찼지만 지금까지 꼭지가 지켜지는 신호 (3/5 = 3일째). 그 사이 더 낮은 저가(▼ 은 더 높은 고가)가 나오면 사라지며, 신호 효과 통계에는 넣지 않습니다. 차트에는 흐린 점선과 ▲SE… 처럼 표시됩니다.<br>'
     + '· 장중에는 오늘 봉이 아직 움직이므로 결과가 바뀔 수 있습니다. 종목을 누르면 다이버전스 탐색 조합으로 차트가 열립니다.</div>';
   box.querySelectorAll('tr.ds-row').forEach(tr => tr.onclick = () => divScanOpen(tr.dataset.code, tr.dataset.name));
