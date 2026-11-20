@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-11-07.2">
+<meta name="app-version" content="2026-11-20.1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,10 +104,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 
 /* 재고 표: 품목 · 기준 · 재고 · 필요량 · 발주 · 비고 */
 .tb{background:var(--card);border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
-.tr{display:grid;grid-template-columns:minmax(66px,1.05fr) 40px 44px 44px 44px minmax(52px,.9fr);gap:3px;align-items:center;
+.tr{display:grid;grid-template-columns:minmax(54px,1fr) 34px 38px 42px 38px 36px minmax(38px,.7fr);gap:3px;align-items:center;
   padding:7px 6px 7px 8px;border-top:1px dashed var(--line);border-left:5px solid transparent}
 .tr.th{border-top:0;background:var(--less-bg);font-size:12.5px;font-weight:700;color:var(--etc);padding:7px 6px 7px 8px}
-.tr.th span{text-align:center}
+.tr.th span{text-align:center;white-space:nowrap}
 .tr.th .c1{text-align:left}
 .tr.done{background:var(--less-bg)}
 .c1{min-width:0;font-weight:600;font-size:.7em;line-height:1.25;word-break:break-word}
@@ -116,6 +116,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   padding:6px 2px;font-size:15px;min-height:40px;text-align:center}
 .tr input.base{background:transparent;border-style:dashed;color:var(--muted);font-weight:600}
 .tr input.qty{font-weight:700}
+.tr select.unit{width:100%;min-width:0;min-height:40px;padding:0 0 0 2px;border:1.5px solid var(--line);border-radius:7px;background:var(--paper);color:var(--muted);
+  font-size:13px;font-weight:600;text-align:center;text-align-last:center;font-family:inherit;-webkit-appearance:none;appearance:none;padding:0}
+.tr select.unit.set{color:var(--ink);font-weight:700}
+.tr select.unit:focus{outline:none;border-color:var(--green)}
 .tr input.buy{font-weight:700;color:var(--act)}
 .tr input.buy.need{background:var(--amt-bg);border-color:var(--act)}
 .tr input.ord{font-weight:700;color:var(--ice)}
@@ -127,7 +131,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .grip{display:flex;align-items:center;justify-content:center;min-height:42px;font-size:22px;font-weight:700;color:var(--muted);border:1.5px solid var(--line);background:var(--card);border-radius:8px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 .tr.edit.dragging{background:var(--less-bg);box-shadow:0 4px 14px rgba(0,0,0,.25);position:relative;z-index:3;opacity:.95}
 .tr.edit.dragging .grip{cursor:grabbing}
-@media (max-width:340px){.tr{grid-template-columns:minmax(56px,1fr) 36px 40px 40px 40px minmax(44px,.9fr);gap:2px}
+@media (max-width:340px){.tr{grid-template-columns:minmax(46px,1fr) 30px 34px 40px 34px 32px minmax(32px,.7fr);gap:2px}
   .tr input{font-size:14px;padding:6px 1px}.tr.th{font-size:11.5px}}
 .empty{color:var(--muted);font-size:17px;padding:22px 6px;line-height:1.7}
 
@@ -216,10 +220,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   .sub-t,.empty{font-size:9pt;color:#333;margin:4pt 0 0}
   .tb{border:0;border-radius:0;overflow:visible}
   .tb.p2{columns:2;column-gap:5mm;column-rule:0.5pt solid #ccc}
-  .tb.p2 .tr{grid-template-columns:1.3fr 18pt 18pt 20pt 20pt .5fr;gap:2pt;padding:.7pt 0}
+  .tb.p2 .tr{grid-template-columns:1.3fr 18pt 18pt 16pt 20pt 20pt .5fr;gap:2pt;padding:.7pt 0}
   .tb.p2 .c1,.tb.p2 .tr input{font-size:8pt}
   .tgrp{background:none;color:#000;border-bottom:1pt solid #000;font-size:8.5pt;padding:2.5pt 0 .5pt;margin-top:1.5pt;break-after:avoid;break-inside:avoid}
-  .tr{grid-template-columns:1.2fr 24pt 24pt 26pt 26pt .75fr;gap:3pt;padding:1pt 0;border-top:0.4pt solid #ccc;break-inside:avoid;
+  .tr{grid-template-columns:1.2fr 24pt 24pt 22pt 26pt 26pt .75fr;gap:3pt;padding:1pt 0;border-top:0.4pt solid #ccc;break-inside:avoid;
     align-items:baseline;border-left:0!important}
   .tr.th{background:none;border-bottom:0.8pt solid #000;font-size:8pt;color:#000;padding:1pt 0}
   .tr.done{background:none}
@@ -233,6 +237,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   .tr input.buy.need{background:none!important;text-decoration:underline}
   .tr input.note{text-align:left}
   .tr input::placeholder{color:transparent}
+  .tr select.unit{border:0!important;background:none!important;padding:0;min-height:0;font-size:9pt;color:#000;-webkit-appearance:none;appearance:none;text-align:left;text-align-last:left}
 }
 </style>
 </head>
@@ -326,9 +331,19 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 
   // 발주 수량은 서버(worker)를 고치지 않고도 저장되도록 비고 칸 맨 앞에 표시를 붙여 함께 보관한다
   //   저장된 비고:  ⟦발주:5⟧물 부족   →   발주 = 5, 비고 = 물 부족
-  const ORD_RE = /^⟦발주:([^⟧]*)⟧/;
-  const splitNote = s => { s = s == null ? '' : String(s); const m = ORD_RE.exec(s); return m ? { ord: m[1], note: s.slice(m[0].length) } : { ord: '', note: s }; };
-  const joinNote = (ord, note) => { const o = String(ord == null ? '' : ord).replace(/[⟦⟧]/g, '').trim(); return (o ? '⟦발주:' + o + '⟧' : '') + (note == null ? '' : note); };
+  //   단위도 같은 방식:  ⟦단위:박스⟧⟦발주:5⟧물 부족
+  const UNITS = ['박스', '줄', '개'];
+  const UNIT_RE = /^⟦단위:([^⟧]*)⟧/, ORD_RE = /^⟦발주:([^⟧]*)⟧/;
+  const splitNote = s => {
+    s = s == null ? '' : String(s); let unit = '', ord = '', m;
+    if ((m = UNIT_RE.exec(s))) { unit = m[1]; s = s.slice(m[0].length); }
+    if ((m = ORD_RE.exec(s))) { ord = m[1]; s = s.slice(m[0].length); }
+    return { unit, ord, note: s };
+  };
+  const joinNote = (ord, note, unit) => {
+    const o = String(ord == null ? '' : ord).replace(/[⟦⟧]/g, '').trim(), u = UNITS.indexOf(unit) >= 0 ? unit : '';
+    return (u ? '⟦단위:' + u + '⟧' : '') + (o ? '⟦발주:' + o + '⟧' : '') + (note == null ? '' : note);
+  };
 
   try { const c = localStorage.getItem('oozy-stock-cat'); if (c) CAT = c; } catch (e) { }
 
@@ -412,7 +427,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         `<div class="sub-t" style="margin-top:8px">품목을 지워도 지난 날짜에 적어둔 수량은 기록에 그대로 남습니다.<br>≡ 를 길게 누른 채 위아래로 끌면 같은 분류 안에서 순서가 바뀝니다.</div>`;
     } else {
       let grp = null;
-      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>필요량</span><span>발주</span><span>비고</span></div>` +
+      h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>단위</span><span>필요량</span><span>발주</span><span>비고</span></div>` +
         items.map(i => {
           const r = recOf(i.id), d = DIRTY.get(i.id), bd = BDIRTY.get(i.id);
           const sn = splitNote(r ? r.note : '');
@@ -421,6 +436,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
           const buy = d ? d.buy : (r ? (r.buy || '') : '');
           const ord = d ? d.ord : sn.ord;
           const note = d ? d.note : sn.note;
+          const unit = d ? d.unit : sn.unit;
           let pre = '';
           if (isVirt(CAT) && i.cat !== grp) { grp = i.cat; pre = `<div class="tgrp">${esc(i.cat)}</div>`; }
           return pre + `<div class="tr${r ? ' done' : ''}" data-row="${i.id}"` +
@@ -428,6 +444,8 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
             `<span class="c1">${esc(i.name)}${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</span>` +
             `<input class="base" data-b="${i.id}" value="${esc(base)}" inputmode="decimal" placeholder="-" aria-label="${esc(i.name)} 기준량">` +
             `<input class="qty" data-q="${i.id}" value="${esc(qty)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 재고">` +
+            `<select class="unit${unit ? ' set' : ''}" data-u="${i.id}" aria-label="${esc(i.name)} 단위"><option value=""${unit ? '' : ' selected'}>단위</option>` +
+            UNITS.map(u => `<option value="${u}"${u === unit ? ' selected' : ''}>${u}</option>`).join('') + `</select>` +
             `<input class="buy${num(buy) > 0 ? ' need' : ''}" data-y="${i.id}" value="${esc(buy)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 필요량">` +
             `<input class="ord${String(ord).trim() ? ' has' : ''}" data-o="${i.id}" value="${esc(ord)}" inputmode="decimal" placeholder="" aria-label="${esc(i.name)} 발주">` +
             `<input class="note" data-n="${i.id}" value="${esc(note)}" placeholder="비고" aria-label="${esc(i.name)} 비고"></div>`;
@@ -483,8 +501,8 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   }
   function markDirty(id) {
     const q = document.querySelector(`[data-q="${id}"]`), y = document.querySelector(`[data-y="${id}"]`),
-      o = document.querySelector(`[data-o="${id}"]`), n = document.querySelector(`[data-n="${id}"]`);
-    DIRTY.set(id, { qty: q ? q.value : '', buy: y ? y.value : '', ord: o ? o.value : '', note: n ? n.value : '' });
+      o = document.querySelector(`[data-o="${id}"]`), n = document.querySelector(`[data-n="${id}"]`), u = document.querySelector(`[data-u="${id}"]`);
+    DIRTY.set(id, { qty: q ? q.value : '', buy: y ? y.value : '', ord: o ? o.value : '', note: n ? n.value : '', unit: u ? u.value : '' });
     showBar(); clearTimeout(SAVET); SAVET = setTimeout(flush, 900);
   }
   function markBase(id) {
@@ -496,7 +514,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     clearTimeout(SAVET);
     if (SAVING || (!DIRTY.size && !BDIRTY.size)) return;
     const date = SDATE;
-    const rows = [...DIRTY.entries()].map(([item, v]) => ({ item: +item, qty: v.qty, buy: v.buy, ord: v.ord, note: v.note }));
+    const rows = [...DIRTY.entries()].map(([item, v]) => ({ item: +item, qty: v.qty, buy: v.buy, ord: v.ord, note: v.note, unit: v.unit }));
     const bases = [...BDIRTY.entries()].map(([id, base]) => ({ id: +id, base }));
     DIRTY.clear(); BDIRTY.clear(); showBar(); SAVING = true; setStat('저장 중...');
     try {
@@ -506,12 +524,13 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       }
       let j = null;
       if (rows.length) {
-        const wire = rows.map(r => ({ item: r.item, qty: r.qty, buy: r.buy, note: joinNote(r.ord, r.note) }));
+        const has = r => [r.qty, r.buy, r.ord, r.note].some(x => String(x == null ? '' : x).trim());   // 단위만 고른 줄은 아직 기록으로 치지 않음
+        const wire = rows.map(r => ({ item: r.item, qty: r.qty, buy: r.buy, note: joinNote(r.ord, r.note, has(r) ? r.unit : '') }));
         j = await api('/stock/day', { date, rows: wire });
         if (DAY && DAY.date === date) {
           rows.forEach(r => {
-            if (String(r.qty).trim() || String(r.buy).trim() || String(r.ord).trim() || String(r.note).trim())
-              DAY.rec[r.item] = { qty: r.qty, buy: r.buy, note: joinNote(r.ord, r.note), name: j.by.name, color: j.by.color, at: j.at };
+            if (String(r.qty).trim() || String(r.buy).trim() || String(r.ord).trim())
+              DAY.rec[r.item] = { qty: r.qty, buy: r.buy, note: joinNote(r.ord, r.note, r.unit), name: j.by.name, color: j.by.color, at: j.at };
             else delete DAY.rec[r.item];
           });
           rows.forEach(r => paintRow(r.item));
@@ -520,7 +539,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       }
       setStat(j ? `저장됨 · ${hhmm(j.at)} · ${j.by.name}` : '기준량 저장됨');
     } catch (e) {
-      rows.forEach(r => { if (!DIRTY.has(r.item)) DIRTY.set(r.item, { qty: r.qty, buy: r.buy, ord: r.ord, note: r.note }); });
+      rows.forEach(r => { if (!DIRTY.has(r.item)) DIRTY.set(r.item, { qty: r.qty, buy: r.buy, ord: r.ord, note: r.note, unit: r.unit }); });
       bases.forEach(x => { if (!BDIRTY.has(x.id)) BDIRTY.set(x.id, x.base); });
       showBar(); setStat('저장 실패: ' + msgOf(e));
     }
@@ -599,6 +618,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     if (d.y) { const id = +d.y; t.dataset.manual = '1'; t.classList.toggle('need', num(t.value) > 0); markDirty(id); return true; }
     if (d.o) { const id = +d.o; t.classList.toggle('has', !!String(t.value).trim()); markDirty(id); return true; }
     if (d.n) { markDirty(+d.n); return true; }
+    if (d.u) { t.classList.toggle('set', !!t.value); markDirty(+d.u); return true; }
     return false;
   }
   $list.addEventListener('change', e => {
@@ -755,7 +775,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
     let j; try { j = await api('/stock/day?date=' + RDAY); } catch (e) { if (document.getElementById('rList') === box) box.innerHTML = `<div class="rempty">${esc(msgOf(e))}</div>`; return; }
     if (document.getElementById('rList') !== box) return;
     const byId = {}; (j.items || []).forEach(i => byId[i.id] = i);
-    const rows = Object.entries(j.rec || {}).map(([id, v]) => ({ id: +id, it: byId[id], ...v, ...(() => { const s = splitNote(v.note); return { ord: s.ord, note: s.note }; })() })).sort((a, b) => a.at - b.at);
+    const rows = Object.entries(j.rec || {}).map(([id, v]) => ({ id: +id, it: byId[id], ...v, ...(() => { const s = splitNote(v.note); return { ord: s.ord, note: s.note, unit: s.unit }; })() })).sort((a, b) => a.at - b.at);
     let h = `<div class="rtop" style="margin:0 0 6px"><b>${dlabel(RDAY)}</b>` +
       `<button data-go="${RDAY}">이 날짜로 보기</button></div>`;
     if (!rows.length) h += '<div class="rempty">이 날은 적어둔 수량이 없습니다.</div>';
@@ -766,7 +786,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
         h += `<h4>${esc(c)}</h4>` + rows.filter(r => (r.it ? r.it.cat : '지운 품목') === c).map(r =>
           `<div class="rli"><span class="rt">${esc(r.it ? r.it.name : '품목 ' + r.id)}` +
           (r.note ? `<small>비고 · ${esc(r.note)}</small>` : '') + `</span>` +
-          `<span class="rq">재고 ${esc(r.qty || '-')}` +
+          `<span class="rq">재고 ${esc(r.qty || '-')}${r.qty && r.unit ? esc(r.unit) : ''}` +
           (r.it && r.it.base ? `<small>기준 ${esc(r.it.base)}</small>` : '') +
           (num(r.buy) > 0 ? `<small class="rbuy">필요 ${esc(r.buy)}</small>` : '') +
           (String(r.ord).trim() ? `<small class="rord">발주 ${esc(r.ord)}</small>` : '') + `</span>` +
