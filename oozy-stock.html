@@ -5,7 +5,7 @@
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('stock')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=stock');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우지커피 재고관리</title>
-<meta name="app-version" content="2026-11-20.2">
+<meta name="app-version" content="2026-11-21.1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,11 +118,10 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
 .tr input.qty{font-weight:700}
 .tr select.unit{width:100%;min-width:0;min-height:40px;padding:0 0 0 2px;border:1.5px solid var(--line);border-radius:7px;background:var(--paper);color:var(--muted);
   font-size:13px;font-weight:600;text-align:center;text-align-last:center;font-family:inherit;-webkit-appearance:none;appearance:none;padding:0}
-.tr.carry input.qty,.tr.carry input.buy,.tr.carry select.unit,.tr.carry input.buy.need{background:#e3efff;border-color:#7fa9e6;color:#1a58b0}
-.tr.carry input.buy{font-weight:600}
-.carrybar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px 10px;border-radius:10px;background:#e3efff;border:1.5px solid #7fa9e6;color:#1a58b0;font-size:14px;line-height:1.4}
+.tr.carry input.qty,.tr.carry input.buy,.tr.carry select.unit,.tr.carry select.unit.set{color:#1b8a3a}   /* 지난 기록을 이어받은 줄: 바탕은 그대로, 글자만 초록 */
+.carrybar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--paper);border:1.5px solid var(--line);color:#1b8a3a;font-size:14px;line-height:1.4}
 .carrybar b{font-weight:800}
-.carrybar button{margin-left:auto;border:0;border-radius:9px;background:#1a58b0;color:#fff;font-weight:700;font-size:15px;min-height:40px;padding:0 14px;font-family:inherit}
+.carrybar button{margin-left:auto;border:0;border-radius:9px;background:#1b8a3a;color:#fff;font-weight:700;font-size:15px;min-height:40px;padding:0 14px;font-family:inherit}
 .carrybar button:disabled{opacity:.5}
 .tr select.unit.set{color:var(--ink);font-weight:700}
 .tr select.unit:focus{outline:none;border-color:var(--green)}
@@ -354,7 +353,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
   try { const c = localStorage.getItem('oozy-stock-cat'); if (c) CAT = c; } catch (e) { }
 
   // ---------- 전날 기록 이어받기 ----------
-  // 그날 기록이 없는 품목은 가장 가까운 지난 기록(재고량·단위)을 파란색으로 미리 채워 보여 주고,
+  // 그날 기록이 없는 품목은 가장 가까운 지난 기록(재고량·단위)을 초록 글자로 미리 채워 보여 주고,
   // '그대로 확인'을 눌러야 그날 기록으로 저장된다. (서버는 그대로 — 지난 기록을 읽어 와서 채움)
   let CARRY = {}, CARRYFOR = '';
   const addDays = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -460,7 +459,7 @@ main{max-width:860px;margin:0 auto;padding:8px 12px 80px}
       const cl = isVirt(CAT) ? [] : carryList(items);
       if (cl.length) {
         const fr = [...new Set(cl.map(i => CARRY[i.id].from))].sort().reverse().map(d => dlabel(d).replace(/ \(.\)/, '')).join('·');
-        h += `<div class="carrybar"><span><b>파란색</b>은 ${fr} 기록 그대로입니다 (${cl.length}개). 바뀐 것만 고치고</span>` +
+        h += `<div class="carrybar"><span><b>초록색 글자</b>는 ${fr} 기록 그대로입니다 (${cl.length}개). 바뀐 것만 고치고</span>` +
           `<button id="carryOk">✓ 그대로 확인</button></div>`;
       }
       h += `<div class="tb"><div class="tr th"><span class="c1">품목</span><span>기준</span><span>재고</span><span>단위</span><span>필요량</span><span>발주</span><span>비고</span></div>` +
