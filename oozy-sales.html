@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-21.1">
+<meta name="app-version" content="2026-11-21.2">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -354,18 +354,19 @@ ol.steps small{color:var(--mute);display:block}
       <a class="homeln" href="./" aria-label="홈으로">🏠<span class="ht"> 홈</span></a>
       <h1 id="hTitle">분석</h1>
     </div>
-    <nav id="anNav"><button data-tab="sales">매출분석</button><button data-tab="cost">지출분석</button></nav>
+    <nav id="anNav"><button data-tab="sales">매출분석</button><button data-tab="cost">지출분석</button><button data-tab="total">누계</button></nav>
   </div>
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-21.1';
+const APP_VERSION = '2026-11-21.2';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let tab = (()=>{ try{ return localStorage.getItem('oozyAnTab')==='cost' ? 'cost' : 'sales' }catch(e){ return 'sales' } })();
+let tab = (()=>{ try{ const t=localStorage.getItem('oozyAnTab'); return t==='cost'||t==='total' ? t : 'sales' }catch(e){ return 'sales' } })();
 function render(){
   document.querySelectorAll('#anNav [data-tab]').forEach(b=>{ b.classList.toggle('on', b.dataset.tab===tab);
     b.onclick=()=>{ tab=b.dataset.tab; try{ localStorage.setItem('oozyAnTab',tab) }catch(e){} window.scrollTo(0,0); render() } });
+  if(tab==='total'){ salesCharts.forEach(c=>{ try{ c.destroy() }catch(e){} }); salesCharts=[]; document.getElementById('view').innerHTML = vTotal(); bindTotal(); return }
   if(tab==='cost'){ salesCharts.forEach(c=>{ try{ c.destroy() }catch(e){} }); salesCharts=[]; document.getElementById('view').innerHTML = vCost(); bindCost(); return }
   document.getElementById('view').innerHTML = vSales(); bindSales();
 }
@@ -860,6 +861,61 @@ function bindCost(){
     catch(e){ b.disabled = false; msg.innerHTML = '<span class="out">저장 실패: '+esc(e.message)+'</span>'; }
   };
   costCalc();
+}
+
+/* ── 누계 ──
+   해마다 달별 매출·지출을 한 표로. 지출 항목은 지출분석과 같은 자료(/cost)를 쓰므로
+   지출분석에 항목(추가 항목 포함)이 생기면 이 표에도 자동으로 생깁니다. */
+let totYear = '', TOT = null, totBusy = false;
+const totYears = () => { const s = new Set(sYears()); s.add(todayK().slice(0,4)); return [...s].sort().reverse() };
+const totMonths = y => costMonths().filter(m=>m.slice(0,4)===y).sort();
+function totCalc(r){
+  const sales = sDays().filter(d=>d.slice(0,7)===r.m).reduce((a,d)=>a+sTotal(d),0);
+  if(r.err) return { m:r.m, sales, err:r.err };
+  const d = r.data || {}, hq = Object.values(d.hq||{}).reduce((a,x)=>a+(x.amt||0),0), pay = (r.pay&&r.pay.total)||0;
+  const rent = d.rent==null ? RENT_DEF : d.rent, vat = d.vat==null ? Math.round(sales*VAT_RATE) : d.vat;
+  const extra = {}; (d.extra||[]).forEach(x=>{ const n = (x.name||'').trim() || '(이름 없음)'; extra[n] = (extra[n]||0) + (x.amt||0) });
+  const exT = Object.values(extra).reduce((a,b)=>a+b,0), elec = d.elec||0, water = d.water||0;
+  const cost = hq + pay + rent + elec + water + vat + exT;
+  return { m:r.m, sales, hq, pay, rent, elec, water, vat, extra, cost, left: sales - cost };
+}
+function vTotal(){
+  const ys = totYears(); if(ys.indexOf(totYear)<0) totYear = ys[0];
+  const head = `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <b>연도</b><select id="tYear" style="width:auto;min-width:120px;font-size:15px">${ys.map(y=>`<option value="${y}" ${y===totYear?'selected':''}>${y}년</option>`).join('')}</select>
+    <span class="hint" style="margin:0">연간 누계 · 달별</span></div>`;
+  if(!TOT || TOT.year!==totYear) return head + '<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>';
+  const rows = TOT.rows.map(totCalc), ok = rows.filter(r=>!r.err);
+  const exNames = []; ok.forEach(r=>Object.keys(r.extra).forEach(n=>{ if(exNames.indexOf(n)<0) exNames.push(n) }));
+  const sum = f => ok.reduce((a,r)=>a+(f(r)||0),0);
+  const cell = (r,f,cls) => r.err ? '<td class="n">-</td>' : `<td class="n ${cls||''}">${won(f(r))}</td>`;
+  const line = (label, f, o) => { o = o||{}; return `<tr class="${o.tr||''}"><td class="nw" style="${o.ind?'padding-left:22px':''}">${label}</td>${rows.map(r=>cell(r,f,o.cls)).join('')}<td class="n"><b>${won(sum(f))}</b></td></tr>` };
+  const body = [
+    line('매출', r=>r.sales, {tr:'sub', cls:'in'}),
+    `<tr><td class="nw"><b>지출</b></td>${rows.map(()=>'<td></td>').join('')}<td></td></tr>`,
+    line('본사 주문', r=>r.hq, {ind:1}), line('급여', r=>r.pay, {ind:1}), line('월세', r=>r.rent, {ind:1}),
+    line('전기세', r=>r.elec, {ind:1}), line('수도세', r=>r.water, {ind:1}), line('부가가치세', r=>r.vat, {ind:1}),
+    exNames.map(n=>line(esc(n), r=>r.extra[n]||0, {ind:1})).join(''),
+    line('지출 계', r=>r.cost, {tr:'sub', cls:'out'}),
+    line('남은 금액 (매출 − 지출)', r=>r.left, {tr:'tot'})
+  ].join('');
+  const bad = rows.filter(r=>r.err);
+  return head + `<div class="card"><h2>${totYear}년 누계</h2>
+    <div class="scroll"><table class="ws" style="min-width:${150+rows.length*92+100}px"><thead><tr><th class="nw">항목</th>${rows.map(r=>`<th class="n">${+r.m.slice(5,7)}월</th>`).join('')}<th class="n">누계</th></tr></thead><tbody>${body}</tbody></table></div>
+    <p class="swipe">← 표를 옆으로 밀어 보세요 →</p>
+    ${bad.length?`<p class="out" style="margin:8px 0 0">${bad.map(r=>+r.m.slice(5,7)+'월').join('·')} 지출을 불러오지 못했습니다 (${esc(bad[0].err)}). 누계에서는 빠져 있습니다. <button class="btn g sm" id="tRetry">다시 불러오기</button></p>`:''}
+    <p class="hint" style="margin:8px 0 0">매출은 매출분석 자료, 지출은 지출분석에 저장한 금액입니다. 지출분석에서 항목을 추가하면 이 표에도 같은 이름으로 나타납니다. 급여는 근무관리의 계산값이라 급여 확정 전에는 바뀔 수 있습니다. 월세·부가가치세는 지출분석에 저장하지 않은 달에도 기본값(110만 원, 매출의 10%)으로 계산됩니다.</p></div>`;
+}
+async function totLoad(){
+  totBusy = true; const y = totYear;
+  const res = await Promise.all(totMonths(y).map(m=>api('/cost?month='+m).then(j=>({m, data:j.data||{}, pay:j.pay}), e=>({m, err:e.message}))));
+  TOT = { year:y, rows:res }; totBusy = false;
+  if(tab==='total') render();
+}
+function bindTotal(){
+  const sel = document.getElementById('tYear'); sel.onchange = () => { totYear = sel.value; TOT = null; render() };
+  const rt = document.getElementById('tRetry'); if(rt) rt.onclick = () => { TOT = null; render() };
+  if((!TOT || TOT.year!==totYear) && !totBusy) totLoad();
 }
 window.addEventListener('beforeunload', e => { if(costDirty){ e.preventDefault(); e.returnValue = '' } });
 
