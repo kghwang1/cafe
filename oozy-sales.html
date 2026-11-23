@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-23.3">
+<meta name="app-version" content="2026-11-23.4">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -101,6 +101,7 @@ input.n{text-align:right;font-variant-numeric:tabular-nums}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px dashed var(--line)}
 .kv b{font-variant-numeric:tabular-nums}
 .big{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+table.wbill{font-size:12px}table.wbill th,table.wbill td{padding:6px 3px}table.wbill td:first-child{white-space:nowrap}table.wbill td:last-child,table.wbill th:last-child{padding-right:0}
 .note{background:var(--accent-l);border-left:3px solid var(--accent);padding:10px 13px;border-radius:0 8px 8px 0;font-size:12.5px;color:#26493f;margin-bottom:14px}
 .note.w{background:var(--warn-bg);border-color:var(--warn);color:#7a4f13}
 ol.steps{padding-left:18px;margin:0;font-size:13.2px}
@@ -359,7 +360,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-23.3';
+const APP_VERSION = '2026-11-23.4';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = (()=>{ try{ const t=localStorage.getItem('oozyAnTab'); return t==='cost'||t==='total'||t==='water' ? t : 'sales' }catch(e){ return 'sales' } })();
@@ -916,6 +917,10 @@ function wBill(name, r, s, who, pm){
   const subl = (lab, n, rate, amt) => n ? `<tr><td style="padding-left:18px;font-size:12px;color:var(--ink2)">└ ${lab}</td><td class="n" style="font-size:12px;color:var(--ink2)" colspan="2">${tn(n)}톤 × ${uS(rate)}</td><td class="n" style="font-size:12px;color:var(--ink2)">${won(amt)}</td></tr>` : '';
   const wa1 = Math.round(n1*w1), sa1 = Math.round(n1*sw1);
   const parts = (r1, rx, tot1, totAll) => subl(l1, n1, r1, tot1) + subl(lx, nx, rx, totAll - tot1);
+  const la1 = Math.round(n1*W_RATE.levy);
+  const c1 = wa1 + sa1 + la1, cx = (o.water - wa1) + (o.sewer - sa1) + (o.levy - la1);   // 세로 합계
+  const cell = (amt, n, rate) => `<td class="n">${won(amt)}${rate!=null && n ? `<br><span class="hint" style="margin:0;font-size:11px">${tn(n)}×${uS(rate)}</span>` : ''}</td>`;
+  const row = (k, v1, vx, r1, rx, fee) => `<tr><td>${k}</td>${cell(v1, n1, r1)}${cell(vx, nx, rx)}<td class="n">${fee==null?'':won(fee)}</td><td class="n"><b>${won(v1 + vx + (fee||0))}</b></td></tr>`;
   const line = (k, use_, fee, amt) => `<tr><td>${k}</td><td class="n">${use_==null?'':won(use_)}</td><td class="n">${fee==null?'':won(fee)}</td><td class="n">${amt==null?'':won(amt)}</td></tr>`;
   return `<div class="card" style="border:2px solid #2a5caa">
     <h2 style="color:#2a5caa;text-align:center;letter-spacing:.05em">상·하수도 요금 고지서 <span style="font-size:13px;color:var(--ink)">(${esc(name)})</span></h2>
@@ -925,16 +930,13 @@ function wBill(name, r, s, who, pm){
       ${meter}
       <tr><td>사용량(톤)</td><td class="n"><b>${tnum(use)}</b></td><td>두 집 합계</td><td class="n">${tnum(s.q)}</td></tr>
     </tbody></table>
-    <table><thead><tr><th>요금 구분</th><th class="n">사용료</th><th class="n">구경별<br>정액요금</th><th class="n">납부금액</th></tr></thead><tbody>
-      ${line('상수도요금', o.water, o.fee, o.water + o.fee)}
-      ${parts(w1, s.xw, wa1, o.water)}
-      ${line('하수도요금', o.sewer, null, o.sewer)}
-      ${parts(sw1, s.xs, sa1, o.sewer)}
-      ${line('지하수요금', null, null, 0)}
-      ${line('물이용부담금', o.levy, null, o.levy)}
-      ${subl('전체 사용량', use, W_RATE.levy, o.levy)}
-      ${adj ? line('고지서 차이 <span class="hint" style="margin:0">가산금·정산 등</span>', null, null, adj) : ''}
-      <tr class="tot"><td>총 고지금액</td><td class="n">${won(o.water + o.sewer + o.levy + adj)}</td><td class="n">${won(o.fee)}</td><td class="n" style="color:#2a5caa;font-size:16px">${won(pay)}원</td></tr>
+    <table class="wbill"><thead><tr><th>요금 구분</th><th class="n">${n1<=50?'50톤까지':'1단계'}<br><span style="font-weight:400">${tn(n1)}톤</span></th><th class="n">50톤 초과<br><span style="font-weight:400">${tn(nx)}톤</span></th><th class="n">구경별<br>정액요금</th><th class="n">납부금액</th></tr></thead><tbody>
+      ${row('상수도요금', wa1, o.water - wa1, w1, s.xw, o.fee)}
+      ${row('하수도요금', sa1, o.sewer - sa1, sw1, s.xs, null)}
+      ${row('지하수요금', 0, 0, null, null, null)}
+      ${row('물이용부담금', la1, o.levy - la1, W_RATE.levy, W_RATE.levy, null)}
+      ${adj ? `<tr><td>고지서 차이 <span class="hint" style="margin:0">가산금·정산 등</span></td><td></td><td></td><td></td><td class="n">${won(adj)}</td></tr>` : ''}
+      <tr class="tot"><td>총 고지금액</td><td class="n">${won(c1)}</td><td class="n">${won(cx)}</td><td class="n">${won(o.fee)}</td><td class="n" style="color:#2a5caa;font-size:15px">${won(pay)}</td></tr>
     </tbody></table></div>`;
 }
 async function watLoad(){
