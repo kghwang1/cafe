@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-23.1">
+<meta name="app-version" content="2026-11-23.2">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -359,7 +359,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-23.1';
+const APP_VERSION = '2026-11-23.2';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = (()=>{ try{ const t=localStorage.getItem('oozyAnTab'); return t==='cost'||t==='total'||t==='water' ? t : 'sales' }catch(e){ return 'sales' } })();
@@ -778,8 +778,14 @@ function wSplit(r, pm){
   const xr = X ? (est.sum - T1*u1) / X : 0;                         // 1단계 위 톤당 평균 단가 (실제 고지서 단계대로)
   const A1 = Math.min(a, Math.max(T1/2, T1 - b)), Ax = a - A1;      // 1단계는 반씩 (한 집이 덜 쓰면 남는 몫은 다른 집)
   const B1 = T1 - A1, Bx = X - Ax, feeA = Math.round(f/2), feeB = f - feeA;
-  const amtA = Math.round(A1*u1 + Ax*xr) + feeA, amtB = total - amtA;
-  return { q, f, a, b, has, days, SW, sw, est, estT, total, unit, u1, xr, A1, Ax, B1, Bx, feeA, feeB, amtA, amtB, diff: r.t ? r.t - estT : 0 };
+  // 고지서처럼 요금 구분별로 — 초과분은 고지서 실제 단계대로 붙은 상수도·하수도 금액을 톤당 평균으로 나눔
+  const w1 = W_RATE.water[0], s1 = sw[0], xw = X ? (est.water - T1*w1)/X : 0, xs = X ? (est.sewer - T1*s1)/X : 0;
+  const bill = { water: Math.round(est.water), sewer: Math.round(est.sewer), levy: Math.round(est.levy), fee: f };
+  const A = { water: Math.round(A1*w1 + Ax*xw), sewer: Math.round(A1*s1 + Ax*xs), levy: Math.round(a*W_RATE.levy), fee: feeA };
+  const B = { water: bill.water - A.water, sewer: bill.sewer - A.sewer, levy: bill.levy - A.levy, fee: feeB };
+  const sumOf = o => o.water + o.sewer + o.levy + o.fee;
+  const amtA = sumOf(A), amtB = total - amtA, diff = r.t ? r.t - estT : 0;
+  return { q, f, a, b, has, days, SW, sw, est, estT, total, unit, u1, xr, xw, xs, A1, Ax, B1, Bx, feeA, feeB, A, B, bill, amtA, amtB, diff };
 }
 let WAT = null, watBusy = false, watDirty = false, watMon = '', watMsg = '';
 const wMonAdd = (m,n) => { const [y,mm] = m.split('-').map(Number), t = new Date(y, mm-1+n, 1); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0') };
@@ -887,16 +893,39 @@ function wRender(){
     </tbody></table>
     ${r.t ? (s.diff ? `<p class="hint" style="margin:8px 0 0">고지서 금액이 이 사용량으로 계산한 금액(${won(s.estT)}원)보다 ${won(Math.abs(s.diff))}원 ${s.diff>0?'많습니다':'적습니다'}. 그 차이는 ${W_B} 금액에 들어갑니다. 가산금·정산액·감면이 있었는지 고지서를 확인해 보세요.</p>` : `<p class="hint" style="margin:8px 0 0">고지서 금액이 계산값과 정확히 맞습니다.</p>`)
       : `<p class="hint" style="margin:8px 0 0">고지서 금액을 넣지 않아 사용량으로 계산한 추정 금액(${won(s.estT)}원)으로 나눴습니다.</p>`}</div>
-  <div class="card"><h2>${W_A} 계산 내역</h2>
-    <table><tbody>${rows(s.A1, s.Ax)}
-      <tr><td>정액요금 반</td><td class="n">${won(s.f)} ÷ 2</td><td class="n">${won(s.feeA)}원</td></tr>
-      <tr class="sub"><td colspan="2">합계</td><td class="n">${won(s.amtA)}원</td></tr></tbody></table></div>
-  <div class="card"><h2>${W_B} 계산 내역</h2>
-    <table><tbody>${rows(s.B1, s.Bx)}
-      <tr><td>정액요금 반</td><td class="n">${won(s.f)} − ${won(s.feeA)}</td><td class="n">${won(s.feeB)}원</td></tr>
-      ${s.diff ? `<tr><td colspan="2">고지서와 계산값 차이</td><td class="n">${s.diff>0?'+':''}${won(s.diff)}원</td></tr>` : ''}
-      <tr class="sub"><td colspan="2">합계 (고지서 − ${W_A})</td><td class="n">${won(s.amtB)}원</td></tr></tbody></table>
-    <p class="hint" style="margin:8px 0 0">톤당 단가(상수도+하수도+물이용부담금): 1단계 ${uS(s.unit[0])} · 2단계 ${uS(s.unit[1])} · 3단계 ${uS(s.unit[2])} · 4단계 ${uS(s.unit[3])}원<br>하수도 단가: ${sewTxt}</p></div>`;
+  ${wBill(W_A, r, s, 'A', pm)}
+  ${wBill(W_B, r, s, 'B', pm)}
+  <div class="card"><h2>계산 근거</h2>
+    <table><thead><tr><th>구분</th><th class="n">${W_A}</th><th class="n">${W_B}</th></tr></thead><tbody>
+      <tr><td>1단계 기본 몫 <span class="hint" style="margin:0">톤당 ${uS(s.u1)}</span></td><td class="n">${tn(s.A1)}톤</td><td class="n">${tn(s.B1)}톤</td></tr>
+      ${s.Ax||s.Bx?`<tr><td>${xLab} <span class="hint" style="margin:0">톤당 ${uS(s.xr)}</span></td><td class="n">${tn(s.Ax)}톤</td><td class="n">${tn(s.Bx)}톤</td></tr>`:''}
+    </tbody></table>
+    <p class="hint" style="margin:8px 0 0">톤당 단가(상수도+하수도+물이용부담금): 1단계 ${uS(s.unit[0])} · 2단계 ${uS(s.unit[1])} · 3단계 ${uS(s.unit[2])} · 4단계 ${uS(s.unit[3])}원<br>상수도 단가: ${W_RATE.water.map(won).join('·')} / 하수도 단가: ${sewTxt} / 물이용부담금 ${W_RATE.levy}원</p></div>`;
+}
+/* 집별 고지서 — 시청 상하수도 고지서와 같은 칸 (상수도·하수도·지하수·물이용부담금) */
+function wBill(name, r, s, who, pm){
+  const o = s[who], use = who==='A' ? s.a : s.b, sub = o.water + o.fee + o.sewer + o.levy;
+  const pay = who==='A' ? s.amtA : s.amtB, adj = pay - sub;            // 우지: 고지서 금액과 계산값 차이(가산금·정산 등)
+  const per = r.d1 && r.d2 ? `${r.d1.replace(/-/g,'.')} ~ ${r.d2.replace(/-/g,'.')}` : '-';
+  const meter = who==='A' ? `<tr><td>당월지침</td><td class="n">${tnum(r.meter)}</td><td>전월지침</td><td class="n">${tnum(pm)}</td></tr>`
+    : `<tr><td>지침</td><td class="n" colspan="3"><span class="hint" style="margin:0">계량기 없음 · 고지서 사용량 ${tnum(s.q)}톤 − ${W_A} ${tnum(s.a)}톤</span></td></tr>`;
+  const line = (k, use_, fee, amt) => `<tr><td>${k}</td><td class="n">${use_==null?'':won(use_)}</td><td class="n">${fee==null?'':won(fee)}</td><td class="n">${amt==null?'':won(amt)}</td></tr>`;
+  return `<div class="card" style="border:2px solid #2a5caa">
+    <h2 style="color:#2a5caa;text-align:center;letter-spacing:.05em">상·하수도 요금 고지서 <span style="font-size:13px;color:var(--ink)">(${esc(name)})</span></h2>
+    <table style="margin:8px 0 10px"><tbody>
+      <tr><td style="width:24%">수용가</td><td colspan="3"><b>${esc(name)}</b> <span class="hint" style="margin:0">· 업종 일반 · 구경 25mm (공동 계량)</span></td></tr>
+      <tr><td>사용기간</td><td colspan="3">${per}</td></tr>
+      ${meter}
+      <tr><td>사용량(톤)</td><td class="n"><b>${tnum(use)}</b></td><td>두 집 합계</td><td class="n">${tnum(s.q)}</td></tr>
+    </tbody></table>
+    <table><thead><tr><th>요금 구분</th><th class="n">사용료</th><th class="n">구경별<br>정액요금</th><th class="n">납부금액</th></tr></thead><tbody>
+      ${line('상수도요금', o.water, o.fee, o.water + o.fee)}
+      ${line('하수도요금', o.sewer, null, o.sewer)}
+      ${line('지하수요금', null, null, 0)}
+      ${line('물이용부담금', o.levy, null, o.levy)}
+      ${adj ? line('고지서 차이 <span class="hint" style="margin:0">가산금·정산 등</span>', null, null, adj) : ''}
+      <tr class="tot"><td>총 고지금액</td><td class="n">${won(o.water + o.sewer + o.levy + adj)}</td><td class="n">${won(o.fee)}</td><td class="n" style="color:#2a5caa;font-size:16px">${won(pay)}원</td></tr>
+    </tbody></table></div>`;
 }
 async function watLoad(){
   watBusy = true;
