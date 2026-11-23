@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-21.6">
+<meta name="app-version" content="2026-11-23.1">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -359,7 +359,7 @@ ol.steps small{color:var(--mute);display:block}
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-21.6';
+const APP_VERSION = '2026-11-23.1';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tab = (()=>{ try{ const t=localStorage.getItem('oozyAnTab'); return t==='cost'||t==='total'||t==='water' ? t : 'sales' }catch(e){ return 'sales' } })();
@@ -720,10 +720,12 @@ function drawSales(){
 
 
 
-/* ── 수도요금 (두 집 나누기) ──
-   계량기 하나를 두 집이 함께 쓸 때, 고지서 사용량·총액과 한 집(직접 잰 집) 사용량으로 두 집 요금을 나눕니다.
+/* ── 수도요금 (교촌 · 우지 나누기) ──
+   계량기 하나(고지서 하나)를 교촌과 우지가 함께 씁니다. 교촌만 따로 계량기를 읽고, 우지 = 고지서 사용량 − 교촌.
+   교촌 계량기를 한 달에 한 번 읽어 그 달(기록 달)에 계기값을 저장하고, 지난달 계기값을 빼서 교촌 한 달 사용량을 구합니다.
+   상수도 고지서는 두 집 합계로 나오므로, 같은 달 기록에 고지서 사용기간·사용량·금액을 넣어 두 집 요금을 나눕니다 (서버 /water, 달마다 한 줄).
    광양시 일반용 요금. 1단계(100톤까지)는 두 집이 50톤씩 기본 몫으로 나누고, 그 위로 쓴 양은
-   고지서에 실제로 붙은 2단계 이상 단가(섞이면 평균)로 계산. 정액요금은 반씩, 나머지 집 = 고지서 총액 − 직접 잰 집.
+   고지서에 실제로 붙은 2단계 이상 단가(섞이면 평균)로 계산. 정액요금은 반씩, 우지 = 고지서 금액 − 교촌.
    요금이 바뀌면 아래 W_RATE 만 고치면 됩니다. */
 const W_RATE = {
   bounds: [100,300,500],                         // 일반용 단계 경계 (톤)
@@ -736,9 +738,7 @@ const W_RATE = {
   ],
   levy: 170                                      // 물이용부담금 톤당
 };
-const W_KEY = 'oozyWater';
-const wLoad = () => { try{ return JSON.parse(localStorage.getItem(W_KEY)||'{}')||{} }catch(e){ return {} } };
-const wSave = o => { try{ localStorage.setItem(W_KEY, JSON.stringify(o)) }catch(e){} };
+const W_A = '교촌', W_B = '우지';                 // 교촌 = 계량기를 읽는 집, 우지 = 나머지
 function wTiers(q, bounds){                     // 사용량을 단계별 톤수로 나눔
   const out = []; let prev = 0;
   for(let i=0;i<=bounds.length;i++){ const hi = i<bounds.length ? bounds[i] : Infinity; out.push(Math.max(0, Math.min(q,hi)-prev)); prev = hi; }
@@ -762,89 +762,169 @@ function wCalc(q, bounds, sw){                  // 단계별 상수도·하수�
   const water = t.reduce((a,n,i)=>a+n*W_RATE.water[i],0), sewer = t.reduce((a,n,i)=>a+n*sw[i],0), levy = q*W_RATE.levy;
   return { t, water, sewer, levy, sum: water+sewer+levy };
 }
-function vWater(){
-  const w = wLoad();
-  const nA = w.nA || '우리 집', nB = w.nB || '다른 집';
-  return `<div class="card"><h2>수도요금 나누기</h2>
-    <p class="hint">계량기 하나를 두 집이 쓸 때 씁니다. 고지서의 <b>사용량</b>과 <b>납부 금액</b>, 그리고 같은 기간 한 집 계량기로 잰 <b>사용량</b>을 넣으세요.</p>
-    <table><tbody>
-      <tr><td style="width:46%">사용기간<br><span class="hint" style="margin:0">고지서의 사용기간 (예: 9/20 ~ 10/19)</span></td>
-        <td><input type="date" id="wD1" value="${esc(w.d1||'')}"><div style="text-align:center;color:var(--mute);line-height:1.4">~</div><input type="date" id="wD2" value="${esc(w.d2||'')}"></td></tr>
-      <tr><td>고지서 사용량 (톤)</td><td><input type="text" class="n" inputmode="numeric" id="wQ" value="${fmtIn(w.q)}" placeholder="예: 230"></td></tr>
-      <tr><td>고지서 납부 금액 (원)</td><td><input type="text" class="n" inputmode="numeric" id="wT" value="${fmtIn(w.t)}" placeholder="예: 646,600"></td></tr>
-      <tr><td><input type="text" id="wNA" maxlength="12" value="${esc(nA)}" style="width:6.5em"> 사용량 (톤)<br><span class="hint" style="margin:0">같은 사용기간에 직접 잰 양</span></td><td><input type="text" class="n" inputmode="numeric" id="wA" value="${fmtIn(w.a)}" placeholder="예: 56"></td></tr>
-      <tr><td><input type="text" id="wNB" maxlength="12" value="${esc(nB)}" style="width:6.5em"> 사용량 (톤)<br><span class="hint" style="margin:0">고지서 − 직접 잰 집</span></td><td class="n" id="wB">-</td></tr>
-      <tr><td>구경별 정액요금 (원)<br><span class="hint" style="margin:0">25mm 3,000원 · 두 집이 반씩</span></td><td><input type="text" class="n" inputmode="numeric" id="wF" value="${fmtIn(w.f==null?3000:w.f)}" placeholder="0"></td></tr>
-    </tbody></table>
-    <button class="btn g sm" id="wClr" style="margin-top:10px">입력 지우기</button></div>
-  <div id="wOut"></div>
-  <div class="card"><h2>계산 방법</h2>
-    <p class="hint" style="margin:0">· 톤당 단가 = 상수도 + 하수도 + 물이용부담금(170원)<br>
-    · 1단계(100톤까지)는 기본 몫으로 두 집이 <b>50톤씩</b> 나눔 (한 집이 50톤보다 적게 쓰면 남은 몫은 다른 집으로)<br>
-    · 기본 몫을 넘게 쓴 양은 고지서에 실제로 붙은 2단계 이상 단가로 계산 (여러 단계가 섞이면 평균 단가)<br>
-    · 하수도 요금은 사용기간에 맞는 해의 단가를 씀. 사용기간에 요금이 바뀐 날(1월 1일 등)이 끼면 날수로 나눠 섞어서 적용<br>
-    · 정액요금은 반씩<br>
-    · ${esc(nB)} = 고지서 금액 − ${esc(nA)} (두 집 합계가 항상 고지서와 같음)</p></div>`;
-}
-function wRender(){
-  const g = id => document.getElementById(id);
-  const q = numIn(g('wQ').value), t = numIn(g('wT').value), a = numIn(g('wA').value), f = numIn(g('wF').value);
-  const d1 = g('wD1').value, d2 = g('wD2').value;
-  const nA = g('wNA').value.trim() || '우리 집', nB = g('wNB').value.trim() || '다른 집';
-  wSave({ q, t, a, f, d1, d2, nA, nB });
-  const out = g('wOut'), b = q - a;
-  g('wB').textContent = q && a<=q ? b.toLocaleString('ko-KR')+'톤' : '-';
-  if(d1 && d2 && d2 < d1){ out.innerHTML = `<div class="card"><p class="out" style="margin:0">사용기간 끝 날이 시작 날보다 앞섭니다. 날짜를 확인해 주세요.</p></div>`; return }
-  if(!q){ out.innerHTML = ''; return }
-  if(a > q){ out.innerHTML = `<div class="card"><p class="out" style="margin:0">${esc(nA)} 사용량이 고지서 사용량보다 많습니다. 숫자를 확인해 주세요.</p></div>`; return }
-  const has = !!(d1 && d2), SW = wSewer(has?d1:'', has?d2:''), sw = SW.r, days = has ? wDays(d1,d2) : 0;
-  const est = wCalc(q, W_RATE.bounds, sw), estT = Math.round(est.sum) + f, total = t || estT;
+/* 한 달 기록 나누기. r = {d1,d2,q,t,f,meter}, pm = 이전 계기값 → 결과 또는 {err} */
+function wSplit(r, pm){
+  const q = r.q||0, f = r.f==null ? 3000 : r.f, has = !!(r.d1 && r.d2);
+  if(has && r.d2 < r.d1) return { err:'사용기간 끝 날이 시작 날보다 앞섭니다.' };
+  if(!q) return { err:'고지서 사용량을 넣으세요.' };
+  if(pm==null || r.meter==null) return { err:`${W_A} 계기값(이전·이번)을 넣으세요.` };
+  const a = r.meter - pm;
+  if(a < 0) return { err:`${W_A} 이번 계기값이 이전 계기값보다 작습니다. 숫자를 확인해 주세요.` };
+  if(a > q) return { err:`${W_A} 사용량(${a}톤)이 고지서 사용량(${q}톤)보다 많습니다. 계기값을 확인해 주세요.` };
+  const b = q - a, SW = wSewer(has?r.d1:'', has?r.d2:''), sw = SW.r, days = has ? wDays(r.d1,r.d2) : 0;
+  const est = wCalc(q, W_RATE.bounds, sw), estT = Math.round(est.sum) + f, total = r.t || estT;
   const unit = W_RATE.water.map((x,i)=>x + sw[i] + W_RATE.levy), u1 = unit[0];
-  const uS = v => Number.isInteger(v) ? won(v) : v.toLocaleString('ko-KR',{maximumFractionDigits:1});
-  const perDay = n => days ? ` · 하루 ${(+(n/days).toFixed(2)).toLocaleString('ko-KR')}톤` : '';
-  const pLine = has ? `${d1.slice(0,4)}. ${wMD(d1)} ~ ${d2.slice(0,4)!==d1.slice(0,4)?d2.slice(0,4)+'. ':''}${wMD(d2)} (${days}일)` : '';
-  const sewTxt = SW.parts.length>1 ? SW.parts.map(x=>`${wMD(x.from)}~${wMD(x.to)} ${x.days}일 ${x.r.map(won).join('·')}`).join(' / ')+' → 날수로 나눠 적용'
-    : sw.map(won).join('·')+(has?'':' (오늘 기준 요금)');
   const T1 = est.t[0], X = q - T1;                                  // 고지서의 1단계 톤수(최대 100), 그 위 톤수
   const xr = X ? (est.sum - T1*u1) / X : 0;                         // 1단계 위 톤당 평균 단가 (실제 고지서 단계대로)
   const A1 = Math.min(a, Math.max(T1/2, T1 - b)), Ax = a - A1;      // 1단계는 반씩 (한 집이 덜 쓰면 남는 몫은 다른 집)
   const B1 = T1 - A1, Bx = X - Ax, feeA = Math.round(f/2), feeB = f - feeA;
   const amtA = Math.round(A1*u1 + Ax*xr) + feeA, amtB = total - amtA;
-  const mixed = est.t.slice(1).filter(n=>n).length > 1;
-  const xLab = mixed ? '초과분 <span class="hint" style="margin:0">평균 단가</span>' : (['','2단계','3단계','4단계'][est.t.findIndex((n,i)=>i&&n)]||'초과분');
-  const xrS = Number.isInteger(xr) ? won(xr) : xr.toLocaleString('ko-KR',{maximumFractionDigits:1});
-  const tn = n => (+n.toFixed(1)).toLocaleString('ko-KR');
-  const rows = (n1, nx) => (n1 ? `<tr><td>1단계 <span class="hint" style="margin:0">기본 몫</span></td><td class="n">${tn(n1)}톤 × ${uS(u1)}</td><td class="n">${won(n1*u1)}원</td></tr>` : '')
-    + (nx ? `<tr><td>${xLab}</td><td class="n">${tn(nx)}톤 × ${xrS}</td><td class="n">${won(nx*xr)}원</td></tr>` : '');
-  const diff = t ? t - estT : 0;
-  out.innerHTML = `<div class="card"><h2>두 집 요금${has?` <span class="hint" style="display:inline">${pLine}</span>`:''}</h2>
-    ${has?'':'<p class="hint" style="margin:0 0 10px">사용기간을 넣으면 그 기간의 요금으로 계산합니다. 지금은 오늘 기준 요금입니다.</p>'}
+  return { q, f, a, b, has, days, SW, sw, est, estT, total, unit, u1, xr, A1, Ax, B1, Bx, feeA, feeB, amtA, amtB, diff: r.t ? r.t - estT : 0 };
+}
+let WAT = null, watBusy = false, watDirty = false, watMon = '', watMsg = '';
+const wMonAdd = (m,n) => { const [y,mm] = m.split('-').map(Number), t = new Date(y, mm-1+n, 1); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0') };
+const wMonLab = m => m.slice(0,4)+'년 '+(+m.slice(5,7))+'월';
+function wMonths(){
+  const ks = Object.keys((WAT&&WAT.list)||{}).sort(), s = new Set(ks);
+  s.add(todayK().slice(0,7)); s.add(wMonAdd(todayK().slice(0,7),-1)); if(!ks.length) s.add(wMonAdd(todayK().slice(0,7),-2)); if(ks.length) s.add(wMonAdd(ks[ks.length-1],1));
+  return [...s].sort().reverse();
+}
+const wPrevKey = m => Object.keys(WAT.list).filter(k=>k<m).sort().pop() || '';
+function wRecOf(m){                             // 저장된 기록, 없으면 지난 기록에 이어서 빈 기록
+  const r = WAT.list[m]; if(r) return r;
+  const pk = wPrevKey(m), p = pk ? WAT.list[pk] : null;
+  return { rd:'', d1: p && p.d2 ? wAdd(p.d2,1) : '', d2:'', q:0, t:0, f: p && p.f!=null ? p.f : 3000, meter:null, prev:null };
+}
+const tnum = v => v==null||v==='' ? '' : (+v).toLocaleString('ko-KR');
+const wM = m => (+m.slice(5,7))+'월';
+function vWater(){
+  const ms = wMonths(); if(ms.indexOf(watMon)<0) watMon = ms.indexOf(todayK().slice(0,7))>=0 ? todayK().slice(0,7) : ms[0];
+  const head = `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <b>기록 달</b>
+    <select id="wMon" style="width:auto;min-width:150px;font-size:15px">${ms.map(m=>`<option value="${m}" ${m===watMon?'selected':''}>${wMonLab(m)}${WAT&&WAT.list&&WAT.list[m]?' ✓':''}</option>`).join('')}</select>
+    ${WAT && !WAT.err ? `<span style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="hint" style="margin:0" id="wMsg">${esc(watMsg)}</span><button class="btn" id="wSave">저장</button></span>` : ''}</div>`;
+  if(!WAT) return head+'<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>';
+  if(WAT.err) return head+`<div class="card"><p class="out" style="margin:0 0 10px">${esc(WAT.err)}</p>
+    ${/알 수 없는 요청|404/.test(WAT.err)?'<p class="hint">수도요금 저장 기능이 아직 서버에 없습니다. Cloudflare의 oozy-work에 새 worker.js를 배포해 주세요.</p>':''}
+    <button class="btn g sm" id="wRetry">다시 불러오기</button></div>`;
+  const r = wRecOf(watMon), pk = wPrevKey(watMon), pr = pk ? WAT.list[pk] : null, cur = wM(watMon);
+  const prevRow = pr && pr.meter!=null
+    ? `<td class="n" id="wPrevV" data-v="${pr.meter}"><b>${tnum(pr.meter)}</b><br><span class="hint" style="margin:0">${wMonLab(pk)} 기록${pr.rd?' · '+wMD(pr.rd)+' 읽음':''}</span></td>`
+    : `<td><input type="text" class="n" inputmode="numeric" id="wPrev" value="${tnum(r.prev)}" placeholder="지난달 계기값"><span class="hint" style="margin:0">지난 기록이 없어 직접 넣기</span></td>`;
+  return head + `<div class="card"><h2>1. ${W_A} 계량기 <span class="hint" style="display:inline">${cur} 기록</span></h2>
+    <p class="hint">${W_A} 수도계량기를 한 달에 한 번 읽어 넣으세요. 이번 달 값에서 지난달 값을 빼서 ${W_A}의 한 달 사용량을 구합니다.</p>
     <table><tbody>
-      <tr class="tot"><td>${esc(nA)} <span class="hint" style="margin:0">${a.toLocaleString('ko-KR')}톤${perDay(a)}</span></td><td class="n big">${won(amtA)}원</td></tr>
-      <tr class="tot"><td>${esc(nB)} <span class="hint" style="margin:0">${b.toLocaleString('ko-KR')}톤${perDay(b)}</span></td><td class="n big">${won(amtB)}원</td></tr>
-      <tr><td>합계 ${t?'(고지서)':'(추정 고지서)'}</td><td class="n">${won(total)}원</td></tr>
+      <tr><td style="width:46%">읽은 날짜</td><td><input type="date" id="wRd" value="${esc(r.rd||'')}"></td></tr>
+      <tr><td><b>이번 달 계기값</b><br><span class="hint" style="margin:0">${cur} · 직접 읽은 값</span></td><td><input type="text" class="n" inputmode="numeric" id="wM" value="${tnum(r.meter)}" placeholder="계량기 숫자"></td></tr>
+      <tr><td>지난달 계기값<br><span class="hint" style="margin:0">${pk?wM(pk):wM(wMonAdd(watMon,-1))}</span></td>${prevRow}</tr>
+      <tr class="sub"><td>${W_A} 한 달 사용량</td><td class="n" id="wA">-</td></tr>
+    </tbody></table></div>
+  <div class="card"><h2>2. 상수도 고지서 <span class="hint" style="display:inline">${W_A} + ${W_B} 합계</span></h2>
+    <p class="hint">고지서는 두 집을 합한 사용량으로 나옵니다. ${cur}에 읽은 기간과 사용기간이 맞는 고지서를 넣으세요. ${W_B} 사용량 = 고지서 사용량 − ${W_A} 사용량.</p>
+    <table><tbody>
+      <tr><td style="width:46%">사용기간<br><span class="hint" style="margin:0">고지서에 적힌 기간 (예: 9/20 ~ 10/19)</span></td>
+        <td><input type="date" id="wD1" value="${esc(r.d1||'')}"><div style="text-align:center;color:var(--mute);line-height:1.4">~</div><input type="date" id="wD2" value="${esc(r.d2||'')}"></td></tr>
+      <tr><td>고지서 사용량 (톤)</td><td><input type="text" class="n" inputmode="numeric" id="wQ" value="${r.q?tnum(r.q):''}" placeholder="예: 56"></td></tr>
+      <tr><td>고지서 납부 금액 (원)</td><td><input type="text" class="n" inputmode="numeric" id="wT" value="${r.t?won(r.t):''}" placeholder="예: 150,840"></td></tr>
+      <tr><td>구경별 정액요금 (원)<br><span class="hint" style="margin:0">25mm 3,000원 · 두 집이 반씩</span></td><td><input type="text" class="n" inputmode="numeric" id="wF" value="${won(r.f==null?3000:r.f)}" placeholder="0"></td></tr>
+      <tr class="sub"><td>${W_B} 사용량<br><span class="hint" style="margin:0">고지서 − ${W_A}</span></td><td class="n" id="wB">-</td></tr>
     </tbody></table>
-    ${t ? (diff ? `<p class="hint" style="margin:8px 0 0">고지서 금액이 이 사용량으로 계산한 금액(${won(estT)}원)보다 ${won(Math.abs(diff))}원 ${diff>0?'많습니다':'적습니다'}. 그 차이는 ${esc(nB)} 금액에 들어갑니다. 가산금·정산액·감면이 있었는지 고지서를 확인해 보세요.</p>` : `<p class="hint" style="margin:8px 0 0">고지서 금액이 계산값과 정확히 맞습니다.</p>`)
-      : `<p class="hint" style="margin:8px 0 0">고지서 금액을 넣지 않아 사용량으로 계산한 추정 금액(${won(estT)}원)으로 나눴습니다.</p>`}</div>
-  <div class="card"><h2>${esc(nA)} 계산 내역</h2>
-    <table><tbody>${rows(A1, Ax)}
-      <tr><td>정액요금 반</td><td class="n">${won(f)} ÷ 2</td><td class="n">${won(feeA)}원</td></tr>
-      <tr class="sub"><td colspan="2">합계</td><td class="n">${won(amtA)}원</td></tr></tbody></table></div>
-  <div class="card"><h2>${esc(nB)} 계산 내역</h2>
-    <table><tbody>${rows(B1, Bx)}
-      <tr><td>정액요금 반</td><td class="n">${won(f)} − ${won(feeA)}</td><td class="n">${won(feeB)}원</td></tr>
-      ${diff ? `<tr><td colspan="2">고지서와 계산값 차이</td><td class="n">${diff>0?'+':''}${won(diff)}원</td></tr>` : ''}
-      <tr class="sub"><td colspan="2">합계 (고지서 − ${esc(nA)})</td><td class="n">${won(amtB)}원</td></tr></tbody></table>
-    <p class="hint" style="margin:8px 0 0">톤당 단가(상수도+하수도+물이용부담금): 1단계 ${uS(unit[0])} · 2단계 ${uS(unit[1])} · 3단계 ${uS(unit[2])} · 4단계 ${uS(unit[3])}원<br>하수도 단가: ${sewTxt}</p></div>`;
+    ${WAT.list[watMon]?'<button class="btn dg sm" id="wDel" style="margin-top:10px">이 달 기록 지우기</button>':''}</div>
+  <div id="wOut"></div>
+  ${wHist()}
+  <div class="card"><h2>계산 방법</h2>
+    <p class="hint" style="margin:0">· ${W_A} 사용량 = 이번 달 계기값 − 지난달 계기값<br>
+    · ${W_B} 사용량 = 고지서 사용량(두 집 합계) − ${W_A} 사용량<br>
+    · 톤당 단가 = 상수도 + 하수도 + 물이용부담금(170원)<br>
+    · 1단계(100톤까지)는 기본 몫으로 두 집이 <b>50톤씩</b> 나눔 (한 집이 50톤보다 적게 쓰면 남은 몫은 다른 집으로)<br>
+    · 기본 몫을 넘게 쓴 양은 고지서에 실제로 붙은 2단계 이상 단가로 계산 (여러 단계가 섞이면 평균 단가)<br>
+    · 하수도 요금은 사용기간에 맞는 해의 단가를 씀. 사용기간에 요금이 바뀐 날(1월 1일 등)이 끼면 날수로 나눠 섞어서 적용<br>
+    · 정액요금은 반씩<br>
+    · ${W_B} = 고지서 금액 − ${W_A} (두 집 합계가 항상 고지서와 같음)</p></div>`;
+}
+function wHist(){                               // 저장된 달 모아 보기
+  const ks = Object.keys(WAT.list).sort(); if(!ks.length) return '';
+  let pm = null;
+  const rows = ks.map(k=>{ const r = WAT.list[k], prev = pm!=null ? pm : r.prev, s = wSplit(r, prev); if(r.meter!=null) pm = r.meter; return { k, r, prev, s } }).reverse();
+  return `<div class="card"><h2>저장한 기록</h2><div class="scroll"><table class="ws" style="min-width:560px"><thead><tr>
+    <th class="nw">기록 달</th><th class="n">${W_A} 계기</th><th class="n">${W_A}</th><th class="n">고지서</th><th class="n">${W_B}</th></tr></thead><tbody>
+    ${rows.map(x=>{ const a = x.prev!=null && x.r.meter!=null ? x.r.meter - x.prev : null;
+      return `<tr${x.k===watMon?' class="hl"':''}><td class="nw">${wM(x.k)}${x.k.slice(0,4)!==todayK().slice(0,4)?' <span class="hint" style="margin:0">'+x.k.slice(0,4)+'</span>':''}${x.r.rd?'<br><span class="hint" style="margin:0">'+wMD(x.r.rd)+' 읽음</span>':''}</td>
+      <td class="n">${x.prev!=null?tnum(x.prev):'?'} → ${x.r.meter!=null?tnum(x.r.meter):'?'}</td>
+      <td class="n">${a!=null&&a>=0?tnum(a)+'톤':'-'}${x.s.err?'':'<br><b>'+won(x.s.amtA)+'원</b>'}</td>
+      <td class="n">${x.r.q?tnum(x.r.q)+'톤':'-'}<br>${x.r.t?won(x.r.t)+'원':''}${x.r.d1&&x.r.d2?'<br><span class="hint" style="margin:0">'+wMD(x.r.d1)+'~'+wMD(x.r.d2)+'</span>':''}</td>
+      <td class="n">${x.s.err?(x.r.q?'<span class="out">확인 필요</span>':'<span class="hint" style="margin:0">고지서 전</span>'):tnum(x.s.b)+'톤<br><b>'+won(x.s.amtB)+'원</b>'}</td></tr>` }).join('')}
+  </tbody></table></div><p class="swipe">← 표를 옆으로 밀어 보세요 →</p></div>`;
+}
+function wCollect(){
+  const g = id => document.getElementById(id), nv = id => { const el = g(id); if(!el) return null; const v = String(el.value||'').replace(/[^\d]/g,''); return v==='' ? null : +v };
+  return { rd:g('wRd').value, d1:g('wD1').value, d2:g('wD2').value, q:nv('wQ')||0, t:nv('wT')||0, f: nv('wF')==null?0:nv('wF'), meter:nv('wM'), prev: g('wPrev') ? nv('wPrev') : null };
+}
+function wRender(){
+  const g = id => document.getElementById(id), r = wCollect(), pv = g('wPrevV');
+  const pm = pv ? +pv.dataset.v : r.prev;
+  const s = wSplit(r, pm), out = g('wOut');
+  g('wA').textContent = pm!=null && r.meter!=null && r.meter>=pm ? tnum(r.meter-pm)+'톤' : '-';
+  g('wB').textContent = s.err ? '-' : tnum(s.b)+'톤';
+  if(s.err){ out.innerHTML = r.q ? `<div class="card"><p class="out" style="margin:0">${esc(s.err)}</p></div>`
+    : (r.meter!=null && pm!=null && r.meter>=pm ? `<div class="card"><p class="hint" style="margin:0">${W_A} 사용량을 저장해 두고, 고지서가 오면 2번에 넣으세요. 그때 두 집 요금이 계산됩니다.</p></div>` : ''); return }
+  const uS = v => Number.isInteger(v) ? won(v) : v.toLocaleString('ko-KR',{maximumFractionDigits:1});
+  const perDay = n => s.days ? ` · 하루 ${(+(n/s.days).toFixed(2)).toLocaleString('ko-KR')}톤` : '';
+  const pLine = s.has ? `${r.d1.slice(0,4)}. ${wMD(r.d1)} ~ ${r.d2.slice(0,4)!==r.d1.slice(0,4)?r.d2.slice(0,4)+'. ':''}${wMD(r.d2)} (${s.days}일)` : '';
+  const sewTxt = s.SW.parts.length>1 ? s.SW.parts.map(x=>`${wMD(x.from)}~${wMD(x.to)} ${x.days}일 ${x.r.map(won).join('·')}`).join(' / ')+' → 날수로 나눠 적용'
+    : s.sw.map(won).join('·')+(s.has?'':' (오늘 기준 요금)');
+  const mixed = s.est.t.slice(1).filter(n=>n).length > 1;
+  const xLab = mixed ? '초과분 <span class="hint" style="margin:0">평균 단가</span>' : (['','2단계','3단계','4단계'][s.est.t.findIndex((n,i)=>i&&n)]||'초과분');
+  const tn = n => (+n.toFixed(1)).toLocaleString('ko-KR');
+  const rows = (n1, nx) => (n1 ? `<tr><td>1단계 <span class="hint" style="margin:0">기본 몫</span></td><td class="n">${tn(n1)}톤 × ${uS(s.u1)}</td><td class="n">${won(n1*s.u1)}원</td></tr>` : '')
+    + (nx ? `<tr><td>${xLab}</td><td class="n">${tn(nx)}톤 × ${uS(s.xr)}</td><td class="n">${won(nx*s.xr)}원</td></tr>` : '');
+  out.innerHTML = `<div class="card"><h2>두 집 요금${s.has?` <span class="hint" style="display:inline">${pLine}</span>`:''}</h2>
+    ${s.has?'':'<p class="hint" style="margin:0 0 10px">사용기간을 넣으면 그 기간의 요금으로 계산합니다. 지금은 오늘 기준 요금입니다.</p>'}
+    <table><tbody>
+      <tr class="tot"><td>${W_A} <span class="hint" style="margin:0">${tnum(s.a)}톤${perDay(s.a)}</span></td><td class="n big">${won(s.amtA)}원</td></tr>
+      <tr class="tot"><td>${W_B} <span class="hint" style="margin:0">${tnum(s.b)}톤${perDay(s.b)}</span></td><td class="n big">${won(s.amtB)}원</td></tr>
+      <tr><td>합계 ${r.t?'(고지서)':'(추정 고지서)'}</td><td class="n">${won(s.total)}원</td></tr>
+    </tbody></table>
+    ${r.t ? (s.diff ? `<p class="hint" style="margin:8px 0 0">고지서 금액이 이 사용량으로 계산한 금액(${won(s.estT)}원)보다 ${won(Math.abs(s.diff))}원 ${s.diff>0?'많습니다':'적습니다'}. 그 차이는 ${W_B} 금액에 들어갑니다. 가산금·정산액·감면이 있었는지 고지서를 확인해 보세요.</p>` : `<p class="hint" style="margin:8px 0 0">고지서 금액이 계산값과 정확히 맞습니다.</p>`)
+      : `<p class="hint" style="margin:8px 0 0">고지서 금액을 넣지 않아 사용량으로 계산한 추정 금액(${won(s.estT)}원)으로 나눴습니다.</p>`}</div>
+  <div class="card"><h2>${W_A} 계산 내역</h2>
+    <table><tbody>${rows(s.A1, s.Ax)}
+      <tr><td>정액요금 반</td><td class="n">${won(s.f)} ÷ 2</td><td class="n">${won(s.feeA)}원</td></tr>
+      <tr class="sub"><td colspan="2">합계</td><td class="n">${won(s.amtA)}원</td></tr></tbody></table></div>
+  <div class="card"><h2>${W_B} 계산 내역</h2>
+    <table><tbody>${rows(s.B1, s.Bx)}
+      <tr><td>정액요금 반</td><td class="n">${won(s.f)} − ${won(s.feeA)}</td><td class="n">${won(s.feeB)}원</td></tr>
+      ${s.diff ? `<tr><td colspan="2">고지서와 계산값 차이</td><td class="n">${s.diff>0?'+':''}${won(s.diff)}원</td></tr>` : ''}
+      <tr class="sub"><td colspan="2">합계 (고지서 − ${W_A})</td><td class="n">${won(s.amtB)}원</td></tr></tbody></table>
+    <p class="hint" style="margin:8px 0 0">톤당 단가(상수도+하수도+물이용부담금): 1단계 ${uS(s.unit[0])} · 2단계 ${uS(s.unit[1])} · 3단계 ${uS(s.unit[2])} · 4단계 ${uS(s.unit[3])}원<br>하수도 단가: ${sewTxt}</p></div>`;
+}
+async function watLoad(){
+  watBusy = true;
+  try{ const j = await api('/water'); WAT = { list: j.list||{} } }
+  catch(e){ WAT = { err:'불러오지 못했습니다: '+e.message } }
+  watBusy = false; watDirty = false;
+  if(tab==='water') render();
 }
 function bindWater(){
-  ['wQ','wT','wA','wF'].forEach(id=>{ const el = document.getElementById(id);
-    el.oninput = () => { const n = numIn(el.value); el.value = n ? won(n) : ''; wRender() } });
-  ['wNA','wNB'].forEach(id=> document.getElementById(id).oninput = wRender);
-  ['wD1','wD2'].forEach(id=> document.getElementById(id).onchange = wRender);
-  document.getElementById('wClr').onclick = () => { ['wD1','wD2','wQ','wT','wA'].forEach(id=>document.getElementById(id).value=''); wRender() };
+  const sel = document.getElementById('wMon');
+  sel.onchange = () => { if(watDirty && !confirm('저장하지 않은 내용이 있습니다. 다른 달로 넘어갈까요?')){ sel.value = watMon; return } watMon = sel.value; watDirty = false; watMsg = ''; render() };
+  if(!WAT){ if(!watBusy) watLoad(); return }
+  if(WAT.err){ document.getElementById('wRetry').onclick = () => { WAT = null; render() }; return }
+  ['wQ','wT','wM','wF','wPrev'].forEach(id=>{ const el = document.getElementById(id); if(!el) return;
+    el.oninput = () => { const v = String(el.value).replace(/[^\d]/g,''); el.value = v==='' ? '' : (+v).toLocaleString('ko-KR'); watDirty = true; wRender() } });
+  ['wRd','wD1','wD2'].forEach(id=> document.getElementById(id).onchange = () => { watDirty = true; wRender() });
+  document.getElementById('wSave').onclick = async () => {
+    const b = document.getElementById('wSave'), msg = document.getElementById('wMsg'); b.disabled = true; msg.textContent = '저장 중...';
+    try{ const j = await api('/water', { month:watMon, data:wCollect() }); WAT.list[watMon] = j.data; watDirty = false; watMsg = '저장했습니다 ✓'; render() }
+    catch(e){ b.disabled = false; msg.innerHTML = '<span class="out">저장 실패: '+esc(e.message)+'</span>' }
+  };
+  const del = document.getElementById('wDel');
+  if(del) del.onclick = async () => { if(!confirm(wMonLab(watMon)+' 기록을 지울까요?')) return;
+    try{ await api('/water', { month:watMon, del:1 }); delete WAT.list[watMon]; watDirty = false; watMsg = '지웠습니다'; render() }
+    catch(e){ alert('지우지 못했습니다: '+e.message) } };
   wRender();
 }
+
 /* ── 지출분석 ──
    매출: 위 SALES 자료에서 주별로 자동 합계
    지출: 본사 주문(주별 입력) · 급여(근무관리에서 자동) · 전기세 · 수도세 · 추가 항목 — 근무관리 서버(/cost)에 달마다 저장 */
@@ -1046,7 +1126,7 @@ function bindTotal(){
   const rt = document.getElementById('tRetry'); if(rt) rt.onclick = () => { TOT = null; render() };
   if((!TOT || TOT.year!==totYear) && !totBusy) totLoad();
 }
-window.addEventListener('beforeunload', e => { if(costDirty){ e.preventDefault(); e.returnValue = '' } });
+window.addEventListener('beforeunload', e => { if(costDirty || watDirty){ e.preventDefault(); e.returnValue = '' } });
 
 render();
 (async function(){

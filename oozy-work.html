@@ -260,6 +260,7 @@ body.practice{background:#fff4e0}
 // 2026-11-06 : 재고 품목 정리 — 32oz 아이스컵, 아이스컵·컵홀더 크기별, 빨대 대/소, 유산지 (기존 매장은 한 번만 자동 반영)
 // 2026-11-07 : 유산지를 각대봉투 다음으로 이동
 // 2026-11-07 : 재고 품목 이동(/stock/item/move, to=끌어서 옮긴 자리)
+// 2026-11-21 : 수도요금 나누기(/water) — 달마다 교촌 계기값(읽은 날짜 rd)·고지서 사용기간·사용량·금액 저장
 // 2026-11-10 : 근무 구분 '식사' (휴게를 명세서에 '식사시간 N분'으로 표시)
 // 2026-11-09 : 지출분석 월세(rent)·부가가치세(vat) 저장
 // 2026-11-08 : 지출분석(/cost) — 달마다 본사 주문·전기세·수도세·추가 항목 저장, 그 달 급여 합계
@@ -910,6 +911,30 @@ async function route(req, env) {
       return json({ ok: true, data });
     }
     return err('지출분석: 알 수 없는 요청입니다.', 404);
+  }
+
+  // ---------- 수도요금 나누기 (교촌·우지): 달마다 교촌 계기값·읽은 날짜 + 그 기간 고지서(사용기간·사용량·금액·정액요금) (사장·'카페운영' 권한) ----------
+  if (p.startsWith('/water')) {
+    if (me.role !== 'admin' && !appsOf(me.staff).includes('ledger')) return err('수도요금을 쓸 권한이 없습니다. 관리자에게 문의하세요.', 403);
+    if (p === '/water' && m === 'GET') {
+      const rs = (await env.DB.prepare("SELECT k, v FROM settings WHERE k LIKE 'water:%'").all()).results || [];
+      const list = {}; for (const r of rs) { try { list[r.k.slice(6)] = JSON.parse(r.v); } catch (e) { } }
+      return json({ list });
+    }
+    if (p === '/water' && m === 'POST') {
+      const month = String(b.month || '').trim();
+      if (!/^\d{4}-\d{2}$/.test(month)) return err('month=YYYY-MM 형식이 필요합니다.');
+      const key = 'water:' + month;
+      if (b.del) { await env.DB.prepare('DELETE FROM settings WHERE k=?').bind(key).run(); return json({ ok: true }); }
+      const d = b.data || {};
+      const num = v => { if (v === '' || v == null) return null; const n = Math.round(+String(v).replace(/[^\d.]/g, '')); return Number.isFinite(n) && n >= 0 ? Math.min(n, 1e10) : null; };
+      const day = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
+      const f = num(d.f);
+      const data = { rd: day(d.rd), d1: day(d.d1), d2: day(d.d2), q: num(d.q) || 0, t: num(d.t) || 0, f: f == null ? 3000 : f, meter: num(d.meter), prev: num(d.prev), at: now };
+      await env.DB.prepare('INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(key, JSON.stringify(data)).run();
+      return json({ ok: true, data });
+    }
+    return err('수도요금: 알 수 없는 요청입니다.', 404);
   }
 
   // ---------- 직원 ----------
