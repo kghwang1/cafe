@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* 로그인·권한 확인: 홈에서 로그인한 기기만, 허락된 메뉴만 */(function(){try{var a=JSON.parse(localStorage.getItem('oozyAuth')||'null');if(a&&a.apps&&a.apps.indexOf('ledger')>=0&&localStorage.getItem('oozyToken'))return;}catch(e){}if(/^https?:/.test(location.protocol))location.replace('./?need=ledger');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="2026-11-23.7">
+<meta name="app-version" content="2026-11-24.1">
 <title>우지커피 분석</title>
 <style>
 :root{
@@ -355,18 +355,20 @@ ol.steps small{color:var(--mute);display:block}
       <a class="homeln" href="./" aria-label="홈으로">🏠<span class="ht"> 홈</span></a>
       <h1 id="hTitle">분석</h1>
     </div>
-    <nav id="anNav"><button data-tab="sales">매출분석</button><button data-tab="cost">지출분석</button><button data-tab="total">누계</button><button data-tab="water">수도요금</button></nav>
+    <nav id="anNav"><button data-tab="sales">매출분석</button><button data-tab="cost">지출분석</button><button data-tab="total">누계</button><button data-tab="water">수도요금</button><button data-tab="elec">전기요금</button></nav>
   </div>
 </header>
 <main class="wrap" id="view"></main>
 <script>
-const APP_VERSION = '2026-11-23.7';
+const APP_VERSION = '2026-11-24.1';
 const won = n => (Math.round(+n||0)).toLocaleString('ko-KR');
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let tab = (()=>{ try{ const t=localStorage.getItem('oozyAnTab'); return t==='cost'||t==='total'||t==='water' ? t : 'sales' }catch(e){ return 'sales' } })();
+let tab = (()=>{ try{ const t=localStorage.getItem('oozyAnTab'); return t==='cost'||t==='total'||t==='water'||t==='elec' ? t : 'sales' }catch(e){ return 'sales' } })();
 function render(){
+  document.getElementById('view').oninput = null;   // 지출분석 입력 감시가 다른 탭에 남지 않게
   document.querySelectorAll('#anNav [data-tab]').forEach(b=>{ b.classList.toggle('on', b.dataset.tab===tab);
     b.onclick=()=>{ tab=b.dataset.tab; if(tab==='total') TOT=null; try{ localStorage.setItem('oozyAnTab',tab) }catch(e){} window.scrollTo(0,0); render() } });
+  if(tab==='elec'){ salesCharts.forEach(c=>{ try{ c.destroy() }catch(e){} }); salesCharts=[]; document.getElementById('view').innerHTML = vElec(); bindElec(); return }
   if(tab==='water'){ salesCharts.forEach(c=>{ try{ c.destroy() }catch(e){} }); salesCharts=[]; document.getElementById('view').innerHTML = vWater(); bindWater(); return }
   if(tab==='total'){ salesCharts.forEach(c=>{ try{ c.destroy() }catch(e){} }); salesCharts=[]; document.getElementById('view').innerHTML = vTotal(); bindTotal(); return }
   if(tab==='cost'){ salesCharts.forEach(c=>{ try{ c.destroy() }catch(e){} }); salesCharts=[]; document.getElementById('view').innerHTML = vCost(); bindCost(); return }
@@ -961,14 +963,112 @@ function bindWater(){
   ['wRd','wD1','wD2'].forEach(id=> document.getElementById(id).onchange = () => { watDirty = true; wRender() });
   document.getElementById('wSave').onclick = async () => {
     const b = document.getElementById('wSave'), msg = document.getElementById('wMsg'); b.disabled = true; msg.textContent = '저장 중...';
-    try{ const j = await api('/water', { month:watMon, data:wCollect() }); WAT.list[watMon] = j.data; watDirty = false; watMsg = '저장했습니다 ✓'; render() }
+    try{ const j = await api('/water', { month:watMon, data:wCollect() }); WAT.list[watMon] = j.data; watDirty = false; UTIL = null; TOT = null; watMsg = '저장했습니다 ✓'; render() }
     catch(e){ b.disabled = false; msg.innerHTML = '<span class="out">저장 실패: '+esc(e.message)+'</span>' }
   };
   const del = document.getElementById('wDel');
   if(del) del.onclick = async () => { if(!confirm(wMonLab(watMon)+' 기록을 지울까요?')) return;
-    try{ await api('/water', { month:watMon, del:1 }); delete WAT.list[watMon]; watDirty = false; watMsg = '지웠습니다'; render() }
+    try{ await api('/water', { month:watMon, del:1 }); delete WAT.list[watMon]; watDirty = false; UTIL = null; TOT = null; watMsg = '지웠습니다'; render() }
     catch(e){ alert('지우지 못했습니다: '+e.message) } };
   wRender();
+}
+
+/* ── 공과금 자동 계산 (지출분석·누계에서 씀) ──
+   사용월 = 고지서 사용기간 가운데 날수가 가장 많은 달 (같으면 뒤 달). 예: 9/20~10/19 → 10월
+   수도세 = 그 달이 사용월인 수도요금 기록의 우지 금액, 전기세 = 그 달이 사용월인 전기요금 고지서 금액 합계 */
+function useMonth(d1, d2){
+  if(!d1 || !d2 || d2 < d1) return '';
+  const cnt = {}; for(let d = d1; d <= d2; d = wAdd(d,1)){ const m = d.slice(0,7); cnt[m] = (cnt[m]||0) + 1 }
+  return Object.keys(cnt).sort().reduce((best,m)=> !best || cnt[m] >= cnt[best] ? m : best, '');
+}
+let UTIL = null, utilBusy = false;
+async function utilLoad(){                      // 수도·전기 기록을 한 번에 불러옴 (실패해도 0으로 계산)
+  if(utilBusy) return; utilBusy = true;
+  const get = p => api(p).then(j=>j.list||{}, ()=>null);
+  const [w, e] = await Promise.all([ WAT && WAT.list ? Promise.resolve(WAT.list) : get('/water'), ELEC && ELEC.list ? Promise.resolve(ELEC.list) : get('/elec') ]);
+  UTIL = { water: w, elec: e }; utilBusy = false;
+  if(tab==='cost' || tab==='total') render();
+}
+function utilAuto(m){
+  const o = { water:0, elec:0, wn:0, en:0, ok: !!UTIL, wok: !!(UTIL && UTIL.water), eok: !!(UTIL && UTIL.elec) };
+  if(!UTIL) return o;
+  if(UTIL.water){ let pm = null;
+    Object.keys(UTIL.water).sort().forEach(k=>{ const r = UTIL.water[k], prev = pm!=null ? pm : r.prev; if(r.meter!=null) pm = r.meter;
+      if(useMonth(r.d1, r.d2)!==m) return; const s = wSplit(r, prev); if(s.err) return; o.water += s.amtB; o.wn++ }) }
+  if(UTIL.elec) Object.values(UTIL.elec).forEach(r=>{ if(useMonth(r.d1, r.d2)===m){ o.elec += r.amt||0; o.en++ } });
+  return o;
+}
+
+/* ── 전기요금 ──
+   한전 고지서의 사용기간·사용량(kWh)·청구금액을 고지서마다 한 줄씩 쌓아 둡니다 (서버 /elec, 사용기간 시작일이 열쇠).
+   사용월(사용기간에서 날수가 가장 많은 달)의 지출분석 전기세에 자동으로 들어갑니다. */
+let ELEC = null, elecBusy = false, elecEdit = '', elecMsg = '';
+async function elecLoad(){
+  elecBusy = true;
+  try{ const j = await api('/elec'); ELEC = { list: j.list||{} } }
+  catch(e){ ELEC = { err:'불러오지 못했습니다: '+e.message } }
+  elecBusy = false; if(tab==='elec') render();
+}
+function vElec(){
+  if(!ELEC) return '<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>';
+  if(ELEC.err) return `<div class="card"><p class="out" style="margin:0 0 10px">${esc(ELEC.err)}</p>
+    ${/알 수 없는 요청|404/.test(ELEC.err)?'<p class="hint">전기요금 저장 기능이 아직 서버에 없습니다. Cloudflare의 oozy-work에 새 worker.js를 배포해 주세요.</p>':''}
+    <button class="btn g sm" id="eRetry">다시 불러오기</button></div>`;
+  const ks = Object.keys(ELEC.list).sort(), last = ks.length ? ELEC.list[ks[ks.length-1]] : null;
+  const r = elecEdit && ELEC.list[elecEdit] ? ELEC.list[elecEdit] : { d1: last && last.d2 ? wAdd(last.d2,1) : '', d2:'', amt:0, kwh:null, memo:'' };
+  const rows = ks.slice().reverse().map(k=>{ const x = ELEC.list[k], um = useMonth(x.d1,x.d2);
+    return `<tr${k===elecEdit?' class="hl"':''}><td class="nw">${um?um.slice(0,4)+'. '+(+um.slice(5,7))+'월':'-'}</td><td class="nw">${wMD(x.d1)}~${wMD(x.d2)}<br><span class="hint" style="margin:0">${wDays(x.d1,x.d2)}일</span></td>
+      <td class="n">${x.kwh!=null?tnum(x.kwh):'-'}</td><td class="n"><b>${won(x.amt)}</b>${x.memo?'<br><span class="hint" style="margin:0">'+esc(x.memo)+'</span>':''}</td>
+      <td class="c" style="white-space:nowrap"><button class="btn g sm" data-eed="${k}">수정</button></td></tr>` }).join('');
+  const years = [...new Set(ks.map(k=>useMonth(ELEC.list[k].d1, ELEC.list[k].d2).slice(0,4)).filter(Boolean))].sort().reverse();
+  const ysum = years.map(y=>{ const xs = ks.map(k=>ELEC.list[k]).filter(x=>useMonth(x.d1,x.d2).slice(0,4)===y), t = xs.reduce((a,x)=>a+(x.amt||0),0), kw = xs.reduce((a,x)=>a+(x.kwh||0),0);
+    return `<tr class="sub"><td>${y}년 합계</td><td>${xs.length}건</td><td class="n">${kw?tnum(kw):'-'}</td><td class="n">${won(t)}</td><td class="n hint" style="margin:0">월평균 ${won(t/xs.length)}</td></tr>` }).join('');
+  return `<div class="card"><h2>${elecEdit?'전기요금 고지서 수정':'전기요금 고지서 입력'}</h2>
+    <p class="hint">한전 고지서에 적힌 사용기간과 청구금액을 넣고 저장하세요. 고지서마다 한 줄씩 쌓이고, 사용월의 지출분석 전기세에 자동으로 들어갑니다.</p>
+    <table><tbody>
+      <tr><td style="width:40%">사용기간</td><td><input type="date" id="eD1" value="${esc(r.d1||'')}"><div style="text-align:center;color:var(--mute);line-height:1.4">~</div><input type="date" id="eD2" value="${esc(r.d2||'')}"></td></tr>
+      <tr><td>사용월<br><span class="hint" style="margin:0">지출분석에 들어갈 달</span></td><td id="eUm">-</td></tr>
+      <tr><td>사용량 (kWh)<br><span class="hint" style="margin:0">선택</span></td><td><input type="text" class="n" inputmode="numeric" id="eKwh" value="${r.kwh!=null?tnum(r.kwh):''}" placeholder="예: 1,850"></td></tr>
+      <tr><td><b>청구금액 (원)</b><br><span class="hint" style="margin:0">고지서의 납부할 금액</span></td><td><input type="text" class="n" inputmode="numeric" id="eAmt" value="${r.amt?won(r.amt):''}" placeholder="예: 385,200"></td></tr>
+      <tr><td>메모</td><td><input type="text" id="eMemo" maxlength="60" value="${esc(r.memo||'')}" placeholder="예: 기본요금 변경"></td></tr>
+    </tbody></table>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
+      <button class="btn" id="eSave">${elecEdit?'수정 저장':'저장'}</button>
+      ${elecEdit?'<button class="btn g" id="eCancel">취소</button><button class="btn dg sm" id="eDel" style="margin-left:auto">이 고지서 지우기</button>':''}
+      <span class="hint" style="margin:0" id="eMsg">${esc(elecMsg)}</span></div></div>
+  <div class="card"><h2>전기요금 기록 <span class="hint" style="display:inline">${ks.length}건</span></h2>
+    ${ks.length?`<div class="scroll"><table class="ws" style="min-width:420px"><thead><tr><th class="nw">사용월</th><th class="nw">사용기간</th><th class="n">kWh</th><th class="n">청구금액</th><th></th></tr></thead><tbody>${rows}${ysum}</tbody></table></div><p class="swipe">← 표를 옆으로 밀어 보세요 →</p>`
+      :'<p class="hint" style="margin:0">아직 기록이 없습니다.</p>'}</div>`;
+}
+function elecCollect(){
+  const g = id => document.getElementById(id), nv = id => { const v = String(g(id).value||'').replace(/[^\d]/g,''); return v==='' ? null : +v };
+  return { d1:g('eD1').value, d2:g('eD2').value, amt: nv('eAmt')||0, kwh: nv('eKwh'), memo: g('eMemo').value.trim() };
+}
+function elecUm(){ const d = elecCollect(), um = useMonth(d.d1, d.d2), el = document.getElementById('eUm');
+  if(el) el.innerHTML = um ? `<b>${um.slice(0,4)}년 ${+um.slice(5,7)}월</b> <span class="hint" style="margin:0">${wDays(d.d1,d.d2)}일</span>` : (d.d1 && d.d2 ? '<span class="out">기간을 확인하세요</span>' : '-') }
+function bindElec(){
+  if(!ELEC){ if(!elecBusy) elecLoad(); return }
+  if(ELEC.err){ document.getElementById('eRetry').onclick = () => { ELEC = null; render() }; return }
+  ['eAmt','eKwh'].forEach(id=>{ const el = document.getElementById(id); el.oninput = () => { const v = String(el.value).replace(/[^\d]/g,''); el.value = v==='' ? '' : (+v).toLocaleString('ko-KR') } });
+  ['eD1','eD2'].forEach(id=> document.getElementById(id).onchange = elecUm);
+  document.querySelectorAll('[data-eed]').forEach(b=>b.onclick=()=>{ elecEdit = b.dataset.eed; elecMsg = ''; render(); window.scrollTo(0,0) });
+  const c = document.getElementById('eCancel'); if(c) c.onclick = () => { elecEdit = ''; elecMsg = ''; render() };
+  const del = document.getElementById('eDel');
+  if(del) del.onclick = async () => { if(!confirm('이 전기요금 고지서를 지울까요?')) return;
+    try{ await api('/elec', { del: elecEdit }); delete ELEC.list[elecEdit]; elecEdit = ''; elecMsg = '지웠습니다'; UTIL = null; TOT = null; render() }
+    catch(e){ alert('지우지 못했습니다: '+e.message) } };
+  document.getElementById('eSave').onclick = async () => {
+    const d = elecCollect(), msg = document.getElementById('eMsg');
+    if(!d.d1 || !d.d2 || d.d2 < d.d1){ msg.innerHTML = '<span class="out">사용기간을 확인하세요</span>'; return }
+    if(!d.amt){ msg.innerHTML = '<span class="out">청구금액을 넣으세요</span>'; return }
+    if(d.d1 !== elecEdit && ELEC.list[d.d1] && !confirm(wMD(d.d1)+'부터 시작하는 고지서가 이미 있습니다. 바꿔 쓸까요?')) return;
+    const b = document.getElementById('eSave'); b.disabled = true; msg.textContent = '저장 중...';
+    try{ const j = await api('/elec', { data:d, old: elecEdit || undefined });
+      if(elecEdit && elecEdit !== j.key) delete ELEC.list[elecEdit];
+      ELEC.list[j.key] = j.data; elecEdit = ''; elecMsg = '저장했습니다 ✓'; UTIL = null; TOT = null; render() }
+    catch(e){ b.disabled = false; msg.innerHTML = '<span class="out">저장 실패: '+esc(e.message)+'</span>' }
+  };
+  elecUm();
 }
 
 /* ── 지출분석 ──
@@ -1014,11 +1114,16 @@ function vCost(){
     <select id="cMon" style="width:auto;min-width:140px;font-size:15px">${ms.map(m=>`<option value="${m}" ${m===mon?'selected':''}>${m.slice(0,4)}년 ${(+m.slice(5,7))}월</option>`).join('')}</select>
     <span class="hint" style="margin:0" id="cStat"></span>
     ${COST && COST.month===mon && !COST.err ? `<span style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="hint" style="margin:0" id="cMsg">${(COST.data||{}).at?'마지막 저장 '+new Date(COST.data.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</span><button class="btn" id="cSave">저장</button></span>` : ''}</div>`;
-  if(!COST || COST.month!==mon) return head+`<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>`;
+  if(!COST || COST.month!==mon || (!UTIL && !COST.err)) return head+`<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>`;
   if(COST.err) return head+`<div class="card"><p class="out" style="margin:0 0 10px">${esc(COST.err)}</p>
     ${/알 수 없는 요청/.test(COST.err)?'<p class="hint">지출분석 저장 기능이 아직 서버에 없습니다. Cloudflare의 oozy-work에 새 worker.js를 배포해 주세요.</p>':''}
     <button class="btn g sm" id="cRetry">다시 불러오기</button></div>`;
   const d = COST.data || {}, hq = d.hq || {}, ex = (d.extra && d.extra.length) ? d.extra : [];
+  const ua = utilAuto(mon);
+  // 전기세·수도세: 비어 있으면(0 포함) 전기요금·수도요금 탭의 기록으로 자동, 직접 고치면 그 값
+  const uRow = (id, lab, v, av, how) => { const auto = !v; return `<tr><td>${lab}<br><span class="hint" style="margin:0" id="${id}H">${auto ? how : '직접 입력'}</span></td>
+    <td><input type="text" class="n" inputmode="numeric" id="${id}" value="${fmtIn(auto ? av : v)}" placeholder="0" data-auto="${auto?1:''}" data-av="${av}"></td>
+    <td><button class="btn g sm" id="${id}Auto" title="자동 값으로 되돌리기" style="${auto?'visibility:hidden':''}">자동</button></td></tr>` };
   const pay = COST.pay || { total:0, staff:[] };
   return head + `
   <div class="card"><h2>${mlab} 매출 <span class="hint" style="display:inline">매출분석 자료에서 자동</span></h2>
@@ -1029,7 +1134,7 @@ function vCost(){
     ${sdays?'':'<p class="hint" style="margin:8px 0 0">이 달 매출 자료가 아직 없습니다. 영수증 사진을 보내 주시면 넣어 드립니다.</p>'}</div>
 
   <div class="card"><h2>${mlab} 지출</h2>
-    <p class="hint">금액을 넣고 아래 <b>저장</b>을 누르세요. 급여는 근무관리에서 계산한 금액(주휴 포함)을 자동으로 가져옵니다. 월세는 110만 원, 부가가치세는 매출 계의 10%가 기본으로 들어갑니다 (고쳐 쓸 수 있음).</p>
+    <p class="hint">금액을 넣고 아래 <b>저장</b>을 누르세요. 급여는 근무관리에서 계산한 금액(주휴 포함)을, 전기세·수도세는 전기요금·수도요금 탭에서 사용월이 이 달인 고지서를 자동으로 가져옵니다(수도세는 ${W_B} 몫). 월세는 110만 원, 부가가치세는 매출 계의 10%가 기본으로 들어갑니다 (고쳐 쓸 수 있음).</p>
     <h3 style="font-size:14px;margin:6px 0 6px">본사 주문금액 <span class="hint" style="display:inline">원두 등 · 주별</span></h3>
     <table><thead><tr><th>주</th><th>기간</th><th class="n" style="width:30%">금액(원)</th><th style="width:30%">메모</th></tr></thead><tbody>
     ${wks.map((k,i)=>`<tr><td style="white-space:nowrap">${i+1}주</td><td class="nw">${wkRange(mon,k)}</td>
@@ -1047,8 +1152,8 @@ function vCost(){
       <tr><td>부가가치세<br><span class="hint" style="margin:0" id="cVatH">${d.vat==null?'매출의 10% 자동':'직접 입력'}</span></td>
         <td><input type="text" class="n" inputmode="numeric" id="cVat" value="${fmtIn(d.vat==null?Math.round(stot*VAT_RATE):d.vat)}" placeholder="0" data-auto="${d.vat==null?1:''}"></td>
         <td><button class="btn g sm" id="cVatAuto" title="매출의 10%로 되돌리기" style="${d.vat==null?'visibility:hidden':''}">10%</button></td></tr>
-      <tr><td>전기세</td><td><input type="text" class="n" inputmode="numeric" id="cElec" value="${fmtIn(d.elec)}" placeholder="0"></td><td style="width:44px"></td></tr>
-      <tr><td>수도세</td><td><input type="text" class="n" inputmode="numeric" id="cWater" value="${fmtIn(d.water)}" placeholder="0"></td><td></td></tr>
+      ${uRow('cElec','전기세', d.elec, ua.elec, ua.eok ? (ua.en ? `전기요금 탭 ${ua.en}건 자동` : '전기요금 탭에 이 달 기록 없음') : '전기요금 자료를 못 불러옴')}
+      ${uRow('cWater','수도세', d.water, ua.water, ua.wok ? (ua.wn ? `수도요금 탭 ${W_B} 몫 자동` : '수도요금 탭에 이 달 고지서 없음') : '수도요금 자료를 못 불러옴')}
       ${ex.map((x,i)=>`<tr data-exr><td><input type="text" data-exn maxlength="30" value="${esc(x.name)}" placeholder="항목 이름 (예: 가스비)"></td>
         <td><input type="text" class="n" inputmode="numeric" data-exa value="${fmtIn(x.amt)}" placeholder="0"></td>
         <td><button class="btn dg sm" data-exdel="${i}" title="이 항목 지우기">✕</button></td></tr>`).join('')}
@@ -1066,7 +1171,8 @@ function costCollect(){
     if(a || m.trim()) hq[k] = { amt:a, memo:m.trim() } });
   const extra = [...document.querySelectorAll('[data-exr]')].map(r=>({ name:r.querySelector('[data-exn]').value.trim(), amt:numIn(r.querySelector('[data-exa]').value) }));
   const vi = q('#cVat');
-  return { hq, elec:numIn(q('#cElec').value), water:numIn(q('#cWater').value), rent:numIn(q('#cRent').value),
+  const au = id => q('#'+id).dataset.auto ? null : numIn(q('#'+id).value);
+  return { hq, elec:au('cElec'), water:au('cWater'), rent:numIn(q('#cRent').value),
     vat: vi.dataset.auto ? null : numIn(vi.value), extra };
 }
 function costCalc(){
@@ -1075,6 +1181,8 @@ function costCalc(){
   const hqT = Object.values(d.hq).reduce((a,x)=>a+x.amt,0), exT = d.extra.reduce((a,x)=>a+x.amt,0);
   const vi = document.getElementById('cVat'), vat = vi.dataset.auto ? Math.round(sales*VAT_RATE) : d.vat;
   if(vi.dataset.auto && document.activeElement!==vi) vi.value = fmtIn(vat);
+  const uv = id => { const i = document.getElementById(id); return i.dataset.auto ? +i.dataset.av||0 : numIn(i.value) };
+  d.elec = uv('cElec'); d.water = uv('cWater');
   const cost = hqT + pay + d.rent + vat + d.elec + d.water + exT, left = sales - cost;
   document.getElementById('cHqT').textContent = won(hqT)+'원';
   document.getElementById('cCost').textContent = won(cost)+'원';
@@ -1100,10 +1208,14 @@ function bindCost(){
   sel.onchange = () => { if(costDirty && !confirm('저장하지 않은 내용이 있습니다. 다른 달로 넘어갈까요?')) { sel.value = costMon; return } costMon = sel.value; COST = null; render(); costLoad(); };
   if(!COST || COST.month!==costMon){ if(!costBusy) costLoad(); return }
   if(COST.err){ document.getElementById('cRetry').onclick = () => { COST = null; render(); }; return }
+  if(!UTIL){ if(!utilBusy) utilLoad(); return }
   const v = document.getElementById('view');
-  v.oninput = e => { const i = e.target; if(i.matches('input.n')){ const pos = i.value.length - i.selectionStart; const n = numIn(i.value); i.value = n ? won(n) : ''; try{ const p2 = Math.max(0, i.value.length-pos); i.setSelectionRange(p2,p2) }catch(_){} }
+  v.oninput = e => { const i = e.target; if(i.tagName!=='INPUT') return;   // 달 고르기(select)는 저장 안 한 내용으로 치지 않음
+    if(i.matches('input.n')){ const pos = i.value.length - i.selectionStart; const n = numIn(i.value); i.value = n ? won(n) : ''; try{ const p2 = Math.max(0, i.value.length-pos); i.setSelectionRange(p2,p2) }catch(_){} }
+    if((i.id==='cElec'||i.id==='cWater') && i.dataset.auto){ i.dataset.auto=''; document.getElementById(i.id+'H').textContent='직접 입력'; document.getElementById(i.id+'Auto').style.visibility=''; }
     if(i.id==='cVat' && i.dataset.auto){ i.dataset.auto=''; document.getElementById('cVatH').textContent='직접 입력'; document.getElementById('cVatAuto').style.visibility=''; }
     costDirty = true; costCalc(); };
+  ['cElec','cWater'].forEach(id=>{ document.getElementById(id+'Auto').onclick = () => { COST.data = Object.assign({}, COST.data, costCollect()); COST.data[id==='cElec'?'elec':'water'] = null; costDirty = true; render() } });
   document.getElementById('cVatAuto').onclick = () => { const i=document.getElementById('cVat'); i.dataset.auto='1';
     document.getElementById('cVatH').textContent='매출의 10% 자동'; document.getElementById('cVatAuto').style.visibility='hidden'; costDirty = true; costCalc(); };
   document.getElementById('cAdd').onclick = () => { COST.data = Object.assign({}, COST.data, costCollect()); COST.data.extra = COST.data.extra.concat([{name:'',amt:0}]); costDirty = true; render();
@@ -1130,7 +1242,7 @@ function totCalc(r){
   const d = r.data || {}, hq = Object.values(d.hq||{}).reduce((a,x)=>a+(x.amt||0),0), pay = (r.pay&&r.pay.total)||0;
   const rent = d.rent==null ? RENT_DEF : d.rent, vat = d.vat==null ? Math.round(sales*VAT_RATE) : d.vat;
   const extra = {}; (d.extra||[]).forEach(x=>{ const n = (x.name||'').trim() || '(이름 없음)'; extra[n] = (extra[n]||0) + (x.amt||0) });
-  const exT = Object.values(extra).reduce((a,b)=>a+b,0), elec = d.elec||0, water = d.water||0;
+  const ua = utilAuto(r.m), exT = Object.values(extra).reduce((a,b)=>a+b,0), elec = d.elec||ua.elec, water = d.water||ua.water;
   const cost = hq + pay + rent + elec + water + vat + exT;
   return { m:r.m, sales, hq, pay, rent, elec, water, vat, extra, cost, left: sales - cost };
 }
@@ -1139,7 +1251,7 @@ function vTotal(){
   const head = `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <b>연도</b><select id="tYear" style="width:auto;min-width:120px;font-size:15px">${ys.map(y=>`<option value="${y}" ${y===totYear?'selected':''}>${y}년</option>`).join('')}</select>
     <span class="hint" style="margin:0">연간 누계 · 달별</span></div>`;
-  if(!TOT || TOT.year!==totYear) return head + '<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>';
+  if(!TOT || TOT.year!==totYear || !UTIL) return head + '<div class="card"><p class="hint" style="margin:0">불러오는 중...</p></div>';
   const rows = TOT.rows.map(totCalc), ok = rows.filter(r=>!r.err);
   const exNames = []; ok.forEach(r=>Object.keys(r.extra).forEach(n=>{ if(exNames.indexOf(n)<0) exNames.push(n) }));
   const sum = f => ok.reduce((a,r)=>a+(f(r)||0),0);
@@ -1159,7 +1271,7 @@ function vTotal(){
     <div class="scroll"><table class="ws" style="min-width:${150+rows.length*92+100}px"><thead><tr><th class="nw">항목</th>${rows.map(r=>`<th class="n">${+r.m.slice(5,7)}월</th>`).join('')}<th class="n">누계</th></tr></thead><tbody>${body}</tbody></table></div>
     <p class="swipe">← 표를 옆으로 밀어 보세요 →</p>
     ${bad.length?`<p class="out" style="margin:8px 0 0">${bad.map(r=>+r.m.slice(5,7)+'월').join('·')} 지출을 불러오지 못했습니다 (${esc(bad[0].err)}). 누계에서는 빠져 있습니다. <button class="btn g sm" id="tRetry">다시 불러오기</button></p>`:''}
-    <p class="hint" style="margin:8px 0 0">매출은 매출분석 자료, 지출은 지출분석에 저장한 금액입니다. 지출분석에서 항목을 추가하면 이 표에도 같은 이름으로 나타납니다. 급여는 근무관리의 계산값이라 급여 확정 전에는 바뀔 수 있습니다. 월세·부가가치세는 지출분석에 저장하지 않은 달에도 기본값(110만 원, 매출의 10%)으로 계산됩니다.</p></div>`;
+    <p class="hint" style="margin:8px 0 0">매출은 매출분석 자료, 지출은 지출분석에 저장한 금액입니다. 지출분석에서 항목을 추가하면 이 표에도 같은 이름으로 나타납니다. 급여는 근무관리의 계산값이라 급여 확정 전에는 바뀔 수 있습니다. 월세·부가가치세는 지출분석에 저장하지 않은 달에도 기본값(110만 원, 매출의 10%)으로, 전기세·수도세는 전기요금·수도요금 탭의 기록(사용월 기준)으로 계산됩니다.</p></div>`;
 }
 async function totLoad(){
   totBusy = true; const y = totYear;
@@ -1171,6 +1283,7 @@ function bindTotal(){
   const sel = document.getElementById('tYear'); sel.onchange = () => { totYear = sel.value; TOT = null; render() };
   const rt = document.getElementById('tRetry'); if(rt) rt.onclick = () => { TOT = null; render() };
   if((!TOT || TOT.year!==totYear) && !totBusy) totLoad();
+  if(!UTIL && !utilBusy) utilLoad();
 }
 window.addEventListener('beforeunload', e => { if(costDirty || watDirty){ e.preventDefault(); e.returnValue = '' } });
 
