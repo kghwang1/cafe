@@ -2705,7 +2705,6 @@ async function editPunch(p, fromWeek, day) {
       $('#kR').placeholder = off ? '비우면 0 (직원 설정: 휴게 없음)' : '비우면 자동 (4시간 이상 30분 · 8시간 이상 60분 · 추가근무는 0)';
       $('#kRn').innerHTML = `비워 두면 <b>직원 설정</b>(${off ? '휴게 없음' : '휴게 사용 · 자동'})을 따릅니다. 이 날만 다르게 하려면 분을 넣으세요 (넣은 값이 우선).`; upd(); };
     if (ks) ks.onchange = sync; sync();
-    const km = $('#kMeal'); if (km) km.onchange = () => { const r = $('#kR'); if (km.checked && (r.value.trim() === '' || +r.value === 0)) { r.value = 60; upd(); } };   // 식사시간 체크하면 휴게 60분을 채움
     const ke = $('#kEtc'); if (ke) ke.onchange = () => { const t = $('#kEtcT'); t.hidden = !ke.checked; if (ke.checked) t.focus(); };
   }, 0);
   const v = await modal(`<h3>${p ? '기록 수정' : '기록 추가'} · ${dt.getMonth() + 1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</h3><label>이름</label><select id="kS">${staffOpts(p && p.staff_id)}</select>
@@ -2714,7 +2713,6 @@ async function editPunch(p, fromWeek, day) {
       <div><label>퇴근</label><input type="hidden" id="kB" value="${p && p.end ? hhmm(p.end) : ''}"><button type="button" class="tbtn" id="kBb">${tLabel(p && p.end ? hhmm(p.end) : '')}</button></div></div>
     <label>휴게시간 (분)</label><input type="number" id="kR" inputmode="numeric" min="0" step="10" value="${defBrk}">
     <div class="muted" style="font-size:12px" id="kRn">급여에서 빼는 시간입니다. 휴게가 없으면 0을 넣으세요.</div>
-    <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:600"><input type="checkbox" id="kMeal" ${tagHas(p, '식사') ? 'checked' : ''} style="width:auto"> 휴게를 <b>식사시간</b>으로 표시 <span class="muted" style="font-weight:400;font-size:12px">(명세서: 식사시간 60분)</span></label>
     <div class="otchk"><div class="kinds">
       <label><input type="checkbox" id="kO" ${p && p.ot ? 'checked' : ''}> <b>추가</b></label>
       ${['교육', '행사'].map(t => `<label><input type="checkbox" data-kt="${t}" ${tagHas(p, t) ? 'checked' : ''}> <b>${t}(계약전)</b></label>`).join('')}
@@ -2726,7 +2724,7 @@ async function editPunch(p, fromWeek, day) {
       if (!d || !a || !b) { toast('날짜와 시간을 모두 입력하세요'); return false; }
       if (r !== '' && !(+r >= 0)) { toast('휴게시간은 0 이상의 분으로 넣으세요'); return false; }
       return { id: p ? p.id : null, staff_id: +$('#kS').value, start: toMs(d, a), end: toMs(d, b), brk_min: r === '' ? null : +r, ot: $('#kO').checked ? 1 : 0,
-        tag: [...document.querySelectorAll('[data-kt]')].filter(x => x.checked).map(x => x.dataset.kt).concat($('#kMeal').checked ? ['식사'] : []).concat($('#kEtc').checked ? ['기타:' + $('#kEtcT').value.trim().replace(/,/g, ' ')] : []).join(',') };
+        tag: [...document.querySelectorAll('[data-kt]')].filter(x => x.checked).map(x => x.dataset.kt).concat($('#kEtc').checked ? ['기타:' + $('#kEtcT').value.trim().replace(/,/g, ' ')] : []).join(',') };
     });
   if (!v) return;
   if (await run(() => api('/admin/punch', v))) { toast('저장했습니다'); if (fromWeek) { clearWeekCache(); loadWeek(true); } else { PDAY = ymd(v.start); PMONTH = PDAY.slice(0, 7); tabPunch(); } }
@@ -2853,7 +2851,7 @@ const juhuTxt = s => (s.juhuWeeks || []).map(w => `${mdw(w.week)}~${mdw(w.week +
 function workListHTML(s, check = true) {
   return `<h3>근무 내역 (${s.shifts.length}회)</h3><table class="wl"><colgroup><col style="width:15%"><col style="width:24%"><col style="width:14%"><col style="width:32%"><col style="width:15%"></colgroup><tr><th>날짜</th><th>출퇴근</th><th>휴게</th><th>구분</th><th>기타</th></tr>
     ${s.shifts.map(x => { const kd = kindOf(x), rest = tagArr(x).filter(t => t !== KN[kd] && t !== '식사').map(t => t.startsWith('기타') ? (t.slice(3) || '기타') : t).join(', ');
-      return `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? ((tagHas(x, '식사') || x.brk >= 60) ? '식사시간<br>' : '') + x.brk + '분' : '-'}</td><td class="kdc${kd !== 'base' ? ' x' : ''}"><span>${KN[kd]}</span><span>${fmtH(x.paid)}</span></td><td style="font-size:11.5px">${rest ? esc(rest) : '-'}</td></tr>`; }).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
+      return `<tr><td>${mdw(x.start)}</td><td style="white-space:nowrap">${hhmm(x.start)} ~ ${hhmm(x.end)}</td><td>${x.brk ? x.brk + '분' : '-'}</td><td class="kdc${kd !== 'base' ? ' x' : ''}"><span>${KN[kd]}</span><span>${fmtH(x.paid)}</span></td><td style="font-size:11.5px">${rest ? esc(rest) : '-'}</td></tr>`; }).join('') || '<tr><td colspan="5">근무 기록이 없습니다</td></tr>'}
     ${s.shifts.length ? (() => { const sum = kd => s.shifts.filter(x => kindOf(x) === kd).reduce((a, x) => a + x.paid, 0);
       const ok = payItems(s).every((it, i) => sum(['base', 'edu', 'evt', 'ot'][i]) === it.min);
       return `<tr class="tot"><th colspan="2">합계 (휴게 제외)</th><td colspan="3" style="text-align:left;white-space:nowrap;font-size:12.5px"><b>${['base', 'edu', 'evt', 'ot'].filter(k => sum(k)).map(k => `${KN[k]} ${sum(k) % 60 ? Math.floor(sum(k) / 60) + ':' + pad(sum(k) % 60) : sum(k) / 60}`).join(',&nbsp; ')}</b></td></tr></table>
